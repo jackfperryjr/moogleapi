@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MoogleAPI.Web/MoogleAPI.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MoogleAPI.Tests/MoogleAPI.Tests.csproj" />
+  </Folder>
+</Solution>
