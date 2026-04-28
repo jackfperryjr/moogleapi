@@ -1,0 +1,17 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.swp
+
+## Environment
+.env
+.env.*
+appsettings.Local.json
+appsettings.*.Local.json
+
+## OS
+.DS_Store
+Thumbs.db
