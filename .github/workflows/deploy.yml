@@ -36,4 +36,4 @@ jobs:
           SERVICE_URL: ${{ secrets.DEPLOY_SERVICE_URL }}
           WD_USER: ${{ secrets.DEPLOY_USERNAME }}
           WD_PASS: ${{ secrets.DEPLOY_PASSWORD }}
-        run: '"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe" -verb:sync -source:contentPath="%PUBLISH_PATH%" -dest:contentPath="%SITE_NAME%",computerName="%SERVICE_URL%",userName="%WD_USER%",password="%WD_PASS%",authType=Basic -allowUntrusted -enableRule:AppOffline'
+        run: '"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe" -verb:sync -source:contentPath="%PUBLISH_PATH%" -dest:contentPath="%SITE_NAME%",computerName="%SERVICE_URL%",userName="%WD_USER%",password="%WD_PASS%",authType=Basic -allowUntrusted -verbose'
