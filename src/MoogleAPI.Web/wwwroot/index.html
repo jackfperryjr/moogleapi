@@ -74,7 +74,7 @@
     /* ── Hero ── */
     .hero {
       text-align: center;
-      padding: 6rem 2rem 4rem;
+      padding: 6rem 2rem 2rem;
       position: relative;
       overflow: hidden;
     }
@@ -142,6 +142,16 @@
       transition: border-color 0.2s, background 0.2s;
     }
     .btn-secondary:hover { border-color: var(--accent); background: rgba(66,133,244,0.08); }
+
+    /* ── Data summary ── */
+    .data-summary {
+      text-align: center;
+      padding: 2rem 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    .data-summary strong { color: var(--gold); font-family: 'Josefin Sans', sans-serif; font-weight: 700; }
 
     /* ── Stats bar ── */
     .stats {
@@ -362,8 +372,9 @@
   </div>
 </div>
 
+<div class="data-summary" id="data-summary">&nbsp;</div>
+
 <div class="stats">
-  <div class="stat"><div class="stat-value">16</div><div class="stat-label">Mainline Games</div></div>
   <div class="stat"><div class="stat-value">REST</div><div class="stat-label">Architecture</div></div>
   <div class="stat"><div class="stat-value">Free</div><div class="stat-label">Always</div></div>
   <div class="stat"><div class="stat-value">60/min</div><div class="stat-label">Rate Limit</div></div>
@@ -517,7 +528,7 @@
       <div class="stack-card">
         <div class="stack-icon">🤖</div>
         <div class="stack-name">GitHub Actions</div>
-        <div class="stack-desc">Weekly scraper keeps data fresh from the Final Fantasy Wiki</div>
+        <div class="stack-desc">Weekly scraper keeps data fresh</div>
       </div>
     </div>
   </section>
@@ -582,6 +593,26 @@
   }
 
   updateTryUrl();
+
+  (async () => {
+    try {
+      const [chars, monsters, games] = await Promise.all([
+        fetch(`${BASE}/api/characters?pageSize=1`, { headers: { Accept: 'application/json' } }).then(r => r.json()),
+        fetch(`${BASE}/api/monsters?pageSize=1`,   { headers: { Accept: 'application/json' } }).then(r => r.json()),
+        fetch(`${BASE}/api/games?pageSize=1`,       { headers: { Accept: 'application/json' } }).then(r => r.json()),
+      ]);
+      console.log('[data-summary]', { chars, monsters, games });
+      const charCount    = chars?.totalCount    ?? chars?.TotalCount    ?? 0;
+      const monsterCount = monsters?.totalCount ?? monsters?.TotalCount ?? 0;
+      const gameCount    = games?.totalCount    ?? games?.TotalCount    ?? 0;
+      const fmt = n => Number(n).toLocaleString();
+      document.getElementById('data-summary').innerHTML =
+        `<strong>${fmt(charCount)}</strong> characters &amp; <strong>${fmt(monsterCount)}</strong> monsters across <strong>${fmt(gameCount)}</strong> mainline games`;
+    } catch (e) {
+      console.warn('[data-summary] failed:', e);
+      document.getElementById('data-summary').textContent = '';
+    }
+  })();
 </script>
 
 </body>
