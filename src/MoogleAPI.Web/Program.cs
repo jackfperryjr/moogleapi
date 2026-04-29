@@ -53,9 +53,12 @@ app.UseFastEndpoints(c =>
 app.UseSwaggerGen();
 app.MapScalarApiReference(options =>
 {
-    options.Title = "MoogleAPI";
+    options.Title = "moogleAPI";
     options.Theme = ScalarTheme.DeepSpace;
     options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
+    options.WithFavicon("/favicon.ico");
+    // FastEndpoints.Swagger (NSwag) serves the spec here, not the ASP.NET Core default
+    options.WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
 });
 
 // Apply pending EF Core migrations on startup
