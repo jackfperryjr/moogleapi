@@ -243,6 +243,8 @@
       font-size: 0.875rem;
       color: var(--text);
       margin-bottom: 0.25rem;
+      overflow-wrap: break-word;
+      word-break: break-all;
     }
     .route-param { color: var(--accent-2); }
     .route-query { color: var(--muted); }
@@ -336,6 +338,55 @@
     .stack-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
     .stack-name { font-family: 'Josefin Sans', sans-serif; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
     .stack-desc { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      /* Nav: drop section anchors, keep GitHub + API Docs */
+      nav { padding: 0.9rem 1.25rem; }
+      .nav-links a:not(.btn-docs):not([href*="github"]) { display: none; }
+
+      /* Hero */
+      .hero { padding: 3rem 1.25rem 1.5rem; }
+      .hero p { font-size: 1rem; margin-bottom: 1.75rem; }
+      .btn-primary, .btn-secondary { padding: 0.65rem 1.4rem; font-size: 0.9rem; }
+
+      /* Data summary */
+      .data-summary { padding: 1.25rem 1rem; font-size: 0.875rem; }
+
+      /* Stats */
+      .stats { gap: 1.5rem; padding: 1.25rem 1rem; }
+      .stat-value { font-size: 1.4rem; }
+
+      /* Main */
+      main { padding: 2rem 1rem; }
+      section { margin-bottom: 2.5rem; }
+
+      /* Endpoint cards */
+      a.endpoint, .endpoint-static {
+        grid-template-columns: 3.5rem 1fr auto;
+        gap: 0.6rem;
+        padding: 0.75rem 0.875rem;
+      }
+      .endpoint-static { grid-template-columns: 3.5rem 1fr; }
+      .route { font-size: 0.78rem; overflow-wrap: break-word; word-break: break-all; }
+      .desc { font-size: 0.72rem; }
+      .try-arrow { font-size: 0.68rem; }
+      .method { font-size: 0.65rem; padding: 0.2rem 0.35rem; }
+
+      /* Try It: stack vertically */
+      .try-bar { flex-direction: column; }
+      .try-bar select,
+      .try-bar input,
+      .try-run { width: 100%; box-sizing: border-box; }
+      .try-bar input { min-width: unset; }
+      .try-result { font-size: 0.75rem; padding: 0.875rem 1rem; }
+
+      /* Stack */
+      .stack-grid { grid-template-columns: 1fr; }
+
+      /* Footer */
+      footer { padding: 2rem 1rem; }
+    }
 
     /* ── Footer ── */
     footer {
