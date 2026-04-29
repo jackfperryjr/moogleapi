@@ -1,4 +1,4 @@
-# 🐾 MoogleAPI
+# <img src="src\MoogleAPI.Web\wwwroot\moogle.png" alt="moogleAPI" width="30"> moogleAPI
 
 > *"I'm a SOLDIER, not a database." — Cloud Strife, probably*
 
