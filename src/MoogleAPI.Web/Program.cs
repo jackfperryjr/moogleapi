@@ -43,6 +43,15 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// GET requests have no body — strip Content-Type so FastEndpoints doesn't
+// attempt JSON deserialization when clients (e.g. Postman) send the header anyway.
+app.Use(async (ctx, next) =>
+{
+    if (HttpMethods.IsGet(ctx.Request.Method))
+        ctx.Request.ContentType = null;
+    await next();
+});
+
 app.UseFastEndpoints(c =>
 {
     c.Endpoints.RoutePrefix = "api";
