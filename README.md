@@ -175,4 +175,4 @@ MoogleAPI is a fan project and is not affiliated with or endorsed by Square Enix
 
 ---
 
-<p align="center">Made with ♥ and too many Phoenix Downs &nbsp;🐾&nbsp; <em>kupo!</em></p>
+<p align="center">Made with ♥ and too many Phoenix Downs <img src="src\MoogleAPI.Web\wwwroot\moogle.png" alt="moogleAPI" width="12"> <em>kupo!</em></p>

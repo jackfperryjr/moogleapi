@@ -21,20 +21,6 @@ public record WikiContinue(
     [property: JsonPropertyName("cmcontinue")] string? CmContinue
 );
 
-public record WikiExtractResponse(
-    [property: JsonPropertyName("query")] WikiExtractQuery? Query
-);
-
-public record WikiExtractQuery(
-    [property: JsonPropertyName("pages")] Dictionary<string, WikiPage>? Pages
-);
-
-public record WikiPage(
-    [property: JsonPropertyName("pageid")] int PageId,
-    [property: JsonPropertyName("title")] string Title,
-    [property: JsonPropertyName("extract")] string? Extract
-);
-
 // prop=pageimages|revisions combined response
 public record WikiDetailsResponse(
     [property: JsonPropertyName("query")] WikiDetailsQuery? Query
