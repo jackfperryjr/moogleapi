@@ -1,0 +1,26 @@
+name: Scrape Final Fantasy Data
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'   # Every Sunday at 2 AM UTC
+  workflow_dispatch:        # Manual trigger from the GitHub Actions UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore
+        run: dotnet restore scripts/MoogleAPI.Scraper/MoogleAPI.Scraper.csproj
+
+      - name: Run scraper
+        env:
+          CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
+        run: dotnet run --project scripts/MoogleAPI.Scraper --configuration Release --no-restore

@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/scripts/">
+    <Project Path="scripts/MoogleAPI.Scraper/MoogleAPI.Scraper.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/MoogleAPI.Web/MoogleAPI.Web.csproj" />
   </Folder>
