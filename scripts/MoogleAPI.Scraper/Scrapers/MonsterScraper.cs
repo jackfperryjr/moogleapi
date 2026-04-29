@@ -9,18 +9,22 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
 {
     private static readonly Dictionary<string, string> GameCategories = new()
     {
-        ["Final Fantasy"]      = "Final Fantasy enemies",
-        ["Final Fantasy IV"]   = "Final Fantasy IV enemies",
-        ["Final Fantasy V"]    = "Final Fantasy V enemies",
-        ["Final Fantasy VI"]   = "Final Fantasy VI enemies",
-        ["Final Fantasy VII"]  = "Final Fantasy VII enemies",
-        ["Final Fantasy VIII"] = "Final Fantasy VIII enemies",
-        ["Final Fantasy IX"]   = "Final Fantasy IX enemies",
-        ["Final Fantasy X"]    = "Final Fantasy X enemies",
-        ["Final Fantasy XII"]  = "Final Fantasy XII enemies",
-        ["Final Fantasy XIII"] = "Final Fantasy XIII enemies",
-        ["Final Fantasy XV"]   = "Final Fantasy XV enemies",
-        ["Final Fantasy XVI"]  = "Final Fantasy XVI enemies",
+        ["Final Fantasy"]      = "Enemies in Final Fantasy",
+        ["Final Fantasy II"]   = "Enemies in Final Fantasy II",
+        ["Final Fantasy III"]  = "Enemies in Final Fantasy III",
+        ["Final Fantasy IV"]   = "Enemies in Final Fantasy IV",
+        ["Final Fantasy V"]    = "Enemies in Final Fantasy V",
+        ["Final Fantasy VI"]   = "Enemies in Final Fantasy VI",
+        ["Final Fantasy VII"]  = "Enemies in Final Fantasy VII",
+        ["Final Fantasy VIII"] = "Enemies in Final Fantasy VIII",
+        ["Final Fantasy IX"]   = "Enemies in Final Fantasy IX",
+        ["Final Fantasy X"]    = "Enemies in Final Fantasy X",
+        ["Final Fantasy XI"]   = "Enemies in Final Fantasy XI",
+        ["Final Fantasy XII"]  = "Enemies in Final Fantasy XII",
+        ["Final Fantasy XIII"] = "Enemies in Final Fantasy XIII",
+        ["Final Fantasy XIV"]  = "Enemies in Final Fantasy XIV",
+        ["Final Fantasy XV"]   = "Enemies in Final Fantasy XV",
+        ["Final Fantasy XVI"]  = "Enemies in Final Fantasy XVI",
     };
 
     public async Task ScrapeAsync(CancellationToken ct = default)

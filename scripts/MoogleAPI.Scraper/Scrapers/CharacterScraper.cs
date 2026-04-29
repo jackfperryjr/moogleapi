@@ -10,18 +10,22 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
     // Maps each game's DB name → wiki category name for characters
     private static readonly Dictionary<string, string> GameCategories = new()
     {
-        ["Final Fantasy"]      = "Final Fantasy characters",
-        ["Final Fantasy IV"]   = "Final Fantasy IV characters",
-        ["Final Fantasy V"]    = "Final Fantasy V characters",
-        ["Final Fantasy VI"]   = "Final Fantasy VI characters",
-        ["Final Fantasy VII"]  = "Final Fantasy VII characters",
-        ["Final Fantasy VIII"] = "Final Fantasy VIII characters",
-        ["Final Fantasy IX"]   = "Final Fantasy IX characters",
-        ["Final Fantasy X"]    = "Final Fantasy X characters",
-        ["Final Fantasy XII"]  = "Final Fantasy XII characters",
-        ["Final Fantasy XIII"] = "Final Fantasy XIII characters",
-        ["Final Fantasy XV"]   = "Final Fantasy XV characters",
-        ["Final Fantasy XVI"]  = "Final Fantasy XVI characters",
+        ["Final Fantasy"]      = "Characters in Final Fantasy",
+        ["Final Fantasy II"]   = "Characters in Final Fantasy II",
+        ["Final Fantasy III"]  = "Characters in Final Fantasy III",
+        ["Final Fantasy IV"]   = "Characters in Final Fantasy IV",
+        ["Final Fantasy V"]    = "Characters in Final Fantasy V",
+        ["Final Fantasy VI"]   = "Characters in Final Fantasy VI",
+        ["Final Fantasy VII"]  = "Characters in Final Fantasy VII",
+        ["Final Fantasy VIII"] = "Characters in Final Fantasy VIII",
+        ["Final Fantasy IX"]   = "Characters in Final Fantasy IX",
+        ["Final Fantasy X"]    = "Characters in Final Fantasy X",
+        ["Final Fantasy XI"]   = "Characters in Final Fantasy XI",
+        ["Final Fantasy XII"]  = "Characters in Final Fantasy XII",
+        ["Final Fantasy XIII"] = "Characters in Final Fantasy XIII",
+        ["Final Fantasy XIV"]  = "Characters in Final Fantasy XIV",
+        ["Final Fantasy XV"]   = "Characters in Final Fantasy XV",
+        ["Final Fantasy XVI"]  = "Characters in Final Fantasy XVI",
     };
 
     public async Task ScrapeAsync(CancellationToken ct = default)
@@ -40,8 +44,8 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 
             foreach (var member in members)
             {
-                // Skip meta/disambiguation pages
-                if (member.Title.Contains('/') || member.Title.Contains('('))
+                // Skip sub-pages (e.g. "Cloud Strife/Artwork")
+                if (member.Title.Contains('/'))
                     continue;
 
                 var name = member.Title.Replace("(Final Fantasy", "").Trim(' ', ')');
