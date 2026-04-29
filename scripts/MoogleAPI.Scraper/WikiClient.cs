@@ -36,7 +36,7 @@ public class WikiClient(HttpClient http)
             if (continueToken is not null)
                 url += $"&cmcontinue={Uri.EscapeDataString(continueToken)}";
 
-            var response = await http.GetFromJsonAsync<WikiCategoryResponse>(url, ct);
+            var response = await GetJsonWithRetryAsync<WikiCategoryResponse>(url, ct);
             var batch = response?.Query?.CategoryMembers ?? [];
 
             foreach (var member in batch)
@@ -56,7 +56,7 @@ public class WikiClient(HttpClient http)
             }
 
             continueToken = response?.Continue?.CmContinue;
-            await Task.Delay(100, ct);
+            await Task.Delay(150, ct);
         }
         while (continueToken is not null);
 
@@ -67,9 +67,9 @@ public class WikiClient(HttpClient http)
     public async Task<string?> GetDescriptionAsync(string title, CancellationToken ct = default)
     {
         var url = $"{BaseUrl}?action=query&titles={Uri.EscapeDataString(title)}&prop=revisions&rvprop=content&rvsection=0&format=json";
-        var response = await http.GetFromJsonAsync<WikiDetailsResponse>(url, ct);
+        var response = await GetJsonWithRetryAsync<WikiDetailsResponse>(url, ct);
         var wikitext = response?.Query?.Pages?.Values.FirstOrDefault()?.Revisions?.FirstOrDefault()?.Content;
-        await Task.Delay(100, ct);
+        await Task.Delay(150, ct);
         return wikitext is null ? null : ParseIntroText(wikitext);
     }
 
@@ -77,7 +77,7 @@ public class WikiClient(HttpClient http)
     public async Task<CharacterDetails> GetCharacterDetailsAsync(string title, CancellationToken ct = default)
     {
         var url = $"{BaseUrl}?action=query&titles={Uri.EscapeDataString(title)}&prop=pageimages|revisions&pithumbsize=400&rvprop=content&rvsection=0&format=json";
-        var response = await http.GetFromJsonAsync<WikiDetailsResponse>(url, ct);
+        var response = await GetJsonWithRetryAsync<WikiDetailsResponse>(url, ct);
         var page = response?.Query?.Pages?.Values.FirstOrDefault();
 
         var imageUrl = page?.Thumbnail?.Source;
@@ -95,12 +95,36 @@ public class WikiClient(HttpClient http)
                        ?? ParseInfoboxField(wikitext, "birthplace");
         }
 
-        await Task.Delay(100, ct);
+        await Task.Delay(150, ct);
         return new CharacterDetails(imageUrl, description, role, affiliation, race, hometown);
     }
 
+    // Retries on 5xx / 429 with exponential backoff.
+    private async Task<T?> GetJsonWithRetryAsync<T>(string url, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            try
+            {
+                return await http.GetFromJsonAsync<T>(url, ct);
+            }
+            catch (HttpRequestException ex) when (attempt < 3 && ShouldRetry(ex))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt + 1)), ct);
+            }
+        }
+        return default;
+    }
+
+    private static bool ShouldRetry(HttpRequestException ex) =>
+        ex.StatusCode is { } code && ((int)code >= 500 || (int)code == 429);
+
     private static string? ParseIntroText(string wikitext)
     {
+        // Redirect pages have no prose; their section-0 text is just "#REDIRECT [[...]]"
+        if (Regex.IsMatch(wikitext, @"^\s*#REDIRECT", RegexOptions.IgnoreCase))
+            return null;
+
         var pos = 0;
 
         // Skip past all top-level {{ }} blocks at the start (infobox, hatnotes, navboxes, etc.)
@@ -128,6 +152,8 @@ public class WikiClient(HttpClient http)
         var headingMatch = Regex.Match(remaining, @"^==", RegexOptions.Multiline);
         var intro = headingMatch.Success ? remaining[..headingMatch.Index] : remaining;
 
+        // Strip File/Image links entirely (multi-segment: [[File:x.jpg|right|150px|caption]])
+        intro = Regex.Replace(intro, @"\[\[(?:File|Image):[^\]]*\]\]", "", RegexOptions.IgnoreCase);
         // [[Link|Display]] → Display, [[Link]] → Link
         intro = Regex.Replace(intro, @"\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]", "$1");
         intro = Regex.Replace(intro, @"\[\[([^\]|]+)", "$1");
@@ -142,9 +168,8 @@ public class WikiClient(HttpClient http)
         intro = Regex.Replace(intro, @"<[^>]+>", "");
         // Strip bold/italic markers
         intro = Regex.Replace(intro, @"'{2,}", "");
-        // Strip File/Image links and bullet lines
-        intro = Regex.Replace(intro, @"^\[\[(?:File|Image):[^\]]*\]\]$", "", RegexOptions.Multiline | RegexOptions.IgnoreCase);
-        intro = Regex.Replace(intro, @"^\*.*$", "", RegexOptions.Multiline);
+        // Strip hatnote lines (:prefixed), redirect lines, and bullet lines
+        intro = Regex.Replace(intro, @"^[:*#].*$", "", RegexOptions.Multiline);
         // Collapse whitespace
         intro = Regex.Replace(intro, @"\n+", " ").Trim();
 
@@ -162,7 +187,7 @@ public class WikiClient(HttpClient http)
 
     private static string? ParseInfoboxField(string wikitext, string fieldName)
     {
-        // Capture full line — not just up to the next | — so wikilinks like [[Foo|Bar]] are preserved.
+        // Capture full line so wikilinks like [[Foo|Bar]] aren't truncated at the |.
         var match = Regex.Match(wikitext,
             $@"^\|\s*{Regex.Escape(fieldName)}\s*=\s*(.+)$",
             RegexOptions.IgnoreCase | RegexOptions.Multiline);
@@ -182,6 +207,12 @@ public class WikiClient(HttpClient http)
         value = Regex.Replace(value, @"\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]", "$1");
         value = Regex.Replace(value, @"\[\[(?:[^\]|]+\|)?([^\]|]+)", "$1");
         value = value.Replace("[[", "").Replace("]]", "");
+
+        // Strip single-bracket content: [external links] and [editorial placeholder notes]
+        value = Regex.Replace(value, @"\[[^\]]*\]", "");
+
+        // Strip leaked field assignments appended on the same infobox line: |fieldname=...
+        value = Regex.Replace(value, @"\s*\|[a-zA-Z_]+\s*=.*", "").Trim();
 
         // Strip refs and HTML tags
         value = Regex.Replace(value, @"<ref\b[^>]*/?>.*?</ref>", "", RegexOptions.Singleline);

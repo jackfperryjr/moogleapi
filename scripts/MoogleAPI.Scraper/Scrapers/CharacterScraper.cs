@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoogleAPI.Web.Infrastructure.Data;
@@ -41,19 +42,24 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
             var members = await wiki.GetCategoryMembersAsync(category, ct);
 
             var candidates = members
-                .Where(m => !m.Title.Contains('/'))
-                .Select(m => (Member: m, Name: m.Title.Replace("(Final Fantasy", "").Trim(' ', ')')))
+                .Where(m => !m.Title.Contains('/') &&
+                            !m.Title.Contains(" characters", StringComparison.OrdinalIgnoreCase) &&
+                            !m.Title.Contains(" enemies", StringComparison.OrdinalIgnoreCase))
+                .Select(m => (Member: m, Name: NormalizeName(m.Title)))
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
                 .ToList();
 
             logger.LogInformation("  Found {Count} candidates", candidates.Count);
 
             // Pre-load existing characters; TryAdd handles any duplicate names in the DB.
-            var existing = new Dictionary<string, Character>();
+            var existing = new Dictionary<string, Character>(StringComparer.OrdinalIgnoreCase);
             foreach (var c in await db.Characters.Where(c => c.GameId == game.Id).ToListAsync(ct))
                 existing.TryAdd(c.Name, c);
 
-            // Fetch wiki data for new/incomplete characters — 3 concurrent
-            var sem = new SemaphoreSlim(3);
+            // Fetch wiki data for new/incomplete characters — 2 concurrent
+            var sem = new SemaphoreSlim(2);
             var detailsMap = new ConcurrentDictionary<string, CharacterDetails>();
 
             await Task.WhenAll(candidates.Select(async item =>
@@ -108,6 +114,12 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 
         logger.LogInformation("Characters done.");
     }
+
+    private static readonly Regex TrailingParenthetical = new(@"\s*\([^)]*\)\s*$", RegexOptions.Compiled);
+
+    // Strips disambiguation parentheticals: "Auron (Final Fantasy X party member)" → "Auron"
+    private static string NormalizeName(string title) =>
+        TrailingParenthetical.Replace(title, "").Trim();
 
     private static bool NeedsEnrichment(Character c) =>
         c.Description is null || c.ImageUrl is null || c.Role is null;

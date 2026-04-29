@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoogleAPI.Web.Infrastructure.Data;
@@ -41,8 +42,13 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
             var members = await wiki.GetCategoryMembersAsync(category, ct);
 
             var candidates = members
-                .Where(m => !m.Title.Contains('/'))
-                .Select(m => (Member: m, Name: m.Title.Replace("(Final Fantasy", "").Trim(' ', ')')))
+                .Where(m => !m.Title.Contains('/') &&
+                            !m.Title.Contains(" characters", StringComparison.OrdinalIgnoreCase) &&
+                            !m.Title.Contains(" enemies", StringComparison.OrdinalIgnoreCase))
+                .Select(m => (Member: m, Name: NormalizeName(m.Title)))
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
                 .ToList();
 
             logger.LogInformation("  Found {Count} candidates", candidates.Count);
@@ -51,10 +57,10 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
                 .Where(m => m.GameId == game.Id)
                 .Select(m => m.Name)
                 .ToListAsync(ct))
-                .ToHashSet();
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            // Fetch descriptions for new monsters — 3 concurrent
-            var sem = new SemaphoreSlim(3);
+            // Fetch descriptions for new monsters — 2 concurrent
+            var sem = new SemaphoreSlim(2);
             var descMap = new ConcurrentDictionary<string, string?>();
 
             await Task.WhenAll(candidates
@@ -87,4 +93,9 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
 
         logger.LogInformation("Monsters done.");
     }
+
+    private static readonly Regex TrailingParenthetical = new(@"\s*\([^)]*\)\s*$", RegexOptions.Compiled);
+
+    private static string NormalizeName(string title) =>
+        TrailingParenthetical.Replace(title, "").Trim();
 }
