@@ -29,22 +29,11 @@ jobs:
         run: dotnet publish src/MoogleAPI.Web/MoogleAPI.Web.csproj -c Release -o ./publish
 
       - name: Deploy via Web Deploy
-        shell: pwsh
-        run: |
-          $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
-          $publishPath = "${{ github.workspace }}\publish"
-          $siteName   = "${{ secrets.DEPLOY_SITE_NAME }}"
-          $serviceUrl = "${{ secrets.DEPLOY_SERVICE_URL }}"
-          $user       = "${{ secrets.DEPLOY_USERNAME }}"
-          $pass       = "${{ secrets.DEPLOY_PASSWORD }}"
-
-          $arguments = @(
-            "-verb:sync",
-            "-source:contentPath=`"$publishPath`"",
-            "-dest:contentPath=`"$siteName`",computerName=`"$serviceUrl`",userName=`"$user`",password=`"$pass`",authType=`"Basic`"",
-            "-allowUntrusted",
-            "-enableRule:AppOffline"
-          )
-
-          & $msdeploy @arguments
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        shell: cmd
+        env:
+          PUBLISH_PATH: ${{ github.workspace }}\publish
+          SITE_NAME: ${{ secrets.DEPLOY_SITE_NAME }}
+          SERVICE_URL: ${{ secrets.DEPLOY_SERVICE_URL }}
+          WD_USER: ${{ secrets.DEPLOY_USERNAME }}
+          WD_PASS: ${{ secrets.DEPLOY_PASSWORD }}
+        run: '"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe" -verb:sync -source:contentPath="%PUBLISH_PATH%" -dest:contentPath="%SITE_NAME%",computerName="%SERVICE_URL%",userName="%WD_USER%",password="%WD_PASS%",authType=Basic -allowUntrusted -enableRule:AppOffline'
