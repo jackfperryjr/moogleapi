@@ -7,7 +7,6 @@ namespace MoogleAPI.Scraper.Scrapers;
 
 public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<CharacterScraper> logger)
 {
-    // Maps each game's DB name → wiki category name for characters
     private static readonly Dictionary<string, string> GameCategories = new()
     {
         ["Final Fantasy"]      = "Characters in Final Fantasy",
@@ -44,7 +43,6 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 
             foreach (var member in members)
             {
-                // Skip sub-pages (e.g. "Cloud Strife/Artwork")
                 if (member.Title.Contains('/'))
                     continue;
 
@@ -55,14 +53,33 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 
                 if (existing is null)
                 {
+                    var details = await wiki.GetCharacterDetailsAsync(member.Title, ct);
                     var extract = await wiki.GetExtractAsync(member.Title, ct);
+
                     db.Characters.Add(new Character
                     {
-                        Name = name,
+                        Name        = name,
                         Description = extract,
-                        GameId = game.Id
+                        Role        = details.Role,
+                        Affiliation = details.Affiliation,
+                        Race        = details.Race,
+                        Hometown    = details.Hometown,
+                        ImageUrl    = details.ImageUrl,
+                        GameId      = game.Id
                     });
                     logger.LogInformation("  + {Name}", name);
+                }
+                else if (existing.ImageUrl is null)
+                {
+                    // Enrich existing records that predate the image/infobox fields
+                    var details = await wiki.GetCharacterDetailsAsync(member.Title, ct);
+                    existing.Role        ??= details.Role;
+                    existing.Affiliation ??= details.Affiliation;
+                    existing.Race        ??= details.Race;
+                    existing.Hometown    ??= details.Hometown;
+                    existing.ImageUrl    ??= details.ImageUrl;
+                    if (logger.IsEnabled(LogLevel.Information))
+                        logger.LogInformation("  ~ enriched {Name}", name);
                 }
             }
 

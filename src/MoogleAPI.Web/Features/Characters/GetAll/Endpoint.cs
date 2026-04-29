@@ -35,7 +35,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetAllChara
                     .OrderBy(c => c.Name)
                     .Skip((req.Page - 1) * req.PageSize)
                     .Take(req.PageSize)
-                    .Select(c => new CharacterSummary(c.Id, c.Name, c.Role, c.Game.Name))
+                    .Select(c => new CharacterSummary(c.Id, c.Name, c.Role, c.ImageUrl, c.Game.Name))
                     .ToListAsync(token);
 
                 return new GetAllCharactersResponse(items, total, req.Page, req.PageSize);

@@ -29,7 +29,7 @@ public class Endpoint(AppDbContext db) : Endpoint<SearchCharactersRequest, Searc
                         (c.Description != null && EF.Functions.ILike(c.Description, $"%{term}%")))
             .OrderBy(c => c.Name)
             .Take(50)
-            .Select(c => new SearchResult(c.Id, c.Name, c.Role, c.Description, c.Game.Name))
+            .Select(c => new SearchResult(c.Id, c.Name, c.Role, c.Description, c.ImageUrl, c.Game.Name))
             .ToListAsync(ct);
 
         await Send.OkAsync(new SearchCharactersResponse(results), ct);

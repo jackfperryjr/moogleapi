@@ -8,5 +8,8 @@ public record GetCharacterResponse(
     string? Description,
     string? Role,
     string? Affiliation,
+    string? Race,
+    string? Hometown,
+    string? ImageUrl,
     string GameName
 );
