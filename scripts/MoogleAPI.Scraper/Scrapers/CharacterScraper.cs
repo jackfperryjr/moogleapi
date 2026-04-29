@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoogleAPI.Web.Infrastructure.Data;
@@ -33,33 +34,53 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 
         foreach (var game in games)
         {
-            if (!GameCategories.TryGetValue(game.Name, out var category))
-                continue;
+            if (!GameCategories.TryGetValue(game.Name, out var category)) continue;
 
             logger.LogInformation("Scraping characters for {Game}...", game.Name);
 
             var members = await wiki.GetCategoryMembersAsync(category, ct);
-            logger.LogInformation("  Found {Count} candidates", members.Count);
 
-            foreach (var member in members)
+            var candidates = members
+                .Where(m => !m.Title.Contains('/'))
+                .Select(m => (Member: m, Name: m.Title.Replace("(Final Fantasy", "").Trim(' ', ')')))
+                .ToList();
+
+            logger.LogInformation("  Found {Count} candidates", candidates.Count);
+
+            // Pre-load existing characters so DB reads happen off the hot path
+            var existing = await db.Characters
+                .Where(c => c.GameId == game.Id)
+                .ToDictionaryAsync(c => c.Name, ct);
+
+            // Fetch wiki data for new/incomplete characters — 3 concurrent
+            var sem = new SemaphoreSlim(3);
+            var detailsMap = new ConcurrentDictionary<string, CharacterDetails>();
+
+            await Task.WhenAll(candidates.Select(async item =>
             {
-                if (member.Title.Contains('/'))
-                    continue;
+                if (existing.TryGetValue(item.Name, out var ch) && !NeedsEnrichment(ch))
+                    return;
 
-                var name = member.Title.Replace("(Final Fantasy", "").Trim(' ', ')');
-
-                var existing = await db.Characters
-                    .FirstOrDefaultAsync(c => c.Name == name && c.GameId == game.Id, ct);
-
-                if (existing is null)
+                await sem.WaitAsync(ct);
+                try
                 {
-                    var details = await wiki.GetCharacterDetailsAsync(member.Title, ct);
-                    var extract = await wiki.GetExtractAsync(member.Title, ct);
+                    var details = await wiki.GetCharacterDetailsAsync(item.Member.Title, ct);
+                    detailsMap[item.Name] = details;
+                }
+                finally { sem.Release(); }
+            }));
 
+            // Apply results sequentially (DbContext is not thread-safe)
+            foreach (var (member, name) in candidates)
+            {
+                if (!detailsMap.TryGetValue(name, out var details)) continue;
+
+                if (!existing.TryGetValue(name, out var ch))
+                {
                     db.Characters.Add(new Character
                     {
                         Name        = name,
-                        Description = extract,
+                        Description = details.Description,
                         Role        = details.Role,
                         Affiliation = details.Affiliation,
                         Race        = details.Race,
@@ -69,15 +90,14 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
                     });
                     logger.LogInformation("  + {Name}", name);
                 }
-                else if (existing.ImageUrl is null)
+                else
                 {
-                    // Enrich existing records that predate the image/infobox fields
-                    var details = await wiki.GetCharacterDetailsAsync(member.Title, ct);
-                    existing.Role        ??= details.Role;
-                    existing.Affiliation ??= details.Affiliation;
-                    existing.Race        ??= details.Race;
-                    existing.Hometown    ??= details.Hometown;
-                    existing.ImageUrl    ??= details.ImageUrl;
+                    ch.Description  ??= details.Description;
+                    ch.Role         ??= details.Role;
+                    ch.Affiliation  ??= details.Affiliation;
+                    ch.Race         ??= details.Race;
+                    ch.Hometown     ??= details.Hometown;
+                    ch.ImageUrl     ??= details.ImageUrl;
                     if (logger.IsEnabled(LogLevel.Information))
                         logger.LogInformation("  ~ enriched {Name}", name);
                 }
@@ -88,4 +108,7 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 
         logger.LogInformation("Characters done.");
     }
+
+    private static bool NeedsEnrichment(Character c) =>
+        c.Description is null || c.ImageUrl is null || c.Role is null;
 }

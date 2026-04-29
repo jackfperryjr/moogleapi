@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoogleAPI.Web.Infrastructure.Data;
@@ -33,35 +34,52 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
 
         foreach (var game in games)
         {
-            if (!GameCategories.TryGetValue(game.Name, out var category))
-                continue;
+            if (!GameCategories.TryGetValue(game.Name, out var category)) continue;
 
             logger.LogInformation("Scraping monsters for {Game}...", game.Name);
 
             var members = await wiki.GetCategoryMembersAsync(category, ct);
-            logger.LogInformation("  Found {Count} candidates", members.Count);
 
-            foreach (var member in members)
-            {
-                if (member.Title.Contains('/'))
-                    continue;
+            var candidates = members
+                .Where(m => !m.Title.Contains('/'))
+                .Select(m => (Member: m, Name: m.Title.Replace("(Final Fantasy", "").Trim(' ', ')')))
+                .ToList();
 
-                var name = member.Title.Replace("(Final Fantasy", "").Trim(' ', ')');
+            logger.LogInformation("  Found {Count} candidates", candidates.Count);
 
-                var existing = await db.Monsters
-                    .FirstOrDefaultAsync(m => m.Name == name && m.GameId == game.Id, ct);
+            var existingNames = (await db.Monsters
+                .Where(m => m.GameId == game.Id)
+                .Select(m => m.Name)
+                .ToListAsync(ct))
+                .ToHashSet();
 
-                if (existing is null)
+            // Fetch descriptions for new monsters — 3 concurrent
+            var sem = new SemaphoreSlim(3);
+            var descMap = new ConcurrentDictionary<string, string?>();
+
+            await Task.WhenAll(candidates
+                .Where(item => !existingNames.Contains(item.Name))
+                .Select(async item =>
                 {
-                    var extract = await wiki.GetExtractAsync(member.Title, ct);
-                    db.Monsters.Add(new Monster
+                    await sem.WaitAsync(ct);
+                    try
                     {
-                        Name = name,
-                        Description = extract,
-                        GameId = game.Id
-                    });
-                    logger.LogInformation("  + {Name}", name);
-                }
+                        descMap[item.Name] = await wiki.GetDescriptionAsync(item.Member.Title, ct);
+                    }
+                    finally { sem.Release(); }
+                }));
+
+            foreach (var (_, name) in candidates)
+            {
+                if (!descMap.TryGetValue(name, out var description)) continue;
+
+                db.Monsters.Add(new Monster
+                {
+                    Name        = name,
+                    Description = description,
+                    GameId      = game.Id
+                });
+                logger.LogInformation("  + {Name}", name);
             }
 
             await db.SaveChangesAsync(ct);

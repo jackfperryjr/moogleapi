@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<!--
+  GitHub Social Preview — 1280×640px
+  Open in Chrome → DevTools (F12) → Toggle device toolbar (Ctrl+Shift+M)
+  Set custom size to 1280×640, then Ctrl+Shift+P → "Capture screenshot"
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>moogleAPI — Social Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&family=Raleway:wght@400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 1280px;
+      height: 640px;
+      overflow: hidden;
+      background: #25282c;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      font-family: 'Raleway', sans-serif;
+      color: #fff;
+      position: relative;
+    }
+
+    /* Subtle grid overlay for depth */
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(66,133,244,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(66,133,244,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* Radial glow behind moogle */
+    body::after {
+      content: '';
+      position: absolute;
+      right: 100px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(255,236,179,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .left {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      padding: 72px 0 72px 96px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    h1 {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 104px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #ffecb3;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    h1 img {
+      width: 108px;
+      height: 108px;
+      object-fit: contain;
+      margin: 0 1px;
+    }
+
+    .subtitle {
+      font-size: 26px;
+      color: #bbdefb;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+    }
+
+    .endpoints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      background: rgba(66, 133, 244, 0.1);
+      border: 1px solid rgba(66, 133, 244, 0.3);
+      color: #90a4ae;
+      border-radius: 6px;
+      padding: 7px 16px;
+    }
+
+    .pill .method {
+      color: #c8e6c9;
+      margin-right: 8px;
+    }
+
+    .url {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      color: #37474f;
+      margin-top: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    .right {
+      position: relative;
+      z-index: 1;
+      width: 380px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-right: 72px;
+      flex-shrink: 0;
+    }
+
+    .right img {
+      width: 300px;
+      height: 300px;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 48px rgba(255,236,179,0.18));
+    }
+  </style>
+</head>
+<body>
+  <div class="left">
+    <h1>m<img src="../src/MoogleAPI.Web/wwwroot/moogle.png" alt="o">ogleAPI</h1>
+    <p class="subtitle">A Final Fantasy REST API</p>
+    <div class="endpoints">
+      <span class="pill"><span class="method">GET</span>/characters</span>
+      <span class="pill"><span class="method">GET</span>/characters/search</span>
+      <span class="pill"><span class="method">GET</span>/games</span>
+      <span class="pill"><span class="method">GET</span>/monsters</span>
+    </div>
+    <p class="url">moogleapi.com</p>
+  </div>
+  <div class="right">
+    <img src="../src/MoogleAPI.Web/wwwroot/moogle.png" alt="Moogle" />
+  </div>
+</body>
+</html>
