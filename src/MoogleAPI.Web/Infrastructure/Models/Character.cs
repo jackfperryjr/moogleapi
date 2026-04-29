@@ -7,6 +7,9 @@ public class Character
     public string? Description { get; set; }
     public string? Role { get; set; }
     public string? Affiliation { get; set; }
+    public string? Race { get; set; }
+    public string? Hometown { get; set; }
+    public string? ImageUrl { get; set; }
     public int GameId { get; set; }
 
     public Game Game { get; set; } = null!;
