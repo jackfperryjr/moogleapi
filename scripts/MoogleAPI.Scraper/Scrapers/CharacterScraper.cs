@@ -47,10 +47,10 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 
             logger.LogInformation("  Found {Count} candidates", candidates.Count);
 
-            // Pre-load existing characters so DB reads happen off the hot path
-            var existing = await db.Characters
-                .Where(c => c.GameId == game.Id)
-                .ToDictionaryAsync(c => c.Name, ct);
+            // Pre-load existing characters; TryAdd handles any duplicate names in the DB.
+            var existing = new Dictionary<string, Character>();
+            foreach (var c in await db.Characters.Where(c => c.GameId == game.Id).ToListAsync(ct))
+                existing.TryAdd(c.Name, c);
 
             // Fetch wiki data for new/incomplete characters — 3 concurrent
             var sem = new SemaphoreSlim(3);
@@ -71,7 +71,7 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
             }));
 
             // Apply results sequentially (DbContext is not thread-safe)
-            foreach (var (member, name) in candidates)
+            foreach (var (_, name) in candidates)
             {
                 if (!detailsMap.TryGetValue(name, out var details)) continue;
 
