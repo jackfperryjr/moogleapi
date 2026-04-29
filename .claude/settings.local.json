@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet new *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet build *)",
+      "Bash(grep 'member name=\"[MP]:FastEndpoints.Endpoint`2' /c/Users/jackf/.nuget/packages/fastendpoints/8.1.0/lib/net10.0/FastEndpoints.xml)",
+      "Bash(grep -A5 'P:FastEndpoints.Endpoint`2.Send\">' /c/Users/jackf/.nuget/packages/fastendpoints/8.1.0/lib/net10.0/FastEndpoints.xml)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git rm *)",
+      "Bash(gh repo *)"
+    ]
+  }
+}

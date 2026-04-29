@@ -40,6 +40,8 @@ var app = builder.Build();
 
 app.UseRateLimiter();
 app.UseHttpsRedirection();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.UseFastEndpoints(c =>
 {

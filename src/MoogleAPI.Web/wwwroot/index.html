@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MoogleAPI — Final Fantasy Data API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #25282c;
+      --surface:   #37474f;
+      --border:    #455a64;
+      --accent:    #4285f4;
+      --accent-2:  #bbdefb;
+      --gold:      #ffecb3;
+      --text:      #ffffff;
+      --muted:     #90a4ae;
+      --green:     #c8e6c9;
+      --radius:    10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Raleway', sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(37, 40, 44, 0.9);
+    }
+    .nav-brand {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.1em;
+      text-decoration: none;
+    }
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .btn-docs {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.8rem !important;
+      transition: opacity 0.2s !important;
+    }
+    .btn-docs:hover { opacity: 0.85; }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-moogle {
+      width: 110px;
+      height: auto;
+      margin-bottom: 1.25rem;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      /* animation: float 4s ease-in-out infinite; */
+      filter: drop-shadow(0 4px 24px rgba(66,133,244,0.25));
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-10px); }
+    }
+    .hero h1 {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--accent-2) 60%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+    .moogle-letter {
+      height: 0.8em;
+      width: auto;
+      vertical-align: middle;
+      display: inline-block;
+      /* pull it flush with adjacent letters */
+      margin: 0 -0.04em;
+      /* undo the text transparency so the image renders normally */
+      -webkit-text-fill-color: initial;
+      /* subtle tilt like the original logo */
+      transform: rotate(-8deg) translateY(-0.05em);
+      /* animation: float 4s ease-in-out infinite; */
+      filter: drop-shadow(0 2px 8px rgba(66,133,244,0.3));
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: 1.125rem;
+      max-width: 520px;
+      margin: 0 auto 2.5rem;
+    }
+    .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      padding: 0.75rem 2rem;
+      border-radius: var(--radius);
+      font-family: 'Raleway', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      padding: 0.75rem 2rem;
+      border-radius: var(--radius);
+      font-family: 'Raleway', sans-serif;
+      font-weight: 500;
+      font-size: 0.95rem;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); background: rgba(66,133,244,0.08); }
+
+    /* ── Stats bar ── */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 3rem;
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat-value {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 1.75rem;
+      color: var(--gold);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    .stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── Main content ── */
+    main { max-width: 1000px; margin: 0 auto; padding: 4rem 2rem; }
+
+    section { margin-bottom: 4rem; }
+    h2 {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Endpoint cards ── */
+    .endpoint-group { margin-bottom: 2rem; }
+    .group-label {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: 0.75rem;
+    }
+    .endpoint {
+      display: grid;
+      grid-template-columns: 5rem 1fr;
+      align-items: start;
+      gap: 1rem;
+      padding: 0.9rem 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 0.5rem;
+      transition: border-color 0.2s;
+    }
+    .endpoint:hover { border-color: var(--accent); }
+    .method {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      text-align: center;
+      background: rgba(200, 230, 201, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(200, 230, 201, 0.3);
+      margin-top: 0.1rem;
+    }
+    .route {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .route-param { color: var(--accent-2); }
+    .route-query { color: var(--muted); }
+    .desc { font-size: 0.8rem; color: var(--muted); }
+
+    /* ── Tech stack ── */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .stack-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem;
+      transition: border-color 0.2s;
+    }
+    .stack-card:hover { border-color: var(--accent); }
+    .stack-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .stack-name { font-family: 'Josefin Sans', sans-serif; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+    .stack-desc { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── Code example ── */
+    .code-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .c-comment { color: var(--muted); }
+    .c-method  { color: var(--green); }
+    .c-url     { color: var(--accent-2); }
+    .c-key     { color: var(--accent-2); }
+    .c-val     { color: var(--gold); }
+    .c-str     { color: var(--green); }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 2.5rem 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    footer a { color: var(--accent-2); text-decoration: none; transition: color 0.2s; }
+    footer a:hover { color: #fff; }
+    .kupo-footer { font-size: 1.2rem; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/"><img src="/moogle.png" alt="" style="height:1.4em;width:auto;vertical-align:middle;margin-right:0.4rem;transform:rotate(-8deg);display:inline-block;"> moogleAPI</a>
+  <div class="nav-links">
+    <a href="#endpoints">Endpoints</a>
+    <a href="#stack">Stack</a>
+    <a href="https://github.com/jackfperryjr/moogleapi" target="_blank">GitHub</a>
+    <a href="/scalar/v1" class="btn-docs">API Docs →</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <!-- <img src="/moogle.png" class="hero-moogle" alt="Moogle" /> -->
+  <h1>m<img src="/moogle.png" class="moogle-letter" alt="o">ogleAPI</h1>
+  <p>A free, open REST API for Final Fantasy data — characters, monsters, and games. Kupo!</p>
+  <div class="hero-actions">
+    <a href="/scalar/v1" class="btn-primary">Explore the Docs</a>
+    <a href="https://github.com/jackfperryjr/moogleapi" target="_blank" class="btn-secondary">View on GitHub</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-value">16</div><div class="stat-label">Mainline Games</div></div>
+  <div class="stat"><div class="stat-value">REST</div><div class="stat-label">Architecture</div></div>
+  <div class="stat"><div class="stat-value">Free</div><div class="stat-label">Always</div></div>
+  <div class="stat"><div class="stat-value">60/min</div><div class="stat-label">Rate Limit</div></div>
+</div>
+
+<main>
+
+  <section id="endpoints">
+    <h2>Endpoints</h2>
+
+    <div class="endpoint-group">
+      <div class="group-label">Characters</div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/characters</div>
+          <div class="desc">List all characters · query params: <span class="route-query">gameId, page, pageSize</span></div>
+        </div>
+      </div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/characters/<span class="route-param">{id}</span></div>
+          <div class="desc">Get a single character by ID</div>
+        </div>
+      </div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/characters/search</div>
+          <div class="desc">Search by name or description · query params: <span class="route-query">query, gameId</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint-group">
+      <div class="group-label">Monsters</div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/monsters</div>
+          <div class="desc">List all monsters · query params: <span class="route-query">gameId, category, page, pageSize</span></div>
+        </div>
+      </div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/monsters/<span class="route-param">{id}</span></div>
+          <div class="desc">Get a single monster by ID</div>
+        </div>
+      </div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/monsters/search</div>
+          <div class="desc">Search by name or description · query params: <span class="route-query">query, gameId, category</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint-group">
+      <div class="group-label">Games</div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/games</div>
+          <div class="desc">List all games · query params: <span class="route-query">page, pageSize</span></div>
+        </div>
+      </div>
+      <div class="endpoint">
+        <div class="method">GET</div>
+        <div class="endpoint-info">
+          <div class="route">/api/games/<span class="route-param">{id}</span></div>
+          <div class="desc">Get a single game by ID, including character and monster counts</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Quick Example</h2>
+    <div class="code-block">
+<span class="c-comment"># Search for characters named Cloud</span><br/>
+<span class="c-method">GET</span> <span class="c-url">https://api.moogleapi.com/api/characters/search?query=Cloud</span>
+<br/>
+<span class="c-comment">─── Response ───────────────────────────────────────</span>
+<br/>
+{
+  <span class="c-key">"results"</span>: [
+    {
+      <span class="c-key">"id"</span>:          <span class="c-val">1</span>,
+      <span class="c-key">"name"</span>:        <span class="c-str">"Cloud Strife"</span>,
+      <span class="c-key">"role"</span>:        <span class="c-str">"Protagonist"</span>,
+      <span class="c-key">"description"</span>: <span class="c-str">"A former SOLDIER turned mercenary..."</span>,
+      <span class="c-key">"gameName"</span>:    <span class="c-str">"Final Fantasy VII"</span>
+    }
+  ]
+}
+    </div>
+  </section>
+
+  <section id="rate-limiting">
+    <h2>Rate Limiting</h2>
+    <div class="endpoint">
+      <div class="method">60/m</div>
+      <div class="endpoint-info">
+        <div class="route">Anonymous</div>
+        <div class="desc">60 requests per minute per IP — no key needed</div>
+      </div>
+    </div>
+    <div class="endpoint">
+      <div class="method" style="color:#bbdefb;border-color:rgba(187,222,251,0.3);background:rgba(187,222,251,0.1);">600/m</div>
+      <div class="endpoint-info">
+        <div class="route">Premium <span class="route-query">— pass <code>X-Api-Key: your-key</code></span></div>
+        <div class="desc">10× the limit for power users and project builders</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stack">
+    <h2>Built With</h2>
+    <div class="stack-grid">
+      <div class="stack-card">
+        <div class="stack-icon">⚡</div>
+        <div class="stack-name">FastEndpoints v8</div>
+        <div class="stack-desc">REPR pattern — one folder per operation, zero controller bloat</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">🗄️</div>
+        <div class="stack-name">EF Core 10 + Neon</div>
+        <div class="stack-desc">Serverless PostgreSQL with automatic migrations on startup</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">⚙️</div>
+        <div class="stack-name">.NET 10 / C# 14</div>
+        <div class="stack-desc">Primary constructors, collection expressions, field-backed props</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">🔮</div>
+        <div class="stack-name">HybridCache</div>
+        <div class="stack-desc">L1 in-process + optional L2 Redis — stampede-proof</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">📖</div>
+        <div class="stack-name">Scalar</div>
+        <div class="stack-desc">Beautiful interactive API docs, replacing Swagger UI</div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">🤖</div>
+        <div class="stack-name">GitHub Actions</div>
+        <div class="stack-desc">Weekly scraper keeps data fresh</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <img src="/moogle.png" class="kupo-footer" alt="Moogle" style="width:40px;height:auto;opacity:0.7;" />
+  <p>Built with ♥ by <a href="https://github.com/jackfperryjr">jackfperryjr</a> </p>
+  <p style="margin-top:0.4rem;">Not affiliated with Square Enix · <a href="/scalar/v1">API Docs</a></p>
+</footer>
+
+</body>
+</html>
