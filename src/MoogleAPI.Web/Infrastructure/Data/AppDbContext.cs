@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(c => c.Id);
             e.Property(c => c.Name).HasMaxLength(200).IsRequired();
+            e.HasIndex(c => new { c.Name, c.GameId }).IsUnique();
             e.HasOne(c => c.Game)
              .WithMany(g => g.Characters)
              .HasForeignKey(c => c.GameId)
@@ -32,6 +33,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(m => m.Id);
             e.Property(m => m.Name).HasMaxLength(200).IsRequired();
+            e.HasIndex(m => new { m.Name, m.GameId }).IsUnique();
             e.HasOne(m => m.Game)
              .WithMany(g => g.Monsters)
              .HasForeignKey(m => m.GameId)
