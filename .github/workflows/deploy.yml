@@ -1,0 +1,39 @@
+name: Deploy to SmarterASP.NET
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/**'
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+    environment: Production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Write production connection string
+        shell: pwsh
+        run: |
+          $json = @{ ConnectionStrings = @{ DefaultConnection = "${{ secrets.CONNECTION_STRING }}" } } | ConvertTo-Json -Depth 3
+          Set-Content -Path "src/MoogleAPI.Web/appsettings.Production.json" -Value $json -Encoding utf8
+
+      - name: Publish
+        run: dotnet publish src/MoogleAPI.Web/MoogleAPI.Web.csproj -c Release -o ./publish
+
+      - name: Deploy via Web Deploy
+        shell: cmd
+        env:
+          PUBLISH_PATH: ${{ github.workspace }}\publish
+          SITE_NAME: ${{ secrets.SMARTERASP_SITE_NAME }}
+          SERVICE_URL: ${{ secrets.SMARTERASP_SERVICE_URL }}
+          WD_USER: ${{ secrets.SMARTERASP_USERNAME }}
+          WD_PASS: ${{ secrets.SMARTERASP_PASSWORD }}
+        run: '"C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe" -verb:sync -source:contentPath="%PUBLISH_PATH%" -dest:contentPath="%SITE_NAME%",computerName="%SERVICE_URL%",userName="%WD_USER%",password="%WD_PASS%",authType=Basic -allowUntrusted -enableRule:AppOffline'
