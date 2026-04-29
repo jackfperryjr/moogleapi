@@ -85,20 +85,6 @@
       background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 70%);
       pointer-events: none;
     }
-    .hero-moogle {
-      width: 110px;
-      height: auto;
-      margin-bottom: 1.25rem;
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-      /* animation: float 4s ease-in-out infinite; */
-      filter: drop-shadow(0 4px 24px rgba(66,133,244,0.25));
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50%       { transform: translateY(-10px); }
-    }
     .hero h1 {
       font-family: 'Josefin Sans', sans-serif;
       font-size: clamp(2.5rem, 6vw, 4rem);
@@ -119,13 +105,9 @@
       width: auto;
       vertical-align: middle;
       display: inline-block;
-      /* pull it flush with adjacent letters */
       margin: 0 -0.04em;
-      /* undo the text transparency so the image renders normally */
       -webkit-text-fill-color: initial;
-      /* subtle tilt like the original logo */
       transform: rotate(-8deg) translateY(-0.05em);
-      /* animation: float 4s ease-in-out infinite; */
       filter: drop-shadow(0 2px 8px rgba(66,133,244,0.3));
     }
     .hero p {
@@ -208,7 +190,23 @@
       color: var(--accent-2);
       margin-bottom: 0.75rem;
     }
-    .endpoint {
+    a.endpoint {
+      display: grid;
+      grid-template-columns: 5rem 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.9rem 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 0.5rem;
+      transition: border-color 0.2s, background 0.2s;
+      text-decoration: none;
+      color: inherit;
+      cursor: pointer;
+    }
+    a.endpoint:hover { border-color: var(--accent); background: rgba(66,133,244,0.05); }
+    .endpoint-static {
       display: grid;
       grid-template-columns: 5rem 1fr;
       align-items: start;
@@ -218,9 +216,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       margin-bottom: 0.5rem;
-      transition: border-color 0.2s;
     }
-    .endpoint:hover { border-color: var(--accent); }
     .method {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.7rem;
@@ -231,7 +227,6 @@
       background: rgba(200, 230, 201, 0.15);
       color: var(--green);
       border: 1px solid rgba(200, 230, 201, 0.3);
-      margin-top: 0.1rem;
     }
     .route {
       font-family: 'JetBrains Mono', monospace;
@@ -242,6 +237,77 @@
     .route-param { color: var(--accent-2); }
     .route-query { color: var(--muted); }
     .desc { font-size: 0.8rem; color: var(--muted); }
+    .try-arrow {
+      font-size: 0.75rem;
+      color: var(--muted);
+      transition: color 0.2s, transform 0.2s;
+      white-space: nowrap;
+    }
+    a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px); }
+
+    /* ── Try it ── */
+    .try-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .try-bar select,
+    .try-bar input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      padding: 0.55rem 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .try-bar select:focus,
+    .try-bar input:focus { border-color: var(--accent); }
+    .try-bar select { cursor: pointer; }
+    .try-bar input { flex: 1; min-width: 180px; }
+    .try-bar input::placeholder { color: var(--muted); }
+    .try-run {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.55rem 1.25rem;
+      font-family: 'Raleway', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .try-run:hover { opacity: 0.85; }
+    .try-run:disabled { opacity: 0.5; cursor: not-allowed; }
+    .try-url-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      word-break: break-all;
+    }
+    .try-url-display span { color: var(--accent-2); }
+    .try-result {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      max-height: 420px;
+      overflow-y: auto;
+      white-space: pre;
+      color: var(--muted);
+    }
+    .try-result.loaded { color: var(--text); }
+    .try-result.error { color: #ef9a9a; }
 
     /* ── Tech stack ── */
     .stack-grid {
@@ -260,24 +326,6 @@
     .stack-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
     .stack-name { font-family: 'Josefin Sans', sans-serif; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
     .stack-desc { font-size: 0.78rem; color: var(--muted); }
-
-    /* ── Code example ── */
-    .code-block {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.25rem 1.5rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
-      line-height: 1.7;
-      overflow-x: auto;
-    }
-    .c-comment { color: var(--muted); }
-    .c-method  { color: var(--green); }
-    .c-url     { color: var(--accent-2); }
-    .c-key     { color: var(--accent-2); }
-    .c-val     { color: var(--gold); }
-    .c-str     { color: var(--green); }
 
     /* ── Footer ── */
     footer {
@@ -298,6 +346,7 @@
   <a class="nav-brand" href="/"><img src="/moogle.png" alt="" style="height:1.4em;width:auto;vertical-align:middle;margin-right:0.4rem;transform:rotate(-8deg);display:inline-block;"> moogleAPI</a>
   <div class="nav-links">
     <a href="#endpoints">Endpoints</a>
+    <a href="#try-it">Try It</a>
     <a href="#stack">Stack</a>
     <a href="https://github.com/jackfperryjr/moogleapi" target="_blank">GitHub</a>
     <a href="/scalar/v1" class="btn-docs">API Docs →</a>
@@ -305,12 +354,11 @@
 </nav>
 
 <div class="hero">
-  <!-- <img src="/moogle.png" class="hero-moogle" alt="Moogle" /> -->
   <h1>m<img src="/moogle.png" class="moogle-letter" alt="o">ogleAPI</h1>
   <p>A free, open REST API for Final Fantasy data — characters, monsters, and games. Kupo!</p>
   <div class="hero-actions">
-    <a href="/scalar/v1" class="btn-primary">Explore the Docs</a>
-    <a href="https://github.com/jackfperryjr/moogleapi" target="_blank" class="btn-secondary">View on GitHub</a>
+    <a href="#try-it" class="btn-primary">Try It Now</a>
+    <a href="/scalar/v1" class="btn-secondary">API Docs</a>
   </div>
 </div>
 
@@ -328,105 +376,108 @@
 
     <div class="endpoint-group">
       <div class="group-label">Characters</div>
-      <div class="endpoint">
+      <a class="endpoint" href="/api/characters" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/characters</div>
-          <div class="desc">List all characters · query params: <span class="route-query">gameId, page, pageSize</span></div>
+          <div class="desc">List all characters · <span class="route-query">gameId, page, pageSize</span></div>
         </div>
-      </div>
-      <div class="endpoint">
+        <div class="try-arrow">open ↗</div>
+      </a>
+      <a class="endpoint" href="/api/characters/1" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/characters/<span class="route-param">{id}</span></div>
-          <div class="desc">Get a single character by ID</div>
+          <div class="desc">Get a character by ID</div>
         </div>
-      </div>
-      <div class="endpoint">
+        <div class="try-arrow">open ↗</div>
+      </a>
+      <a class="endpoint" href="/api/characters/search?query=Cloud" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/characters/search</div>
-          <div class="desc">Search by name or description · query params: <span class="route-query">query, gameId</span></div>
+          <div class="desc">Search by name or description · <span class="route-query">query, gameId</span></div>
         </div>
-      </div>
+        <div class="try-arrow">open ↗</div>
+      </a>
     </div>
 
     <div class="endpoint-group">
       <div class="group-label">Monsters</div>
-      <div class="endpoint">
+      <a class="endpoint" href="/api/monsters" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/monsters</div>
-          <div class="desc">List all monsters · query params: <span class="route-query">gameId, category, page, pageSize</span></div>
+          <div class="desc">List all monsters · <span class="route-query">gameId, category, page, pageSize</span></div>
         </div>
-      </div>
-      <div class="endpoint">
+        <div class="try-arrow">open ↗</div>
+      </a>
+      <a class="endpoint" href="/api/monsters/1" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/monsters/<span class="route-param">{id}</span></div>
-          <div class="desc">Get a single monster by ID</div>
+          <div class="desc">Get a monster by ID</div>
         </div>
-      </div>
-      <div class="endpoint">
+        <div class="try-arrow">open ↗</div>
+      </a>
+      <a class="endpoint" href="/api/monsters/search?query=Goblin" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/monsters/search</div>
-          <div class="desc">Search by name or description · query params: <span class="route-query">query, gameId, category</span></div>
+          <div class="desc">Search by name or description · <span class="route-query">query, gameId, category</span></div>
         </div>
-      </div>
+        <div class="try-arrow">open ↗</div>
+      </a>
     </div>
 
     <div class="endpoint-group">
       <div class="group-label">Games</div>
-      <div class="endpoint">
+      <a class="endpoint" href="/api/games" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/games</div>
-          <div class="desc">List all games · query params: <span class="route-query">page, pageSize</span></div>
+          <div class="desc">List all games · <span class="route-query">page, pageSize</span></div>
         </div>
-      </div>
-      <div class="endpoint">
+        <div class="try-arrow">open ↗</div>
+      </a>
+      <a class="endpoint" href="/api/games/7" target="_blank">
         <div class="method">GET</div>
         <div class="endpoint-info">
           <div class="route">/api/games/<span class="route-param">{id}</span></div>
-          <div class="desc">Get a single game by ID, including character and monster counts</div>
+          <div class="desc">Get a game by ID — includes character and monster counts</div>
         </div>
-      </div>
+        <div class="try-arrow">open ↗</div>
+      </a>
     </div>
   </section>
 
-  <section>
-    <h2>Quick Example</h2>
-    <div class="code-block">
-<span class="c-comment"># Search for characters named Cloud</span><br/>
-<span class="c-method">GET</span> <span class="c-url">https://api.moogleapi.com/api/characters/search?query=Cloud</span>
-<br/>
-<span class="c-comment">─── Response ───────────────────────────────────────</span>
-<br/>
-{
-  <span class="c-key">"results"</span>: [
-    {
-      <span class="c-key">"id"</span>:          <span class="c-val">1</span>,
-      <span class="c-key">"name"</span>:        <span class="c-str">"Cloud Strife"</span>,
-      <span class="c-key">"role"</span>:        <span class="c-str">"Protagonist"</span>,
-      <span class="c-key">"description"</span>: <span class="c-str">"A former SOLDIER turned mercenary..."</span>,
-      <span class="c-key">"gameName"</span>:    <span class="c-str">"Final Fantasy VII"</span>
-    }
-  ]
-}
+  <section id="try-it">
+    <h2>Try It</h2>
+    <div class="try-bar">
+      <select id="try-resource" onchange="updateTryUrl()">
+        <option value="characters/search">Characters — search</option>
+        <option value="monsters/search">Monsters — search</option>
+        <option value="games">Games — list</option>
+        <option value="characters">Characters — list</option>
+        <option value="monsters">Monsters — list</option>
+      </select>
+      <input id="try-query" type="text" placeholder="Search term, e.g. Cloud" oninput="updateTryUrl()" onkeydown="if(event.key==='Enter')runQuery()" />
+      <button class="try-run" id="try-btn" onclick="runQuery()">Run →</button>
     </div>
+    <div class="try-url-display" id="try-url-display"></div>
+    <div class="try-result" id="try-result">Hit Run to call the API live.</div>
   </section>
 
   <section id="rate-limiting">
     <h2>Rate Limiting</h2>
-    <div class="endpoint">
+    <div class="endpoint-static">
       <div class="method">60/m</div>
       <div class="endpoint-info">
         <div class="route">Anonymous</div>
         <div class="desc">60 requests per minute per IP — no key needed</div>
       </div>
     </div>
-    <div class="endpoint">
+    <div class="endpoint-static">
       <div class="method" style="color:#bbdefb;border-color:rgba(187,222,251,0.3);background:rgba(187,222,251,0.1);">600/m</div>
       <div class="endpoint-info">
         <div class="route">Premium <span class="route-query">— pass <code>X-Api-Key: your-key</code></span></div>
@@ -466,7 +517,7 @@
       <div class="stack-card">
         <div class="stack-icon">🤖</div>
         <div class="stack-name">GitHub Actions</div>
-        <div class="stack-desc">Weekly scraper keeps data fresh</div>
+        <div class="stack-desc">Weekly scraper keeps data fresh from the Final Fantasy Wiki</div>
       </div>
     </div>
   </section>
@@ -475,9 +526,63 @@
 
 <footer>
   <img src="/moogle.png" class="kupo-footer" alt="Moogle" style="width:40px;height:auto;opacity:0.7;" />
-  <p>Built with ♥ by <a href="https://github.com/jackfperryjr">jackfperryjr</a> </p>
+  <p>Built with ♥ by <a href="https://github.com/jackfperryjr">jackfperryjr</a></p>
   <p style="margin-top:0.4rem;">Not affiliated with Square Enix · <a href="/scalar/v1">API Docs</a></p>
 </footer>
+
+<script>
+  const BASE = window.location.origin;
+
+  function buildUrl() {
+    const resource = document.getElementById('try-resource').value;
+    const query    = document.getElementById('try-query').value.trim();
+    const isSearch = resource.endsWith('/search');
+    const isList   = resource === 'games' || resource === 'characters' || resource === 'monsters';
+
+    let url = `${BASE}/api/${resource}`;
+    if (isSearch && query) url += `?query=${encodeURIComponent(query)}`;
+    return url;
+  }
+
+  function updateTryUrl() {
+    const resource = document.getElementById('try-resource').value;
+    const isSearch = resource.endsWith('/search');
+    const input    = document.getElementById('try-query');
+
+    input.disabled    = !isSearch && resource !== 'characters' && resource !== 'monsters';
+    input.placeholder = isSearch ? 'Search term, e.g. Cloud' : '(no query for this endpoint)';
+
+    const url = buildUrl();
+    document.getElementById('try-url-display').innerHTML =
+      `GET <span>${url}</span>`;
+  }
+
+  async function runQuery() {
+    const btn    = document.getElementById('try-btn');
+    const result = document.getElementById('try-result');
+    const url    = buildUrl();
+
+    btn.disabled    = true;
+    btn.textContent = '...';
+    result.className = 'try-result';
+    result.textContent = 'Fetching…';
+
+    try {
+      const res  = await fetch(url, { headers: { Accept: 'application/json' } });
+      const data = await res.json();
+      result.className  = res.ok ? 'try-result loaded' : 'try-result error';
+      result.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      result.className  = 'try-result error';
+      result.textContent = `Error: ${e.message}`;
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Run →';
+    }
+  }
+
+  updateTryUrl();
+</script>
 
 </body>
 </html>
