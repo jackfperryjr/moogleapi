@@ -13,6 +13,7 @@ public record WikiCategoryQuery(
 
 public record WikiMember(
     [property: JsonPropertyName("pageid")] int PageId,
+    [property: JsonPropertyName("ns")] int Ns,
     [property: JsonPropertyName("title")] string Title
 );
 
