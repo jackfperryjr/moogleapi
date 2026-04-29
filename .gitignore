@@ -11,6 +11,7 @@ obj/
 .env.*
 appsettings.Local.json
 appsettings.*.Local.json
+appsettings.Production.json
 
 ## OS
 .DS_Store

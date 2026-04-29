@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/**'
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+    environment: Production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Write production connection string
+        shell: pwsh
+        run: |
+          $json = @{ ConnectionStrings = @{ DefaultConnection = "${{ secrets.CONNECTION_STRING }}" } } | ConvertTo-Json -Depth 3
+          Set-Content -Path "src/MoogleAPI.Web/appsettings.Production.json" -Value $json -Encoding utf8
+
+      - name: Publish
+        run: dotnet publish src/MoogleAPI.Web/MoogleAPI.Web.csproj -c Release -o ./publish
+
+      - name: Deploy via Web Deploy
+        shell: pwsh
+        run: |
+          $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+          $publishPath = "${{ github.workspace }}\publish"
+          $siteName   = "${{ secrets.DEPLOY_SITE_NAME }}"
+          $serviceUrl = "${{ secrets.DEPLOY_SERVICE_URL }}"
+          $user       = "${{ secrets.DEPLOY_USERNAME }}"
+          $pass       = "${{ secrets.DEPLOY_PASSWORD }}"
+
+          $arguments = @(
+            "-verb:sync",
+            "-source:contentPath=`"$publishPath`"",
+            "-dest:contentPath=`"$siteName`",computerName=`"$serviceUrl`",userName=`"$user`",password=`"$pass`",authType=`"Basic`"",
+            "-allowUntrusted",
+            "-enableRule:AppOffline"
+          )
+
+          & $msdeploy @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
