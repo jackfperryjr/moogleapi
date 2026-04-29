@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>60dda6ea-7514-41f2-ab1b-92b1b91d1fb3</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,6 +13,10 @@
     <PackageReference Include="FastEndpoints.Swagger" Version="8.1.0" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="10.5.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.14.6" />
