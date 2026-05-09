@@ -388,6 +388,149 @@
       footer { padding: 2rem 1rem; }
     }
 
+    /* ── Final Fantasy Easter Egg (PS1 era) ── */
+    #moogle-egg { cursor: pointer; }
+    #moogle-egg:hover {
+      filter: drop-shadow(0 0 10px rgba(0,210,220,0.9)) !important;
+      transform: rotate(-8deg) translateY(-0.05em) scale(1.2) !important;
+    }
+
+    #ff-stars {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      opacity: 0;
+      transition: opacity 1.6s;
+    }
+    #ff-stars.show { opacity: 1; }
+
+    #ff-notify {
+      position: fixed;
+      top: 5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(8, 16, 48, 0.96);
+      border: 1px solid #3868d0;
+      border-radius: 6px;
+      padding: 1.1rem 2rem;
+      font-family: 'Press Start 2P', monospace;
+      color: #dce8ff;
+      font-size: 0.55rem;
+      letter-spacing: 0.08em;
+      line-height: 2;
+      text-align: center;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.5s, transform 0.5s;
+      pointer-events: none;
+      box-shadow: 0 0 0 1px rgba(56,104,208,0.4), 0 0 32px rgba(0,180,220,0.25), inset 0 1px 0 rgba(100,160,255,0.15);
+      white-space: nowrap;
+      backdrop-filter: blur(8px);
+    }
+    #ff-notify.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #ff-transition {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at 50% 40%, rgba(0,80,120,0.35) 0%, #060a1a 100%);
+      transition: opacity 0.5s ease-in-out;
+    }
+
+    body.ff-mode {
+      --bg:       #080c20;
+      --surface:  #101840;
+      --border:   #2850b0;
+      --accent:   #00c8e0;
+      --accent-2: #80e0ff;
+      --gold:     #ffd700;
+      --text:     #dce8ff;
+      --muted:    #486898;
+      --green:    #40ff90;
+      --radius:   4px;
+      background: linear-gradient(160deg, #080c20 0%, #0c1235 60%, #080c20 100%);
+    }
+
+    body.ff-mode nav {
+      background: rgba(8, 12, 32, 0.97);
+      border-bottom: 1px solid #2850b0;
+      box-shadow: 0 1px 0 rgba(0,200,224,0.15), 0 4px 20px rgba(0,0,0,0.6);
+    }
+    body.ff-mode .hero::before {
+      background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,180,220,0.15) 0%, transparent 70%);
+    }
+
+    body.ff-mode h1,
+    body.ff-mode h2,
+    body.ff-mode .nav-brand,
+    body.ff-mode .stat-value,
+    body.ff-mode .stack-name,
+    body.ff-mode .group-label,
+    body.ff-mode .method,
+    body.ff-mode .try-run,
+    body.ff-mode .btn-primary,
+    body.ff-mode .btn-secondary {
+      font-family: 'Press Start 2P', monospace;
+    }
+    body.ff-mode h1 { font-size: clamp(0.9rem, 2.2vw, 1.4rem); letter-spacing: 0.08em; }
+    body.ff-mode h2 {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 16px rgba(0,200,224,0.5);
+      border-bottom-color: #2850b0;
+    }
+    body.ff-mode .nav-brand { font-size: 0.65rem; letter-spacing: 0.05em; }
+    body.ff-mode .stat-value { font-size: 0.9rem; }
+    body.ff-mode .stack-name { font-size: 0.55rem; letter-spacing: 0.05em; }
+    body.ff-mode .group-label { font-size: 0.5rem; color: var(--accent-2); }
+    body.ff-mode .method { font-size: 0.45rem; padding: 0.3rem 0.4rem; }
+    body.ff-mode .btn-primary,
+    body.ff-mode .btn-secondary { font-size: 0.55rem; letter-spacing: 0.05em; }
+    body.ff-mode .try-run { font-size: 0.55rem; }
+
+    body.ff-mode .stack-card,
+    body.ff-mode a.endpoint,
+    body.ff-mode .endpoint-static,
+    body.ff-mode .try-result,
+    body.ff-mode .try-bar select,
+    body.ff-mode .try-bar input {
+      border-color: #2850b0;
+      background: rgba(16, 24, 64, 0.85);
+      backdrop-filter: blur(4px);
+    }
+    body.ff-mode a.endpoint:hover,
+    body.ff-mode .stack-card:hover {
+      border-color: #00c8e0;
+      background: rgba(0, 48, 96, 0.9);
+      box-shadow: 0 0 18px rgba(0,200,224,0.2), inset 0 0 8px rgba(0,0,0,0.4);
+    }
+    body.ff-mode .btn-primary {
+      background: rgba(0, 80, 180, 0.85);
+      border-color: #3868d0;
+      box-shadow: 0 0 12px rgba(0,180,220,0.3);
+    }
+    body.ff-mode .btn-primary:hover { background: rgba(0,100,210,0.95); opacity: 1; transform: translateY(-1px); }
+    body.ff-mode .btn-secondary { border-color: #2850b0; }
+    body.ff-mode .btn-secondary:hover {
+      background: rgba(0,60,120,0.4);
+      border-color: #00c8e0;
+    }
+    body.ff-mode .try-bar select:focus,
+    body.ff-mode .try-bar input:focus { border-color: #00c8e0; }
+    body.ff-mode .try-run {
+      background: rgba(0, 80, 180, 0.85);
+      border: none;
+      box-shadow: 0 0 10px rgba(0,180,220,0.25);
+    }
+    body.ff-mode .try-run:hover { background: rgba(0,100,210,0.95); opacity: 1; }
+    body.ff-mode .data-summary strong { color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.35); }
+    body.ff-mode .route-param { color: #00c8e0; }
+    body.ff-mode .route-query { color: #486898; }
+    body.ff-mode footer { border-top-color: #2850b0; }
+
     /* ── Footer ── */
     footer {
       text-align: center;
@@ -415,7 +558,7 @@
 </nav>
 
 <div class="hero">
-  <h1>m<img src="/moogle.png" class="moogle-letter" alt="o">ogleAPI</h1>
+  <h1>m<img src="/moogle.png" class="moogle-letter" id="moogle-egg" alt="o" title="✦ Kupo? ✦">ogleAPI</h1>
   <p>A free, open REST API for Final Fantasy data — characters, monsters, and games. Kupo!</p>
   <div class="hero-actions">
     <a href="#try-it" class="btn-primary">Try It Now</a>
@@ -592,6 +735,10 @@
   <p style="margin-top:0.4rem;">Not affiliated with Square Enix · <a href="/scalar/v1">API Docs</a></p>
 </footer>
 
+<canvas id="ff-stars"></canvas>
+<div id="ff-notify"></div>
+<div id="ff-transition"></div>
+
 <script>
   const BASE = window.location.origin;
 
@@ -644,6 +791,123 @@
   }
 
   updateTryUrl();
+
+  // ── Final Fantasy Easter Egg ──
+  let ffFontLoaded = false;
+  let starsAnimId  = null;
+  const starField  = [];
+
+  function loadFFFont() {
+    if (ffFontLoaded) return;
+    const link = document.createElement('link');
+    link.rel  = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap';
+    document.head.appendChild(link);
+    ffFontLoaded = true;
+  }
+
+  function initStars() {
+    const canvas = document.getElementById('ff-stars');
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    starField.length = 0;
+    for (let i = 0; i < 180; i++) {
+      starField.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.4 + 0.2,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.006 + 0.002,
+      });
+    }
+  }
+
+  function animateStars() {
+    const canvas = document.getElementById('ff-stars');
+    const ctx    = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    starField.forEach(s => {
+      s.phase += s.speed;
+      const alpha = 0.25 + 0.75 * Math.abs(Math.sin(s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      const hue = s.r > 1.1 ? '180,230,255' : '210,225,255';
+      ctx.fillStyle = `rgba(${hue}, ${alpha})`;
+      ctx.fill();
+    });
+    starsAnimId = requestAnimationFrame(animateStars);
+  }
+
+  function showNotify(html, duration = 3200) {
+    const el = document.getElementById('ff-notify');
+    el.innerHTML = html;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), duration);
+  }
+
+  let ffTransitioning = false;
+
+  function toggleFFMode() {
+    if (ffTransitioning) return;
+    ffTransitioning = true;
+
+    const overlay = document.getElementById('ff-transition');
+    const canvas  = document.getElementById('ff-stars');
+    const FADE    = 500; // ms — matches the CSS transition
+
+    // Phase 1: fade in the overlay
+    overlay.style.opacity      = '1';
+    overlay.style.pointerEvents = 'all';
+
+    setTimeout(() => {
+      // Phase 2: swap theme while hidden
+      const isFF = document.body.classList.toggle('ff-mode');
+
+      if (isFF) {
+        loadFFFont();
+        initStars();
+        canvas.classList.add('show');
+        animateStars();
+      } else {
+        canvas.classList.remove('show');
+        cancelAnimationFrame(starsAnimId);
+      }
+
+      // Phase 3: two rAFs ensure the browser paints the new theme before revealing
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        overlay.style.opacity      = '0';
+        overlay.style.pointerEvents = 'none';
+
+        // Show the notify once the reveal is complete
+        setTimeout(() => {
+          ffTransitioning = false;
+          if (isFF) {
+            showNotify(
+              'FINAL FANTASY<br><br>' +
+              '<span style="color:#00c8e0;">Click Moogle to restore</span>',
+              4000
+            );
+          } else {
+            showNotify('GAME OVER', 1800);
+          }
+        }, FADE);
+      }));
+    }, FADE);
+  }
+
+  document.getElementById('moogle-egg').addEventListener('click', toggleFFMode);
+
+  // Konami code bonus trigger
+  const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'];
+  let konamiIdx = 0;
+  document.addEventListener('keydown', e => {
+    konamiIdx = e.code === KONAMI[konamiIdx] ? konamiIdx + 1 : (e.code === KONAMI[0] ? 1 : 0);
+    if (konamiIdx === KONAMI.length) { toggleFFMode(); konamiIdx = 0; }
+  });
+
+  window.addEventListener('resize', () => {
+    if (document.body.classList.contains('ff-mode')) initStars();
+  });
 
   (async () => {
     try {
