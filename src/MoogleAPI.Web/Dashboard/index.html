@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>moogleAPI — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:      #25282c;
+      --surface: #37474f;
+      --border:  #455a64;
+      --accent:  #4285f4;
+      --accent2: #bbdefb;
+      --gold:    #ffecb3;
+      --text:    #ffffff;
+      --muted:   #90a4ae;
+      --green:   #c8e6c9;
+      --red:     #ef9a9a;
+      --yellow:  #fff59d;
+      --radius:  10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Raleway', sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(37,40,44,0.96);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    .header-brand {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.1em;
+      text-decoration: none;
+    }
+    .header-title {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding-left: 1rem;
+      border-left: 1px solid var(--border);
+    }
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+    #last-updated { font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .btn-signout {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.9rem;
+      font-family: 'Raleway', sans-serif;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-signout:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── Layout ── */
+    main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    /* ── Summary cards ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.4rem;
+    }
+    .card-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+      font-family: 'Josefin Sans', sans-serif;
+    }
+    .card-value {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      line-height: 1;
+    }
+    .card-value.green { color: var(--green); }
+    .card-value.red   { color: var(--red); }
+    .card-value.blue  { color: var(--accent2); }
+
+    /* ── Chart grid ── */
+    .chart-row {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .chart-row-1 { grid-template-columns: 1fr; }
+    .chart-row-2 { grid-template-columns: 1fr 1fr; }
+    .chart-row-3 { grid-template-columns: 2fr 1fr; }
+
+    .chart-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.4rem;
+    }
+    .chart-panel h2 {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 1.2rem;
+    }
+    .chart-wrap { position: relative; }
+    .chart-wrap canvas { max-height: 220px; }
+
+    /* ── Latency panel ── */
+    .latency-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .latency-item { text-align: center; }
+    .latency-label { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.3rem; }
+    .latency-value { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; color: var(--accent2); }
+    .latency-unit  { font-size: 0.65rem; color: var(--muted); margin-left: 0.15em; }
+
+    /* ── Error state ── */
+    #error-banner {
+      display: none;
+      background: rgba(239,154,154,0.12);
+      border: 1px solid var(--red);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      color: var(--red);
+      font-size: 0.82rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Loading shimmer ── */
+    .shimmer {
+      animation: shimmer 1.4s infinite;
+      background: linear-gradient(90deg, var(--surface) 25%, #455a64 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      border-radius: 4px;
+      height: 2rem;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    @media (max-width: 700px) {
+      header { padding: 0.9rem 1rem; }
+      main   { padding: 1rem; }
+      .chart-row-2, .chart-row-3 { grid-template-columns: 1fr; }
+      .header-title { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <a class="header-brand" href="/">⬡ moogleAPI</a>
+    <span class="header-title">Dashboard</span>
+  </div>
+  <div class="header-right">
+    <span id="last-updated">Loading…</span>
+    <form method="post" action="/signout" style="display:inline">
+      <button class="btn-signout" type="submit">Sign Out</button>
+    </form>
+  </div>
+</header>
+
+<main>
+  <div id="error-banner"></div>
+
+  <!-- Summary cards -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">Total Requests</div>
+      <div class="card-value" id="c-total">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Today</div>
+      <div class="card-value blue" id="c-today">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Errors Today</div>
+      <div class="card-value red" id="c-errors">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Rate-Limited Today</div>
+      <div class="card-value yellow" id="c-ratelimited" style="color:var(--yellow)">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Unique IPs Today</div>
+      <div class="card-value green" id="c-ips">—</div>
+    </div>
+  </div>
+
+  <!-- Requests over time -->
+  <div class="chart-row chart-row-1">
+    <div class="chart-panel">
+      <h2>Requests / Hour — Last 24h</h2>
+      <div class="chart-wrap"><canvas id="chart-timeline"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Status codes + Latency -->
+  <div class="chart-row chart-row-3">
+    <div class="chart-panel">
+      <h2>Top Endpoints — Last 24h</h2>
+      <div class="chart-wrap"><canvas id="chart-endpoints"></canvas></div>
+    </div>
+    <div class="chart-panel">
+      <h2>Status Codes — Last 24h</h2>
+      <div class="chart-wrap" style="display:flex;align-items:center;justify-content:center">
+        <canvas id="chart-status" style="max-height:200px;max-width:200px"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search terms + Latency -->
+  <div class="chart-row chart-row-2">
+    <div class="chart-panel">
+      <h2>Top Search Terms — Last 24h</h2>
+      <div class="chart-wrap"><canvas id="chart-searches"></canvas></div>
+    </div>
+    <div class="chart-panel">
+      <h2>Latency — Last 24h</h2>
+      <div class="latency-grid">
+        <div class="latency-item">
+          <div class="latency-label">Avg</div>
+          <div class="latency-value" id="l-avg">—<span class="latency-unit">ms</span></div>
+        </div>
+        <div class="latency-item">
+          <div class="latency-label">P50</div>
+          <div class="latency-value" id="l-p50">—<span class="latency-unit">ms</span></div>
+        </div>
+        <div class="latency-item">
+          <div class="latency-label">P95</div>
+          <div class="latency-value" id="l-p95">—<span class="latency-unit">ms</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Chart.js global defaults for dark theme
+  Chart.defaults.color         = '#90a4ae';
+  Chart.defaults.borderColor   = '#455a64';
+  Chart.defaults.font.family   = "'Raleway', sans-serif";
+  Chart.defaults.font.size     = 11;
+
+  const BLUE   = 'rgba(66,133,244,0.85)';
+  const BLUE_B = '#4285f4';
+  const GOLD   = 'rgba(255,236,179,0.85)';
+  const RED    = 'rgba(239,154,154,0.85)';
+  const GREEN  = 'rgba(200,230,201,0.85)';
+  const YELLOW = 'rgba(255,245,157,0.85)';
+  const MUTED  = 'rgba(144,164,174,0.5)';
+
+  const STATUS_COLORS = {
+    200: GREEN, 201: GREEN, 204: GREEN,
+    400: YELLOW, 401: YELLOW, 404: YELLOW,
+    429: GOLD,
+    500: RED, 503: RED,
+  };
+  const statusColor = code => STATUS_COLORS[code] ?? MUTED;
+
+  let charts = {};
+
+  function destroyCharts() {
+    Object.values(charts).forEach(c => c.destroy());
+    charts = {};
+  }
+
+  function fmt(n) { return Number(n).toLocaleString(); }
+
+  function renderDashboard(data) {
+    destroyCharts();
+
+    // Cards
+    document.getElementById('c-total').textContent      = fmt(data.summary.totalRequests);
+    document.getElementById('c-today').textContent      = fmt(data.summary.requestsToday);
+    document.getElementById('c-errors').textContent     = fmt(data.summary.errorsToday);
+    document.getElementById('c-ratelimited').textContent = fmt(data.summary.rateLimitedToday);
+    document.getElementById('c-ips').textContent        = fmt(data.summary.uniqueIpsToday);
+
+    // Latency
+    document.getElementById('l-avg').innerHTML = `${data.latency.avgMs}<span class="latency-unit">ms</span>`;
+    document.getElementById('l-p50').innerHTML = `${data.latency.p50Ms}<span class="latency-unit">ms</span>`;
+    document.getElementById('l-p95').innerHTML = `${data.latency.p95Ms}<span class="latency-unit">ms</span>`;
+
+    // Timeline
+    const tlLabels = data.requestsOverTime.map(h => {
+      const d = new Date(h.hour);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    });
+    charts.timeline = new Chart(document.getElementById('chart-timeline'), {
+      type: 'line',
+      data: {
+        labels: tlLabels,
+        datasets: [{
+          label: 'Requests',
+          data: data.requestsOverTime.map(h => h.count),
+          borderColor: BLUE_B,
+          backgroundColor: 'rgba(66,133,244,0.12)',
+          tension: 0.35,
+          fill: true,
+          pointRadius: 3,
+          pointBackgroundColor: BLUE_B,
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(69,90,100,0.5)' } },
+          y: { grid: { color: 'rgba(69,90,100,0.5)' }, beginAtZero: true, ticks: { precision: 0 } },
+        },
+      },
+    });
+
+    // Status codes donut
+    charts.status = new Chart(document.getElementById('chart-status'), {
+      type: 'doughnut',
+      data: {
+        labels: data.statusCodes.map(s => String(s.statusCode)),
+        datasets: [{
+          data: data.statusCodes.map(s => s.count),
+          backgroundColor: data.statusCodes.map(s => statusColor(s.statusCode)),
+          borderColor: '#37474f',
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } },
+        },
+      },
+    });
+
+    // Top endpoints
+    const epData = data.topEndpoints.slice(0, 8);
+    charts.endpoints = new Chart(document.getElementById('chart-endpoints'), {
+      type: 'bar',
+      data: {
+        labels: epData.map(e => e.path),
+        datasets: [{
+          label: 'Requests',
+          data: epData.map(e => e.count),
+          backgroundColor: BLUE,
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(69,90,100,0.5)' }, beginAtZero: true, ticks: { precision: 0 } },
+          y: { grid: { display: false }, ticks: { font: { family: "'JetBrains Mono', monospace", size: 10 } } },
+        },
+      },
+    });
+
+    // Top search terms
+    const srData = data.topSearchTerms.slice(0, 12);
+    const resourceColors = { characters: BLUE, monsters: RED, games: GOLD };
+    charts.searches = new Chart(document.getElementById('chart-searches'), {
+      type: 'bar',
+      data: {
+        labels: srData.map(s => s.term),
+        datasets: [{
+          label: 'Searches',
+          data: srData.map(s => s.count),
+          backgroundColor: srData.map(s => resourceColors[s.resource] ?? MUTED),
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: ctx => `  resource: ${srData[ctx.dataIndex].resource}`,
+            },
+          },
+        },
+        scales: {
+          x: { grid: { color: 'rgba(69,90,100,0.5)' }, beginAtZero: true, ticks: { precision: 0 } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+
+    document.getElementById('last-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
+  }
+
+  async function loadStats() {
+    const banner = document.getElementById('error-banner');
+    try {
+      const res  = await fetch('/dashboard/api/stats');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      banner.style.display = 'none';
+      renderDashboard(data);
+    } catch (e) {
+      banner.textContent   = `Failed to load stats: ${e.message}`;
+      banner.style.display = 'block';
+    }
+  }
+
+  loadStats();
+  setInterval(loadStats, 2 * 60 * 1000); // refresh every 2 minutes
+</script>
+
+</body>
+</html>

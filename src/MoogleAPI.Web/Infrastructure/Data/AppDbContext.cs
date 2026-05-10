@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<Monster> Monsters => Set<Monster>();
+    public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +39,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany(g => g.Monsters)
              .HasForeignKey(m => m.GameId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RequestLog>(e =>
+        {
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Path).HasMaxLength(500).IsRequired();
+            e.Property(r => r.Method).HasMaxLength(10).IsRequired();
+            e.Property(r => r.ResourceType).HasMaxLength(50);
+            e.Property(r => r.SearchTerm).HasMaxLength(500);
+            e.Property(r => r.IpHash).HasMaxLength(64);
+            e.HasIndex(r => r.Timestamp);
         });
     }
 }
