@@ -437,7 +437,7 @@
   async function loadStats() {
     const banner = document.getElementById('error-banner');
     try {
-      const res  = await fetch('/dashboard/api/stats');
+      const res  = await fetch('/api/dashboard/stats');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       banner.style.display = 'none';
