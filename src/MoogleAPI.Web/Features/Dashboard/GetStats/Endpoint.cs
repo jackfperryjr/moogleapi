@@ -8,7 +8,8 @@ public class Endpoint(AppDbContext db) : EndpointWithoutRequest<DashboardStats>
 {
     public override void Configure()
     {
-        Get("/dashboard/api/stats");
+        // Global RoutePrefix "api" is prepended, so the final URL is /api/dashboard/stats
+        Get("/dashboard/stats");
         Policies("Dashboard");
     }
 
