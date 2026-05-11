@@ -4,6 +4,15 @@
 
 A free, open REST API for Final Fantasy data — characters, monsters, and games across the entire mainline series. Built with modern .NET 10 and designed to stay fast and cheap to run.
 
+<p align="center">
+  <img src="https://github.com/jackfperryjr/moogleapi/actions/workflows/deploy.yml/badge.svg" alt="Build Status" height="20">
+  <img src="https://img.shields.io/github/sponsors/jackfperryjr?style=flat-square&color=ea4aaa" alt="GitHub Sponsors">
+  <img src="https://img.shields.io/badge/.NET-10-512bd4?style=flat-square&logo=dotnet" alt=".NET 10">
+  <img src="https://img.shields.io/badge/FastEndpoints-black?style=flat-square&logo=fastendpoints" alt="FastEndpoints">
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/github/license/jackfperryjr/ale-extension?style=flat-square&color=black" alt="License">
+</p>
+
 ---
 
 ## ✨ Features
@@ -101,60 +110,11 @@ MoogleApi.sln
 └── tests/
     └── MoogleAPI.Tests/
 ```
-
----
-
-## 🏃 Running Locally
-
-### Prerequisites
-
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- A PostgreSQL database ([Neon free tier](https://neon.tech) works great)
-- `dotnet-ef` CLI: `dotnet tool install --global dotnet-ef`
-
-### Setup
-
-```bash
-# 1. Clone
-git clone https://github.com/jackfperryjr/moogleapi.git
-cd moogleapi
-
-# 2. Set your connection string (user secrets keeps it out of git)
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
-  "Host=your-host;Database=neondb;Username=user;Password=pass;SSL Mode=Require;Trust Server Certificate=true" \
-  --project src/MoogleAPI.Web
-
-# 3. Create the schema
-dotnet ef migrations add InitialCreate --project src/MoogleAPI.Web --startup-project src/MoogleAPI.Web
-dotnet ef database update --project src/MoogleAPI.Web --startup-project src/MoogleAPI.Web
-
-# 4. Seed data
-CONNECTION_STRING="your-connection-string" dotnet run --project scripts/MoogleAPI.Scraper
-
-# 5. Run the API
-dotnet run --project src/MoogleAPI.Web
-```
-
-The API starts at `https://localhost:5001`. Landing page at `/`, docs at `/scalar/v1`.
-
 ---
 
 ## 🤖 Data Pipeline
 
 A GitHub Action runs every Sunday at 2 AM UTC and scrapes the [Final Fantasy Wiki](https://finalfantasy.fandom.com) via the MediaWiki API. It upserts characters and monsters per game — no duplicates, no full reloads.
-
-To trigger it manually: **Actions → Scrape Final Fantasy Data → Run workflow**.
-
-To run the scraper locally:
-
-```bash
-# Windows (PowerShell)
-$env:CONNECTION_STRING="Host=..."
-dotnet run --project scripts/MoogleAPI.Scraper
-
-# macOS / Linux
-CONNECTION_STRING="Host=..." dotnet run --project scripts/MoogleAPI.Scraper
-```
 
 ---
 
