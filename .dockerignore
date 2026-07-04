@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.gitignore
+**/*.user
+**/appsettings.Development.json
+README.md
+LICENSE

@@ -3,6 +3,7 @@ using FastEndpoints.Swagger;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MoogleAPI.Web.Infrastructure.Data;
 using MoogleAPI.Web.Infrastructure.Middleware;
@@ -11,6 +12,17 @@ using Scalar.AspNetCore;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Railway (and most PaaS proxies) terminate TLS at the edge and forward plain
+// HTTP to the container with X-Forwarded-* headers. Honor them so the app sees
+// the real https scheme — required for correct OAuth redirect URIs and secure
+// cookies. KnownProxies/Networks are cleared because the proxy hop is internal.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Database
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -77,8 +89,12 @@ builder.Services.AddAuthorizationBuilder()
 
 var app = builder.Build();
 
+// Must run before anything that inspects the request scheme/host.
+app.UseForwardedHeaders();
+
 app.UseRateLimiter();
-app.UseHttpsRedirection();
+// No HTTPS redirection in-container: Railway already enforces HTTPS at the edge
+// and only forwards HTTP internally, so redirecting here would loop/break.
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
