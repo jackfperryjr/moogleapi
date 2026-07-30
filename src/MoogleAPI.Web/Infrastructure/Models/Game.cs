@@ -10,4 +10,5 @@ public class Game
 
     public ICollection<Character> Characters { get; set; } = [];
     public ICollection<Monster> Monsters { get; set; } = [];
+    public ICollection<Card> Cards { get; set; } = [];
 }

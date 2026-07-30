@@ -11,5 +11,7 @@ public record GetCharacterResponse(
     string? Race,
     string? Hometown,
     string? ImageUrl,
-    string GameName
+    string GameName,
+    int ReleaseYear,
+    int Popularity
 );

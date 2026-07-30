@@ -19,7 +19,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetAllChara
 
     public override async Task HandleAsync(GetAllCharactersRequest req, CancellationToken ct)
     {
-        var cacheKey = $"characters:all:game={req.GameId}:page={req.Page}:size={req.PageSize}";
+        var cacheKey = $"characters:all:game={req.GameId}:pop={req.MinPopularity}:img={req.RequireImage}:page={req.Page}:size={req.PageSize}";
 
         var response = await cache.GetOrCreateAsync(
             cacheKey,
@@ -30,12 +30,20 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetAllChara
                 if (req.GameId.HasValue)
                     query = query.Where(c => c.GameId == req.GameId.Value);
 
+                if (req.MinPopularity > 0)
+                    query = query.Where(c => c.Popularity >= req.MinPopularity);
+
+                if (req.RequireImage)
+                    query = query.Where(c => c.ImageUrl != null);
+
                 var total = await query.CountAsync(token);
                 var items = await query
                     .OrderBy(c => c.Name)
                     .Skip((req.Page - 1) * req.PageSize)
                     .Take(req.PageSize)
-                    .Select(c => new CharacterSummary(c.Id, c.Name, c.Role, c.ImageUrl, c.Game.Name))
+                    .Select(c => new CharacterSummary(
+                        c.Id, c.Name, c.Role, c.Affiliation, c.Race, c.Hometown,
+                        c.ImageUrl, c.Game.Name, c.Game.ReleaseYear, c.Popularity))
                     .ToListAsync(token);
 
                 return new GetAllCharactersResponse(items, total, req.Page, req.PageSize);

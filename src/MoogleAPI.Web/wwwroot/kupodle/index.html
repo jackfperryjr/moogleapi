@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kupodle — moogleAPI</title>
+  <meta name="description" content="Guess the daily Final Fantasy character in six tries." />
+  <!-- The wiki CDN hotlink-blocks any request carrying a Referer (404s even for moogleapi.com),
+       so portraits only load if we send none. -->
+  <meta name="referrer" content="no-referrer" />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/games.css" />
+  <style>
+    .combo { position: relative; }
+    .combo-row { display: flex; gap: 0.6rem; }
+    .combo-row input { flex: 1; }
+
+    .suggestions {
+      position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); max-height: 300px; overflow-y: auto;
+      list-style: none; box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+    .suggestions:empty, .suggestions[hidden] { display: none; }
+    .suggestions li {
+      display: flex; align-items: center; gap: 0.7rem;
+      padding: 0.5rem 0.75rem; cursor: pointer;
+    }
+    .suggestions li[aria-selected="true"], .suggestions li:hover { background: var(--surface-2); }
+    .suggestions img {
+      width: 34px; height: 42px; object-fit: cover; object-position: center 12%;
+      border-radius: 4px; flex-shrink: 0;
+    }
+    .suggestions .sg { color: var(--muted); font-size: 0.8rem; margin-left: auto; }
+
+    .guesses { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem; }
+    .guess {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.75rem;
+    }
+    .guess-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+    .guess-head img {
+      width: 52px; height: 66px; object-fit: cover; object-position: center 12%;
+      border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0;
+    }
+    .guess-name { font-family: 'Josefin Sans', sans-serif; font-weight: 600; font-size: 1.05rem; }
+    .guess-no { margin-left: auto; color: var(--muted); font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; }
+
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; }
+    .tile {
+      border-radius: 6px; padding: 0.45rem 0.6rem;
+      border: 1px solid transparent; min-width: 0;
+    }
+    .tile .k {
+      font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+      opacity: 0.75; display: block;
+    }
+    /* Some roles are genuinely long ("Commodore of the Third Army Corps 87th Airborne Unit").
+       Clamp to three lines so one verbose attribute can't stretch the whole row; the full
+       text stays available via the tile's title/aria-label. */
+    .tile .v {
+      font-size: 0.85rem; font-weight: 600;
+      overflow-wrap: anywhere;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tile.hit  { background: var(--hit);  color: var(--hit-text);  border-color: #3d9e6b; }
+    .tile.miss { background: var(--miss); color: var(--miss-text); border-color: #6b3d47; }
+    .tile.near { background: var(--near); color: var(--near-text); border-color: #b8912c; }
+
+    .result {
+      margin-top: 1.5rem; padding: 1.25rem; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--surface); text-align: center;
+    }
+    .result h2 { font-family: 'Josefin Sans', sans-serif; color: var(--gold); margin-bottom: 0.5rem; }
+    .result img {
+      width: 132px; height: 176px; object-fit: cover; object-position: center 12%;
+      border-radius: 8px; border: 2px solid var(--border);
+      margin: 0.75rem auto; display: block;
+    }
+    .result .actions { display: flex; gap: 0.6rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+    .share-grid {
+      font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;
+      line-height: 1.35; margin: 0.75rem 0; letter-spacing: 0.1em;
+      overflow-x: auto;
+    }
+
+    .footnote {
+      text-align: center; font-size: 0.78rem; color: var(--muted);
+      margin-top: 0.85rem; line-height: 1.5;
+    }
+    .footnote strong { color: var(--gold); font-weight: 600; }
+    .footnote:empty { display: none; }
+
+    @media (max-width: 560px) {
+      /* Two tiles per row keeps the attribute values readable rather than truncating
+         long hometowns and affiliations to a few characters. */
+      .tiles { grid-template-columns: repeat(2, 1fr); gap: 0.35rem; }
+      .tile { padding: 0.35rem 0.45rem; }
+      .tile .v { font-size: 0.78rem; }
+      .guess { padding: 0.6rem; }
+      .guess-head img { width: 44px; height: 56px; }
+      .guess-name { font-size: 0.95rem; }
+      .share-grid { font-size: 0.95rem; }
+      .result img { width: 112px; height: 150px; }
+      .suggestions img { width: 30px; height: 38px; }
+      /* The game name has to stay: several characters share a name across titles, and it's
+         the only thing distinguishing them in the list. */
+      .suggestions li { gap: 0.45rem; padding: 0.5rem 0.6rem; }
+      .suggestions .sg { font-size: 0.68rem; flex-shrink: 0; max-width: 42%; overflow: hidden;
+                         text-overflow: ellipsis; white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-brand" href="/">moogleAPI</a>
+    <div class="nav-links">
+      <a href="/kupodle" aria-current="page">Kupodle</a>
+      <a href="/triple-triad">Triple Triad</a>
+      <a href="/guess-who">Guess Who</a>
+      <a href="/scalar/v1">API Docs</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <h1 class="page-title">Kupodle</h1>
+    <p class="page-sub">
+      Guess the daily Final Fantasy character in six tries.
+      Every attribute you match lights up — <strong>↑</strong> and <strong>↓</strong> point toward the answer's release year.
+    </p>
+
+    <div id="boot" class="loading">Loading today's puzzle…</div>
+
+    <section id="game" hidden>
+      <div class="panel combo">
+        <label class="visually-hidden" for="guess-input">Character name</label>
+        <div class="combo-row">
+          <input id="guess-input" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Name a character…" role="combobox"
+                 aria-expanded="false" aria-controls="suggestions" aria-autocomplete="list" />
+          <button id="submit" class="btn" disabled>Guess</button>
+        </div>
+        <ul id="suggestions" class="suggestions" role="listbox" aria-label="Character suggestions" hidden></ul>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <div id="guesses" class="guesses"></div>
+      <div id="result" class="result" hidden></div>
+
+      <p class="stats-label">Your record</p>
+      <div id="stats" class="stats"></div>
+
+      <p id="countdown" class="footnote"></p>
+      <p id="yesterday" class="footnote"></p>
+    </section>
+  </main>
+
+  <script src="/assets/stats.js"></script>
+  <script src="/kupodle/game.js"></script>
+</body>
+</html>
