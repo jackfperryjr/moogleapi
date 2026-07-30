@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
 using MoogleAPI.Web.Infrastructure.Data;
 using MoogleAPI.Web.Infrastructure.Middleware;
+using MoogleAPI.Web.Infrastructure.Puzzles;
 using MoogleAPI.Web.Infrastructure.RateLimiting;
 using Scalar.AspNetCore;
 using System.Security.Claims;
@@ -40,6 +41,17 @@ builder.Services.AddHybridCache(options =>
 
 // Partitioned rate limiting: 60 req/min anonymous, 600 req/min with X-Api-Key
 builder.Services.AddApiRateLimiting();
+
+// Daily puzzle seeding. Validated at startup rather than on first request: an empty secret
+// still yields a deterministic seed, so booting without one would silently ship a puzzle
+// whose future answers anyone can compute.
+builder.Services.AddOptions<DailyPuzzleOptions>()
+    .Bind(builder.Configuration.GetSection(DailyPuzzleOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Secret),
+        "DailyPuzzle:Secret is required. Set DailyPuzzle__Secret (env var) or use user-secrets.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<DailyPuzzle>();
+builder.Services.AddScoped<DailyCharacterSelector>();
 
 // Google OAuth — credentials from user-secrets (dev) or env vars (prod):
 //   Authentication__Google__ClientId / Authentication__Google__ClientSecret

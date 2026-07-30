@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Character> Characters => Set<Character>();
     public DbSet<Monster> Monsters => Set<Monster>();
+    public DbSet<Card> Cards => Set<Card>();
     public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -24,8 +25,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(c => c.Id);
             e.Property(c => c.Name).HasMaxLength(200).IsRequired();
             e.HasIndex(c => new { c.Name, c.GameId }).IsUnique();
+            // Games filter on Popularity to skip obscure NPCs, then pick by offset.
+            e.HasIndex(c => c.Popularity);
             e.HasOne(c => c.Game)
              .WithMany(g => g.Characters)
+             .HasForeignKey(c => c.GameId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Card>(e =>
+        {
+            e.HasKey(c => c.Id);
+            e.Property(c => c.Name).HasMaxLength(200).IsRequired();
+            e.Property(c => c.Element).HasMaxLength(50);
+            e.Property(c => c.CardClass).HasMaxLength(50);
+            e.HasIndex(c => new { c.Name, c.GameId }).IsUnique();
+            e.HasOne(c => c.Game)
+             .WithMany(g => g.Cards)
              .HasForeignKey(c => c.GameId)
              .OnDelete(DeleteBehavior.Cascade);
         });

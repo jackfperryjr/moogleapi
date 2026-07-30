@@ -13,6 +13,20 @@ public record CharacterDetails(
     string? Hometown
 );
 
+/// <summary>Raw notability signals for a wiki page.</summary>
+public record PageSignals(int PageLength, int Backlinks);
+
+/// <summary>A Triple Triad card parsed from its wiki article.</summary>
+public record CardDetails(
+    int Top,
+    int Left,
+    int Right,
+    int Bottom,
+    string? Element,
+    int Level,
+    string? CardClass
+);
+
 public class WikiClient(HttpClient http)
 {
     private const string BaseUrl = "https://finalfantasy.fandom.com/api.php";
@@ -97,6 +111,136 @@ public class WikiClient(HttpClient http)
 
         await Task.Delay(150, ct);
         return new CharacterDetails(imageUrl, description, role, affiliation, race, hometown);
+    }
+
+    // Fandom lacks the PageViewInfo extension that Wikimedia wikis expose, so notability
+    // is inferred from article size and how many other articles link here. Both discriminate
+    // sharply: marquee characters run 100k+ bytes with 500+ backlinks, walk-on NPCs ~40 and 0.
+    public async Task<PageSignals?> GetPageSignalsAsync(string title, CancellationToken ct = default)
+    {
+        var url = $"{BaseUrl}?action=query&titles={Uri.EscapeDataString(title)}&prop=info|linkshere&lhlimit=500&lhnamespace=0&format=json";
+        var response = await GetJsonWithRetryAsync<WikiDetailsResponse>(url, ct);
+        var page = response?.Query?.Pages?.Values.FirstOrDefault();
+
+        await Task.Delay(150, ct);
+        if (page is null) return null;
+
+        return new PageSignals(page.Length ?? 0, page.LinksHere?.Count ?? 0);
+    }
+
+    // Full wikitext of a page, all sections.
+    public async Task<string?> GetRawPageAsync(string title, CancellationToken ct = default)
+    {
+        var url = $"{BaseUrl}?action=query&titles={Uri.EscapeDataString(title)}&prop=revisions&rvprop=content&rvslots=main&format=json";
+        var response = await GetJsonWithRetryAsync<WikiDetailsResponse>(url, ct);
+        await Task.Delay(150, ct);
+        return response?.Query?.Pages?.Values.FirstOrDefault()?.Revisions?.FirstOrDefault()?.Content;
+    }
+
+    // Reads the {{LA|Page title|Display}} entries off a "<Game> Triple Triad cards" list page.
+    public static List<(string Title, string Name)> ParseCardList(string wikitext)
+    {
+        return LinkedArticle.Matches(wikitext)
+            .Select(m => (Title: m.Groups[1].Value.Trim(), Name: m.Groups[2].Value.Trim()))
+            .Where(x => x.Title.Length > 0 && x.Name.Length > 0)
+            .GroupBy(x => x.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    // Parses one card article's infobox: |stats=top<br/>left right<br/>bottom, |element=, |type=
+    public async Task<CardDetails?> GetCardDetailsAsync(string title, CancellationToken ct = default)
+    {
+        var url = $"{BaseUrl}?action=query&titles={Uri.EscapeDataString(title)}&prop=revisions&rvprop=content&rvslots=main&rvsection=0&format=json";
+        var response = await GetJsonWithRetryAsync<WikiDetailsResponse>(url, ct);
+        var wikitext = response?.Query?.Pages?.Values.FirstOrDefault()?.Revisions?.FirstOrDefault()?.Content;
+
+        await Task.Delay(150, ct);
+        return wikitext is null ? null : ParseCard(wikitext);
+    }
+
+    /// <summary>
+    /// Reads a card's corner values, element, level, and class out of its infobox.
+    /// Returns null when the stats field is absent or malformed.
+    /// </summary>
+    public static CardDetails? ParseCard(string wikitext)
+    {
+        var statsRaw = RawInfoboxField(wikitext, "stats");
+        if (statsRaw is null) return null;
+
+        // "A<br/>9 4<br/>6" → 10, 9, 4, 6. Drop <ref> footnotes first so their
+        // digits don't get read as corner values.
+        statsRaw = Regex.Replace(statsRaw, @"<ref\b[^>]*/?>.*?</ref>", " ", RegexOptions.Singleline);
+        statsRaw = Regex.Replace(statsRaw, @"<[^>]+>", " ");
+
+        var values = CardValue.Matches(statsRaw)
+            .Select(m => m.Value)
+            .Select(v => v == "A" ? 10 : int.Parse(v))
+            .ToList();
+        if (values.Count != 4) return null;
+
+        var typeRaw = RawInfoboxField(wikitext, "type") ?? "";
+        var levelMatch = Regex.Match(typeRaw, @"Level\s+(\d+)", RegexOptions.IgnoreCase);
+        var classMatch = Regex.Match(typeRaw, @"\b(Monster|Boss|GF|Player)\s+Card\b", RegexOptions.IgnoreCase);
+
+        var element = ParseInfoboxField(wikitext, "element");
+        if (element is not null && element.Equals("None", StringComparison.OrdinalIgnoreCase))
+            element = null;
+
+        return new CardDetails(
+            Top:       values[0],
+            Left:      values[1],
+            Right:     values[2],
+            Bottom:    values[3],
+            Element:   element,
+            Level:     levelMatch.Success ? int.Parse(levelMatch.Groups[1].Value) : 0,
+            CardClass: classMatch.Success ? classMatch.Groups[1].Value : null
+        );
+    }
+
+    // Resolves "TTGeezard.png" → a full CDN URL. Batched: up to 50 titles per request.
+    public async Task<Dictionary<string, string>> ResolveImageUrlsAsync(
+        IEnumerable<string> fileNames, CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var batch in fileNames.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(50))
+        {
+            var titles = string.Join("|", batch.Select(f => "File:" + f));
+            var url = $"{BaseUrl}?action=query&titles={Uri.EscapeDataString(titles)}&prop=imageinfo&iiprop=url&format=json";
+            var response = await GetJsonWithRetryAsync<WikiDetailsResponse>(url, ct);
+
+            var pages = response?.Query?.Pages?.Values.ToList() ?? [];
+            foreach (var page in pages)
+            {
+                var src = page.ImageInfo?.FirstOrDefault()?.Url;
+                if (src is null) continue;
+
+                var name = page.Title.StartsWith("File:", StringComparison.OrdinalIgnoreCase)
+                    ? page.Title["File:".Length..]
+                    : page.Title;
+                result[name] = src;
+            }
+
+            await Task.Delay(150, ct);
+        }
+
+        return result;
+    }
+
+    private static readonly Regex LinkedArticle =
+        new(@"\{\{LA\|([^|}]+)\|([^|}]+)\}\}", RegexOptions.Compiled);
+
+    private static readonly Regex CardValue =
+        new(@"\b(?:10|[1-9]|A)\b", RegexOptions.Compiled);
+
+    // Infobox value with markup left intact — callers that need the raw form (stats, type).
+    private static string? RawInfoboxField(string wikitext, string fieldName)
+    {
+        var match = Regex.Match(wikitext,
+            $@"^\|\s*{Regex.Escape(fieldName)}\s*=\s*(.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        return match.Success ? match.Groups[1].Value.Trim() : null;
     }
 
     // Retries on 5xx / 429 with exponential backoff.
@@ -185,7 +329,7 @@ public class WikiClient(HttpClient http)
         return string.IsNullOrWhiteSpace(intro) ? null : intro;
     }
 
-    private static string? ParseInfoboxField(string wikitext, string fieldName)
+    internal static string? ParseInfoboxField(string wikitext, string fieldName)
     {
         // Capture full line so wikilinks like [[Foo|Bar]] aren't truncated at the |.
         var match = Regex.Match(wikitext,
@@ -203,6 +347,11 @@ public class WikiClient(HttpClient http)
             value = Regex.Replace(value, @"\{\{[^{}]*\}\}", "");
         value = value.Replace("{{", "").Replace("}}", "");
 
+        // Drop [[File:…]] / [[Image:…]] embeds outright — they render as icons, not text, so
+        // unwrapping them below would leave the filename sitting in the value ("Fire" becomes
+        // "File:Tripletriad-fire.png Fire").
+        value = Regex.Replace(value, @"\[\[\s*(?:File|Image)\s*:[^\]]*\]\]", " ", RegexOptions.IgnoreCase);
+
         // [[Link|Display]] → Display, [[Link]] → Link (including unclosed links cut at EOL)
         value = Regex.Replace(value, @"\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]", "$1");
         value = Regex.Replace(value, @"\[\[(?:[^\]|]+\|)?([^\]|]+)", "$1");
@@ -212,14 +361,26 @@ public class WikiClient(HttpClient http)
         value = Regex.Replace(value, @"\[[^\]]*\]", "");
 
         // Strip leaked field assignments appended on the same infobox line: |fieldname=...
-        value = Regex.Replace(value, @"\s*\|[a-zA-Z_]+\s*=.*", "").Trim();
+        // Field names may contain spaces ("|japanese voice actor ="), so the name class has to
+        // admit them — matching only [a-zA-Z_]+ left those assignments in the stored value.
+        value = Regex.Replace(value, @"\s*\|[a-zA-Z_][a-zA-Z_ ]*\s*=.*", "").Trim();
 
         // Strip refs and HTML tags
         value = Regex.Replace(value, @"<ref\b[^>]*/?>.*?</ref>", "", RegexOptions.Singleline);
         value = Regex.Replace(value, @"<ref\b[^>]*/?>", "");
+        // <br> separates multiple values in an infobox field. Dropping it like any other tag
+        // fuses them together ("First Shield of RosariaMarquess of Rosaria"), so it has to
+        // become a real separator before the generic tag strip runs.
+        value = Regex.Replace(value, @"<\s*br\s*/?\s*>", ", ", RegexOptions.IgnoreCase);
         value = Regex.Replace(value, @"<[^>]+>", "");
         // Bold/italic
         value = Regex.Replace(value, @"'{2,}", "");
+        // Collapse gaps left by stripped markup — a double space is the same signature
+        // DataRepair treats as a damaged value.
+        value = Regex.Replace(value, @"\s{2,}", " ");
+        // Tidy separators left by removed segments: ", ," and a dangling leading comma.
+        value = Regex.Replace(value, @"(,\s*){2,}", ", ");
+        value = Regex.Replace(value, @"^\s*,\s*", "");
         // Clean trailing punctuation
         value = Regex.Replace(value, @"\s*[,;]\s*$", "").Trim();
 

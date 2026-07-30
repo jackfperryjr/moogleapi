@@ -18,4 +18,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\scripts\MoogleAPI.Scraper\MoogleAPI.Scraper.csproj" />
+  </ItemGroup>
+
 </Project>
