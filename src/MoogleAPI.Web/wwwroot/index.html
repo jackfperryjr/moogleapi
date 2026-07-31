@@ -304,6 +304,7 @@
       word-break: break-all;
     }
     .try-url-display span { color: var(--accent-2); }
+    .try-url-display .try-hint { color: var(--muted); font-style: italic; }
     .try-result {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -698,6 +699,14 @@
         <option value="characters">Characters — list</option>
         <option value="monsters">Monsters — list</option>
       </select>
+      <select id="try-game" onchange="updateTryUrl()" title="Filter by game">
+        <option value="">All games</option>
+      </select>
+      <select id="try-category" onchange="updateTryUrl()" title="Filter monsters by category">
+        <option value="">Bosses &amp; enemies</option>
+        <option value="Boss">Bosses only</option>
+        <option value="Enemy">Enemies only</option>
+      </select>
       <input id="try-query" type="text" placeholder="Search term, e.g. Cloud" oninput="updateTryUrl()" onkeydown="if(event.key==='Enter')runQuery()" />
       <button class="try-run" id="try-btn" onclick="runQuery()">Run →</button>
     </div>
@@ -775,28 +784,72 @@
 <script>
   const BASE = window.location.origin;
 
+  // Which query parameters each endpoint actually accepts. Anything not listed here is
+  // hidden rather than disabled, so the bar only ever shows controls that affect the call.
+  const SUPPORTS = {
+    'characters/search': { query: true,  game: true,  category: false },
+    'monsters/search':   { query: true,  game: true,  category: true  },
+    'games':             { query: false, game: false, category: false },
+    'characters':        { query: false, game: true,  category: false },
+    'monsters':          { query: false, game: true,  category: true  },
+  };
+
   function buildUrl() {
     const resource = document.getElementById('try-resource').value;
+    const supports = SUPPORTS[resource] ?? { query: false, game: false, category: false };
     const query    = document.getElementById('try-query').value.trim();
-    const isSearch = resource.endsWith('/search');
-    const isList   = resource === 'games' || resource === 'characters' || resource === 'monsters';
+    const gameId   = document.getElementById('try-game').value;
+    const category = document.getElementById('try-category').value;
 
-    let url = `${BASE}/api/${resource}`;
-    if (isSearch && query) url += `?query=${encodeURIComponent(query)}`;
-    return url;
+    const params = new URLSearchParams();
+    if (supports.query && query)       params.set('query', query);
+    if (supports.game && gameId)       params.set('gameId', gameId);
+    if (supports.category && category) params.set('category', category);
+
+    const qs = params.toString();
+    return `${BASE}/api/${resource}${qs ? '?' + qs : ''}`;
   }
 
   function updateTryUrl() {
     const resource = document.getElementById('try-resource').value;
-    const isSearch = resource.endsWith('/search');
+    const supports = SUPPORTS[resource] ?? { query: false, game: false, category: false };
     const input    = document.getElementById('try-query');
 
-    input.disabled    = !isSearch && resource !== 'characters' && resource !== 'monsters';
-    input.placeholder = isSearch ? 'Search term, e.g. Cloud' : '(no query for this endpoint)';
+    input.style.display = supports.query ? '' : 'none';
+    document.getElementById('try-game').style.display     = supports.game ? '' : 'none';
+    document.getElementById('try-category').style.display = supports.category ? '' : 'none';
 
-    const url = buildUrl();
-    document.getElementById('try-url-display').innerHTML =
-      `GET <span>${url}</span>`;
+    // Search needs a term to return anything, so say so before the call is made rather
+    // than leaving an empty result array to be read as "this game has no monsters".
+    input.placeholder = resource.startsWith('monsters')
+      ? 'Search term, e.g. bomb — required'
+      : 'Search term, e.g. Cloud — required';
+
+    const url  = buildUrl();
+    const hint = supports.query && !input.value.trim()
+      ? ' <span class="try-hint">← add a search term, or switch to a list endpoint</span>'
+      : '';
+
+    document.getElementById('try-url-display').innerHTML = `GET <span>${url}</span>${hint}`;
+  }
+
+  // Populated from the API itself, so the ids in the dropdown are always the real ones.
+  async function loadGameOptions() {
+    const select = document.getElementById('try-game');
+    try {
+      const res  = await fetch(`${BASE}/api/games?pageSize=50`, { headers: { Accept: 'application/json' } });
+      const data = await res.json();
+      const games = data?.items ?? data?.Items ?? [];
+
+      for (const g of games) {
+        const option = document.createElement('option');
+        option.value = g.id ?? g.Id;
+        option.textContent = g.name ?? g.Name;
+        select.appendChild(option);
+      }
+    } catch {
+      // Leave the "All games" default in place — the tester still works unfiltered.
+    }
   }
 
   async function runQuery() {
@@ -824,6 +877,7 @@
   }
 
   updateTryUrl();
+  loadGameOptions();
 
   // ── Final Fantasy Easter Egg ──
   let ffFontLoaded = false;
