@@ -50,7 +50,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(m => m.Id);
             e.Property(m => m.Name).HasMaxLength(200).IsRequired();
+            e.Property(m => m.Category).HasMaxLength(50);
+            e.Property(m => m.Weaknesses).HasMaxLength(200);
+            e.Property(m => m.Absorbs).HasMaxLength(200);
             e.HasIndex(m => new { m.Name, m.GameId }).IsUnique();
+            // Same rationale as Characters: games filter out obscure entries, then page in.
+            e.HasIndex(m => m.Popularity);
+            e.HasIndex(m => m.Category);
             e.HasOne(m => m.Game)
              .WithMany(g => g.Monsters)
              .HasForeignKey(m => m.GameId)

@@ -31,7 +31,9 @@ public class Endpoint(AppDbContext db) : Endpoint<SearchMonstersRequest, SearchM
                         (m.Description != null && EF.Functions.ILike(m.Description, $"%{req.Query}%")))
             .OrderBy(m => m.Name)
             .Take(50)
-            .Select(m => new MonsterSearchResult(m.Id, m.Name, m.Category, m.HitPoints, m.Description, m.Game.Name))
+            .Select(m => new MonsterSearchResult(
+                m.Id, m.Name, m.Description, m.Category, m.Location, m.HitPoints, m.Level,
+                m.Weaknesses, m.Absorbs, m.ImageUrl, m.Game.Name, m.Popularity))
             .ToListAsync(ct);
 
         await Send.OkAsync(new SearchMonstersResponse(results), ct);

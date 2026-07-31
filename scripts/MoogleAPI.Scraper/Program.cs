@@ -66,7 +66,7 @@ if (ShouldRun("characters"))
     await scope.ServiceProvider.GetRequiredService<CharacterScraper>().ScrapeAsync(force);
 
 if (ShouldRun("monsters"))
-    await scope.ServiceProvider.GetRequiredService<MonsterScraper>().ScrapeAsync();
+    await scope.ServiceProvider.GetRequiredService<MonsterScraper>().ScrapeAsync(force);
 
 if (ShouldRun("cards"))
     await scope.ServiceProvider.GetRequiredService<CardScraper>().ScrapeAsync(force);

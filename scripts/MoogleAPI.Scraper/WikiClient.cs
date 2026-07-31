@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 using MoogleAPI.Scraper.Models;
 
 namespace MoogleAPI.Scraper;
@@ -16,6 +17,35 @@ public record CharacterDetails(
 /// <summary>Raw notability signals for a wiki page.</summary>
 public record PageSignals(int PageLength, int Backlinks);
 
+/// <summary>
+/// Battle stats read from an enemy article's <c>{{infobox enemy stats ...}}</c>. Every value
+/// is optional — each game's template names its fields differently and older articles list
+/// only a subset.
+/// </summary>
+public record MonsterStats(
+    int? HitPoints,
+    int? MagicPoints,
+    int? Level,
+    int? Experience,
+    int? Gil,
+    string? Weaknesses,
+    string? Absorbs
+)
+{
+    public static readonly MonsterStats Empty = new(null, null, null, null, null, null, null);
+}
+
+/// <summary>Everything one enemy article yields in a single request.</summary>
+public record MonsterDetails(
+    string? ImageUrl,
+    string? ImageFileName,
+    string? Description,
+    string? Location,
+    string? Type,
+    MonsterStats Stats,
+    PageSignals? Signals
+);
+
 /// <summary>A Triple Triad card parsed from its wiki article.</summary>
 public record CardDetails(
     int Top,
@@ -27,7 +57,7 @@ public record CardDetails(
     string? CardClass
 );
 
-public class WikiClient(HttpClient http)
+public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
 {
     private const string BaseUrl = "https://finalfantasy.fandom.com/api.php";
     private const int MaxDepth = 2;
@@ -128,6 +158,65 @@ public class WikiClient(HttpClient http)
         return new PageSignals(page.Length ?? 0, page.LinksHere?.Count ?? 0);
     }
 
+    /// <summary>
+    /// Pages directly in a category, without descending into subcategories. Boss categories
+    /// nest by remake ("Bosses in Final Fantasy VII Remake"), and those entries belong to a
+    /// different game, so the recursive walk used for enemy listings would mislabel them.
+    /// </summary>
+    public async Task<List<string>> GetCategoryPageTitlesAsync(string category, CancellationToken ct = default)
+    {
+        var titles = new List<string>();
+        string? continueToken = null;
+
+        do
+        {
+            var url = $"{BaseUrl}?action=query&list=categorymembers&cmtitle=Category:{Uri.EscapeDataString(category)}&format=json&cmlimit=500&cmtype=page&cmprop=title";
+            if (continueToken is not null)
+                url += $"&cmcontinue={Uri.EscapeDataString(continueToken)}";
+
+            var response = await GetJsonWithRetryAsync<WikiCategoryResponse>(url, ct);
+            titles.AddRange((response?.Query?.CategoryMembers ?? []).Select(m => m.Title));
+
+            continueToken = response?.Continue?.CmContinue;
+            await Task.Delay(150, ct);
+        }
+        while (continueToken is not null);
+
+        return titles;
+    }
+
+    /// <summary>
+    /// One request per enemy: thumbnail, full wikitext (the stats infobox lives in a later
+    /// section, so this can't use rvsection=0), and the notability signals. Bundled because
+    /// the enemy categories run to thousands of pages per game.
+    /// </summary>
+    public async Task<MonsterDetails> GetMonsterDetailsAsync(string title, CancellationToken ct = default)
+    {
+        var url = $"{BaseUrl}?action=query&titles={Uri.EscapeDataString(title)}&prop=pageimages|revisions|info|linkshere&pithumbsize=400&rvprop=content&rvslots=main&lhlimit=500&lhnamespace=0&format=json";
+        var response = await GetJsonWithRetryAsync<WikiDetailsResponse>(url, ct);
+        var page = response?.Query?.Pages?.Values.FirstOrDefault();
+
+        await Task.Delay(150, ct);
+        if (page is null)
+            return new MonsterDetails(null, null, null, null, null, MonsterStats.Empty, null);
+
+        var wikitext = page.Revisions?.FirstOrDefault()?.Content;
+        var signals = new PageSignals(page.Length ?? 0, page.LinksHere?.Count ?? 0);
+
+        if (wikitext is null)
+            return new MonsterDetails(page.Thumbnail?.Source, null, null, null, null, MonsterStats.Empty, signals);
+
+        return new MonsterDetails(
+            ImageUrl:      page.Thumbnail?.Source,
+            ImageFileName: ParseImageFileName(wikitext),
+            Description:   ParseIntroText(wikitext),
+            Location:      ParseInfoboxField(wikitext, "location"),
+            Type:          ParseInfoboxField(wikitext, "type"),
+            Stats:         ParseMonsterStats(wikitext),
+            Signals:       signals
+        );
+    }
+
     // Full wikitext of a page, all sections.
     public async Task<string?> GetRawPageAsync(string title, CancellationToken ct = default)
     {
@@ -198,6 +287,149 @@ public class WikiClient(HttpClient http)
         );
     }
 
+    /// <summary>
+    /// Reads HP/MP/level/EXP/gil and elemental affinities out of an enemy's stats infobox.
+    /// Articles that tabulate several versions or forms of an enemy (FFIV's Easy Type, FFXII's
+    /// level bands, bosses with multiple phases) repeat every field, prefixed with a section
+    /// number; only the first block is read, so the values describe the enemy's first form.
+    /// </summary>
+    public static MonsterStats ParseMonsterStats(string wikitext)
+    {
+        var (weaknesses, absorbs) = ParseElementalAffinities(wikitext);
+
+        return new MonsterStats(
+            HitPoints:   ParseStatNumber(wikitext, "hp", "hp min"),
+            MagicPoints: ParseStatNumber(wikitext, "mp", "mp min"),
+            Level:       ParseStatNumber(wikitext, "level", "lv", "level min"),
+            Experience:  ParseStatNumber(wikitext, "exp", "exp min", "experience"),
+            Gil:         ParseStatNumber(wikitext, "gil"),
+            Weaknesses:  weaknesses,
+            Absorbs:     absorbs
+        );
+    }
+
+    // Stat lines carry a section number ("| 1 hp = 55") or a platform ("| snes hp = 55") when
+    // the article covers more than one version, and the two can stack ("| 1 max hp ="). Anything
+    // else in front of the field name means it's a different stat ("| bribe gil = 17,000" is
+    // what an FFX enemy costs to bribe), so the prefix list stays closed.
+    private const string StatPrefix = @"(?:(?:\d+|snes|nes|ps|psx|psp|gba|ios|android|pc|pr|3d|mobile|max)\s+){0,2}";
+
+    private static int? ParseStatNumber(string wikitext, params string[] fieldNames)
+    {
+        foreach (var field in fieldNames)
+        {
+            var match = Regex.Match(wikitext,
+                $@"^\|\s*{StatPrefix}{Regex.Escape(field)}\s*=\s*([\d,]+)",
+                RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+            if (match.Success && int.TryParse(match.Groups[1].Value.Replace(",", ""), out var value))
+                return value;
+        }
+
+        return null;
+    }
+
+    // Every game names its elements differently, and status ailments share the same field
+    // syntax, so only these field names are read as elemental — "poison" and "darkness" are
+    // deliberately absent because they're statuses in about as many games as they're elements.
+    private static readonly (string Field, string Element)[] ElementFields =
+    [
+        ("fire", "Fire"),
+        ("ice", "Ice"), ("blizzard", "Ice"),
+        ("thunder", "Thunder"), ("lightning", "Thunder"), ("bolt", "Thunder"),
+        ("water", "Water"),
+        ("earth", "Earth"),
+        ("wind", "Wind"), ("air", "Wind"),
+        ("holy", "Holy"), ("pearl", "Holy"), ("light", "Holy"),
+        ("dark", "Dark"), ("shadow", "Dark"),
+        ("gravity", "Gravity"),
+    ];
+
+    /// <summary>
+    /// Buckets the infobox's elemental fields into "takes extra damage" and "heals from".
+    /// Everything else an affinity field can say — Immune, Halve, Nullify, a resistance
+    /// percentage at or below 100 — is not interesting enough to store.
+    /// </summary>
+    internal static (string? Weaknesses, string? Absorbs) ParseElementalAffinities(string wikitext)
+    {
+        var weak = new List<string>();
+        var absorb = new List<string>();
+
+        foreach (var (field, element) in ElementFields)
+        {
+            var match = Regex.Match(wikitext,
+                $@"^\|\s*{StatPrefix}{Regex.Escape(field)}\s*=\s*(.+)$",
+                RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            if (!match.Success) continue;
+
+            var value = match.Groups[1].Value.Trim();
+
+            if (IsWeakness(value) && !weak.Contains(element))
+                weak.Add(element);
+            else if (IsAbsorption(value) && !absorb.Contains(element))
+                absorb.Add(element);
+        }
+
+        return (Join(weak), Join(absorb));
+
+        static string? Join(List<string> elements) =>
+            elements.Count == 0 ? null : string.Join(", ", elements);
+    }
+
+    // Not every game words its affinities: FFXV gives a damage multiplier ("| ice = 300%") and
+    // FFVIII a bare percentage where 100 is neutral, over 100 takes extra damage, and a negative
+    // value heals ("| water = 290", "| fire = -100").
+    private static readonly Regex DamageMultiplier = new(@"^(-?\d+)\s*%?\s*$", RegexOptions.Compiled);
+
+    private static bool IsWeakness(string value) =>
+        value.Contains("weak", StringComparison.OrdinalIgnoreCase) ||
+        DamageTaken(value) > 100;
+
+    private static bool IsAbsorption(string value) =>
+        value.Contains("absorb", StringComparison.OrdinalIgnoreCase) ||
+        value.Contains("drain", StringComparison.OrdinalIgnoreCase) ||
+        DamageTaken(value) < 0;
+
+    private static int? DamageTaken(string value)
+    {
+        var match = DamageMultiplier.Match(value);
+        return match.Success && int.TryParse(match.Groups[1].Value, out var percentage)
+            ? percentage
+            : null;
+    }
+
+    /// <summary>
+    /// The image filename from an infobox, used as a fallback when the page has no
+    /// MediaWiki thumbnail — sprite-era enemies usually put every version in a
+    /// <c>&lt;gallery&gt;</c>, and those don't get picked up as a page image.
+    /// </summary>
+    internal static string? ParseImageFileName(string wikitext)
+    {
+        var match = Regex.Match(wikitext, @"^\|\s*image\s*=\s*(.*)$",
+            RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        if (!match.Success) return null;
+
+        var value = match.Groups[1].Value.Trim();
+
+        // "<gallery>" opens a block whose entries are on the following lines:
+        //   BombFF6.PNG|SNES/PS/GBA/PR
+        if (value.StartsWith("<gallery", StringComparison.OrdinalIgnoreCase))
+        {
+            var rest = wikitext[(match.Index + match.Length)..];
+            var entry = Regex.Match(rest, @"^\s*([^\r\n|<\[\]]+)", RegexOptions.Multiline);
+            value = entry.Success ? entry.Groups[1].Value.Trim() : "";
+        }
+
+        // Unwrap "[[File:Bomb.png|150px]]" down to the bare filename.
+        value = Regex.Replace(value, @"^\[\[\s*(?:File|Image)\s*:\s*", "", RegexOptions.IgnoreCase);
+        value = value.Split('|')[0].Replace("]", "").Trim();
+
+        return ImageFileName.IsMatch(value) ? value : null;
+    }
+
+    private static readonly Regex ImageFileName =
+        new(@"\.(?:png|jpg|jpeg|gif|webp)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Resolves "TTGeezard.png" → a full CDN URL. Batched: up to 50 titles per request.
     public async Task<Dictionary<string, string>> ResolveImageUrlsAsync(
         IEnumerable<string> fileNames, CancellationToken ct = default)
@@ -243,7 +475,13 @@ public class WikiClient(HttpClient http)
         return match.Success ? match.Groups[1].Value.Trim() : null;
     }
 
-    // Retries on 5xx / 429 with exponential backoff.
+    /// <summary>
+    /// Retries on 5xx / 429, then gives up on that one page rather than failing the run.
+    /// A scrape walks tens of thousands of articles over hours: letting a single throttled
+    /// request throw kills the whole job, and the pages it already wrote are the only thing
+    /// that survives. Anything abandoned here is simply refetched by the next run, because
+    /// the row keeps whatever nulls made it a candidate for enrichment.
+    /// </summary>
     private async Task<T?> GetJsonWithRetryAsync<T>(string url, CancellationToken ct)
     {
         for (var attempt = 0; attempt < 4; attempt++)
@@ -252,18 +490,32 @@ public class WikiClient(HttpClient http)
             {
                 return await http.GetFromJsonAsync<T>(url, ct);
             }
-            catch (HttpRequestException ex) when (attempt < 3 && ShouldRetry(ex))
+            catch (HttpRequestException ex) when (ShouldRetry(ex))
             {
-                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt + 1)), ct);
+                if (attempt == 3)
+                {
+                    logger?.LogWarning("Giving up on {Url} after 4 attempts ({Status}).", url, ex.StatusCode);
+                    break;
+                }
+
+                await Task.Delay(BackoffFor(ex, attempt), ct);
             }
         }
+
         return default;
     }
+
+    // Being rate limited means the whole crawl is going too fast, not that one request was
+    // unlucky, so 429 backs off far harder than a transient server error: 10s, 30s, 90s.
+    private static TimeSpan BackoffFor(HttpRequestException ex, int attempt) =>
+        (int?)ex.StatusCode == 429
+            ? TimeSpan.FromSeconds(10 * Math.Pow(3, attempt))
+            : TimeSpan.FromSeconds(Math.Pow(2, attempt + 1));
 
     private static bool ShouldRetry(HttpRequestException ex) =>
         ex.StatusCode is { } code && ((int)code >= 500 || (int)code == 429);
 
-    private static string? ParseIntroText(string wikitext)
+    internal static string? ParseIntroText(string wikitext)
     {
         // Redirect pages have no prose; their section-0 text is just "#REDIRECT [[...]]"
         if (Regex.IsMatch(wikitext, @"^\s*#REDIRECT", RegexOptions.IgnoreCase))
@@ -314,8 +566,14 @@ public class WikiClient(HttpClient http)
         intro = Regex.Replace(intro, @"'{2,}", "");
         // Strip hatnote lines (:prefixed), redirect lines, and bullet lines
         intro = Regex.Replace(intro, @"^[:*#].*$", "", RegexOptions.Multiline);
-        // Collapse whitespace
-        intro = Regex.Replace(intro, @"\n+", " ").Trim();
+        // Collapse whitespace, including the gaps left where markup was removed
+        intro = Regex.Replace(intro, @"\n+", " ");
+        intro = Regex.Replace(intro, @"\s{2,}", " ");
+        // An inline template ahead of the first sentence leaves its trailing punctuation
+        // behind: ". Ruby Dragon, also known as Claret Dragon, is a recurring enemy…"
+        intro = Regex.Replace(intro, @"^[\s.,;:]+", "");
+        // …and stripping one out mid-sentence leaves a space in front of the punctuation.
+        intro = Regex.Replace(intro, @"\s+([,.;:])", "$1").Trim();
 
         if (string.IsNullOrWhiteSpace(intro)) return null;
 

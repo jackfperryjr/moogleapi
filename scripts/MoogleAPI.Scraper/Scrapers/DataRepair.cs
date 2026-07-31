@@ -29,7 +29,152 @@ public class DataRepair(AppDbContext db, ILogger<DataRepair> logger)
     {
         await RepairNamesAsync(ct);
         await ScrubFieldsAsync(ct);
+        await PurgeNonMonsterRowsAsync(ct);
+        await RepairMonsterNamesAsync(ct);
     }
+
+    /// <summary>
+    /// Removes rows that were never monsters. An early scrape swept the enemy categories'
+    /// reference pages into the table alongside the enemies themselves — ability pages
+    /// ("Flare  enemy ability"), enemy-family pages ("Dragon  enemy type"), and per-game
+    /// index pages ("Final Fantasy II enemies") — and it also created a row for every
+    /// redirect in the category, which is most of what the FFXIV and FFXVI categories hold.
+    /// </summary>
+    private async Task PurgeNonMonsterRowsAsync(CancellationToken ct)
+    {
+        var candidates = await db.Monsters
+            .Select(m => new { m.Id, m.Name, m.Description, m.ImageUrl, m.HitPoints, m.WikiPageLength })
+            .ToListAsync(ct);
+
+        var junkNames = candidates.Where(m => IsNotAMonster(m.Name)).Select(m => m.Id).ToHashSet();
+
+        // A redirect fetches successfully but yields nothing, so it can't be told apart by
+        // a failed request — only by the article being tiny and empty of everything we store.
+        var stubs = candidates
+            .Where(m => m.WikiPageLength is > 0 and < StubPageLength
+                        && m.Description is null && m.ImageUrl is null && m.HitPoints is null)
+            .Select(m => m.Id)
+            .ToHashSet();
+
+        var doomed = junkNames.Union(stubs).ToList();
+        if (doomed.Count == 0)
+        {
+            logger.LogInformation("No non-monster rows to purge.");
+            return;
+        }
+
+        logger.LogInformation(
+            "Purging {Total} non-monster rows ({Junk} reference pages, {Stubs} redirect stubs)...",
+            doomed.Count, junkNames.Count, stubs.Count);
+
+        // Chunked: a single IN clause with ten thousand ids risks Npgsql's parameter ceiling.
+        foreach (var batch in doomed.Chunk(1000))
+        {
+            var ids = batch.ToList();
+            var deleted = await db.Monsters.Where(m => ids.Contains(m.Id)).ExecuteDeleteAsync(ct);
+            logger.LogInformation("  purged {Count} rows", deleted);
+        }
+    }
+
+    // A redirect's wikitext is one line; the shortest real enemy articles run several hundred bytes.
+    private const int StubPageLength = 200;
+
+    private static readonly Regex NotAMonster = new(
+        @"^enem(y|ies)$" +
+        @"|\b(enem(y|ies)?\s*\(?\s*(abilit(y|ies)|types?|famil(y|ies)|actions?|formations|stats|data)|enemies|bestiary|list of)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>True for reference and index pages that describe enemies rather than being one.</summary>
+    public static bool IsNotAMonster(string name) => NotAMonster.IsMatch(name);
+
+    /// <summary>
+    /// Repairs monster names damaged the same way character names were: the disambiguating
+    /// parenthetical was stripped out of the middle of the title, leaving its tail stranded
+    /// behind a double space ("Lamia (Final Fantasy IV)" → "Lamia  IV"). Until the name is
+    /// repaired the row matches no wiki article, so no scrape can ever reach it.
+    /// </summary>
+    private async Task RepairMonsterNamesAsync(CancellationToken ct)
+    {
+        var damaged = await db.Monsters
+            .Where(m => m.Name.Contains("  ") || m.Name.Contains("("))
+            .ToListAsync(ct);
+
+        logger.LogInformation("Repairing {Count} damaged monster names...", damaged.Count);
+
+        // Keyed by game so collision checks respect the (Name, GameId) unique index. That
+        // index is case-sensitive in Postgres but the lookup is not, so a game can hold two
+        // rows this dictionary considers the same key — TryAdd keeps the first rather than
+        // throwing, and the loser is left for a later pass.
+        var byGame = new Dictionary<int, Dictionary<string, Monster>>();
+        foreach (var m in await db.Monsters.ToListAsync(ct))
+        {
+            if (!byGame.TryGetValue(m.GameId, out var siblings))
+                byGame[m.GameId] = siblings = new Dictionary<string, Monster>(StringComparer.OrdinalIgnoreCase);
+            siblings.TryAdd(m.Name, m);
+        }
+
+        var removed = 0;
+        var renamed = 0;
+
+        foreach (var monster in damaged)
+        {
+            var oldName  = monster.Name;
+            var repaired = RepairMonsterName(oldName);
+            if (repaired.Length == 0 || repaired.Equals(oldName, StringComparison.Ordinal))
+                continue;
+
+            var siblings = byGame[monster.GameId];
+            siblings.Remove(oldName);
+
+            if (siblings.TryGetValue(repaired, out var incumbent))
+            {
+                // Both rows describe the same monster. Keep whichever is more complete.
+                if (Completeness(monster) > Completeness(incumbent))
+                {
+                    db.Monsters.Remove(incumbent);
+                    monster.Name = repaired;
+                    siblings[repaired] = monster;
+                }
+                else
+                {
+                    db.Monsters.Remove(monster);
+                }
+
+                removed++;
+                continue;
+            }
+
+            monster.Name = repaired;
+            siblings[repaired] = monster;
+            renamed++;
+        }
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Monster names repaired: {Renamed} renamed, {Removed} duplicates merged.", renamed, removed);
+    }
+
+    // An unclosed parenthetical is the same damage seen from the other side: the closing
+    // half of "Borghen (Final Fantasy II boss)" went with the stripped game title.
+    private static readonly Regex UnclosedParenthetical = new(@"\s*\([^)]*$", RegexOptions.Compiled);
+
+    // What's left of a disambiguator once the game title is gone: "Chaos  boss", "Bomb  creature".
+    private static readonly Regex DisambiguatorResidue =
+        new(@"\s{2,}(boss|enemy|creature|ability|type|character|party member)\b.*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>"Lamia  IV" → "Lamia", "Emperor (final boss" → "Emperor". Idempotent.</summary>
+    public static string RepairMonsterName(string name)
+    {
+        name = UnclosedParenthetical.Replace(name, "");
+        name = GameNumeralSuffix.Replace(name, "");
+        name = DisambiguatorResidue.Replace(name, "");
+        return RepeatedWhitespace.Replace(name, " ").Trim();
+    }
+
+    private static int Completeness(Monster m) =>
+        (m.Description is null ? 0 : 1) + (m.ImageUrl is null ? 0 : 1) +
+        (m.Location is null ? 0 : 1) + (m.HitPoints is null ? 0 : 1) +
+        (m.Weaknesses is null ? 0 : 1) + (m.Category is null ? 0 : 1);
 
     private async Task RepairNamesAsync(CancellationToken ct)
     {
@@ -39,12 +184,15 @@ public class DataRepair(AppDbContext db, ILogger<DataRepair> logger)
 
         logger.LogInformation("Repairing {Count} damaged character names...", damaged.Count);
 
-        // Keyed by game so collision checks respect the (Name, GameId) unique index.
-        var byGame = (await db.Characters.ToListAsync(ct))
-            .GroupBy(c => c.GameId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase));
+        // Keyed by game so collision checks respect the (Name, GameId) unique index. See the
+        // monster pass below for why this can't be a plain ToDictionary.
+        var byGame = new Dictionary<int, Dictionary<string, Character>>();
+        foreach (var c in await db.Characters.ToListAsync(ct))
+        {
+            if (!byGame.TryGetValue(c.GameId, out var siblings))
+                byGame[c.GameId] = siblings = new Dictionary<string, Character>(StringComparer.OrdinalIgnoreCase);
+            siblings.TryAdd(c.Name, c);
+        }
 
         var removed = 0;
 

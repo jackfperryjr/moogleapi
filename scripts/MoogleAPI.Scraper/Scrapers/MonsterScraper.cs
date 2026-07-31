@@ -7,6 +7,12 @@ using MoogleAPI.Web.Infrastructure.Models;
 
 namespace MoogleAPI.Scraper.Scrapers;
 
+/// <summary>
+/// Fills a monster row from two sources: the per-game enemy category supplies the roster,
+/// and each enemy article supplies art, encounter location, battle stats, elemental
+/// affinities, and the notability signals. Bosses are told apart by membership of the
+/// game's boss category rather than by anything on the article itself.
+/// </summary>
 public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScraper> logger)
 {
     private static readonly Dictionary<string, string> GameCategories = new()
@@ -29,7 +35,10 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
         ["Final Fantasy XVI"]  = "Enemies in Final Fantasy XVI",
     };
 
-    public async Task ScrapeAsync(CancellationToken ct = default)
+    /// <param name="force">
+    /// Re-fetch and overwrite existing values instead of only filling in what is missing.
+    /// </param>
+    public async Task ScrapeAsync(bool force = false, CancellationToken ct = default)
     {
         var games = await db.Games.ToListAsync(ct);
 
@@ -42,9 +51,7 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
             var members = await wiki.GetCategoryMembersAsync(category, ct);
 
             var candidates = members
-                .Where(m => !m.Title.Contains('/') &&
-                            !m.Title.Contains(" characters", StringComparison.OrdinalIgnoreCase) &&
-                            !m.Title.Contains(" enemies", StringComparison.OrdinalIgnoreCase))
+                .Where(m => !m.Title.Contains('/') && !IsMetaArticle(m.Title))
                 .Select(m => (Member: m, Name: NormalizeName(m.Title)))
                 .Where(x => !string.IsNullOrWhiteSpace(x.Name))
                 .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
@@ -53,39 +60,115 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
 
             logger.LogInformation("  Found {Count} candidates", candidates.Count);
 
-            var existingNames = (await db.Monsters
-                .Where(m => m.GameId == game.Id)
-                .Select(m => m.Name)
-                .ToListAsync(ct))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var bosses = await GetBossNamesAsync(game.Name, ct);
+            logger.LogInformation("  {Count} of them are bosses", bosses.Count);
 
-            // Fetch descriptions for new monsters — 2 concurrent
+            // Pre-load existing monsters; TryAdd handles any duplicate names in the DB.
+            var existing = new Dictionary<string, Monster>(StringComparer.OrdinalIgnoreCase);
+            foreach (var m in await db.Monsters.Where(m => m.GameId == game.Id).ToListAsync(ct))
+                existing.TryAdd(m.Name, m);
+
+            // Fetch articles for new/incomplete monsters — 2 concurrent
             var sem = new SemaphoreSlim(2);
-            var descMap = new ConcurrentDictionary<string, string?>();
+            var detailsMap = new ConcurrentDictionary<string, MonsterDetails>();
 
-            await Task.WhenAll(candidates
-                .Where(item => !existingNames.Contains(item.Name))
-                .Select(async item =>
+            await Task.WhenAll(candidates.Select(async item =>
+            {
+                if (!force && existing.TryGetValue(item.Name, out var m) && !NeedsEnrichment(m))
+                    return;
+
+                await sem.WaitAsync(ct);
+                try
                 {
-                    await sem.WaitAsync(ct);
-                    try
-                    {
-                        descMap[item.Name] = await wiki.GetDescriptionAsync(item.Member.Title, ct);
-                    }
-                    finally { sem.Release(); }
-                }));
+                    detailsMap[item.Name] = await wiki.GetMonsterDetailsAsync(item.Member.Title, ct);
+                }
+                finally { sem.Release(); }
+            }));
 
+            var galleryImages = await ResolveGalleryImagesAsync(detailsMap, ct);
+
+            // Apply results sequentially (DbContext is not thread-safe)
             foreach (var (_, name) in candidates)
             {
-                if (!descMap.TryGetValue(name, out var description)) continue;
+                detailsMap.TryGetValue(name, out var details);
 
-                db.Monsters.Add(new Monster
+                var monsterCategory = bosses.Contains(name) || IsBossType(details?.Type) ? "Boss" : "Enemy";
+                var imageUrl = ResolveImageUrl(details, galleryImages);
+                var stats = details?.Stats ?? MonsterStats.Empty;
+
+                if (!existing.TryGetValue(name, out var monster))
                 {
-                    Name        = name,
-                    Description = description,
-                    GameId      = game.Id
-                });
-                logger.LogInformation("  + {Name}", name);
+                    // A monster only enters the table with an article behind it — otherwise
+                    // the row would be a bare name with no stats, description, or art.
+                    if (details is null || !HasContent(details, stats)) continue;
+
+                    db.Monsters.Add(new Monster
+                    {
+                        Name           = name,
+                        Description    = details.Description,
+                        Category       = monsterCategory,
+                        Location       = details.Location,
+                        ImageUrl       = imageUrl,
+                        HitPoints      = stats.HitPoints,
+                        MagicPoints    = stats.MagicPoints,
+                        Level          = stats.Level,
+                        Experience     = stats.Experience,
+                        Gil            = stats.Gil,
+                        Weaknesses     = stats.Weaknesses,
+                        Absorbs        = stats.Absorbs,
+                        GameId         = game.Id,
+                        WikiPageLength = details.Signals?.PageLength,
+                        WikiBacklinks  = details.Signals?.Backlinks,
+                        Popularity     = CharacterScraper.ScorePopularity(details.Signals)
+                    });
+                    logger.LogInformation("  + {Name}", name);
+                    continue;
+                }
+
+                // Category needs no article fetch, so it is applied even to rows that were
+                // skipped as already complete — that's what backfills it for existing data.
+                if (force || monster.Category is null)
+                    monster.Category = monsterCategory;
+
+                if (details is null) continue;
+
+                if (force)
+                {
+                    // Only overwrite when the fresh parse actually produced something —
+                    // a failed parse shouldn't wipe good existing data.
+                    monster.Description = details.Description ?? monster.Description;
+                    monster.Location    = details.Location    ?? monster.Location;
+                    monster.ImageUrl    = imageUrl            ?? monster.ImageUrl;
+                    monster.HitPoints   = stats.HitPoints     ?? monster.HitPoints;
+                    monster.MagicPoints = stats.MagicPoints   ?? monster.MagicPoints;
+                    monster.Level       = stats.Level         ?? monster.Level;
+                    monster.Experience  = stats.Experience    ?? monster.Experience;
+                    monster.Gil         = stats.Gil           ?? monster.Gil;
+                    monster.Weaknesses  = stats.Weaknesses    ?? monster.Weaknesses;
+                    monster.Absorbs     = stats.Absorbs       ?? monster.Absorbs;
+                    logger.LogInformation("  * refreshed {Name}", name);
+                }
+                else
+                {
+                    monster.Description ??= details.Description;
+                    monster.Location    ??= details.Location;
+                    monster.ImageUrl    ??= imageUrl;
+                    monster.HitPoints   ??= stats.HitPoints;
+                    monster.MagicPoints ??= stats.MagicPoints;
+                    monster.Level       ??= stats.Level;
+                    monster.Experience  ??= stats.Experience;
+                    monster.Gil         ??= stats.Gil;
+                    monster.Weaknesses  ??= stats.Weaknesses;
+                    monster.Absorbs     ??= stats.Absorbs;
+                    logger.LogInformation("  ~ enriched {Name}", name);
+                }
+
+                if (details.Signals is not null)
+                {
+                    monster.WikiPageLength = details.Signals.PageLength;
+                    monster.WikiBacklinks  = details.Signals.Backlinks;
+                    monster.Popularity     = CharacterScraper.ScorePopularity(details.Signals);
+                }
             }
 
             await db.SaveChangesAsync(ct);
@@ -93,6 +176,77 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
 
         logger.LogInformation("Monsters done.");
     }
+
+    // The boss category is a flat sibling of the enemy category: "Bosses in Final Fantasy VI".
+    // Games without one (FFXI and FFXIV don't keep one) simply leave every monster an Enemy.
+    private async Task<HashSet<string>> GetBossNamesAsync(string gameName, CancellationToken ct)
+    {
+        var titles = await wiki.GetCategoryPageTitlesAsync($"Bosses in {gameName}", ct);
+
+        return titles
+            .Where(t => !t.Contains('/'))
+            .Select(NormalizeName)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    // FFV and FFXV label an enemy's kind on the article itself; every other game's "type"
+    // is a creature family ("Giant", "Daemon") and leaves the row an Enemy.
+    private static bool IsBossType(string? type) =>
+        type is not null && type.Equals("Boss", StringComparison.OrdinalIgnoreCase);
+
+    // Sprite-era enemies keep their art in a <gallery>, which MediaWiki doesn't expose as a
+    // page image, so those filenames have to be resolved to CDN URLs in a separate batch.
+    private async Task<Dictionary<string, string>> ResolveGalleryImagesAsync(
+        IReadOnlyDictionary<string, MonsterDetails> details, CancellationToken ct)
+    {
+        var fileNames = details.Values
+            .Where(d => d.ImageUrl is null && d.ImageFileName is not null)
+            .Select(d => d.ImageFileName!)
+            .ToList();
+
+        if (fileNames.Count == 0) return [];
+
+        logger.LogInformation("  Resolving {Count} gallery images", fileNames.Count);
+        return await wiki.ResolveImageUrlsAsync(fileNames, ct);
+    }
+
+    private static string? ResolveImageUrl(MonsterDetails? details, Dictionary<string, string> galleryImages)
+    {
+        if (details?.ImageUrl is not null) return details.ImageUrl;
+        if (details?.ImageFileName is null) return null;
+
+        return galleryImages.TryGetValue(details.ImageFileName, out var url) ? url : null;
+    }
+
+    // Stats are excluded on purpose: plenty of articles genuinely have no stats infobox, and
+    // including them here would re-fetch those pages on every run forever.
+    private static bool NeedsEnrichment(Monster m) =>
+        m.WikiPageLength is null || m.Description is null || m.ImageUrl is null;
+
+    /// <summary>
+    /// The enemy categories also hold the reference pages that describe a game's enemies
+    /// collectively, rather than being an enemy. Those have to be excluded by name: they are
+    /// the longest, most heavily linked articles in the category, so they score a perfect
+    /// notability rating and would sit at the very top of the pool a game draws its answers
+    /// from — "Final Fantasy VII enemy abilities" outranking Gilgamesh.
+    /// </summary>
+    private static readonly Regex MetaArticle = new(
+        @"^enem(y|ies)$" +
+        @"|\b(enem(y|ies)\s+(abilit(y|ies)|actions?|formations|stats|data|types?|famil(y|ies))|enemies|characters|bestiary|list of)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    internal static bool IsMetaArticle(string title) => MetaArticle.IsMatch(title);
+
+    // A redirect fetches successfully and yields a page length, so the only way to tell one
+    // from a real article is that nothing worth storing came out of it. Without this check
+    // the weekly run recreates every stub the repair pass deletes.
+    private static bool HasContent(MonsterDetails details, MonsterStats stats) =>
+        details.Description is not null ||
+        details.Location is not null ||
+        details.ImageUrl is not null ||
+        details.ImageFileName is not null ||
+        stats != MonsterStats.Empty;
 
     private static readonly Regex TrailingParenthetical = new(@"\s*\([^)]*\)\s*$", RegexOptions.Compiled);
 
