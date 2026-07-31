@@ -55,9 +55,16 @@ No API key required. Pass `X-Api-Key: your-key` to get 10× the rate limit.
 |--------|-------|-------------|
 | `GET` | `/api/monsters` | List all monsters (`gameId`, `category`, `minPopularity`, `requireImage`, `page`, `pageSize`) |
 | `GET` | `/api/monsters/{id}` | Get a monster by ID — art, location, HP/MP/level/EXP/gil, elemental weaknesses |
-| `GET` | `/api/monsters/search` | Search by name/description (`query`, `gameId`, `category`) |
+| `GET` | `/api/monsters/search` | Search by name/description (**`query` required**, `gameId`, `category`) |
 
-`category` is `Boss` or `Enemy`.
+`category` is `Boss` or `Enemy`. `gameId` is the numeric id from `/api/games` (1 = Final Fantasy … 16 = Final Fantasy XVI).
+
+Search needs a term — it looks *within* a game rather than listing one:
+
+```http
+GET /api/monsters/search?query=bomb&gameId=4   # Bomb, Bomb King, Gray Bomb, Melt Bomb
+GET /api/monsters?gameId=4                     # every Final Fantasy IV monster instead
+```
 
 ### Games
 
