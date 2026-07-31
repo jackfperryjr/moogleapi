@@ -26,7 +26,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetCharacte
                 .Where(c => c.Id == req.Id)
                 .Select(c => new GetCharacterResponse(
                     c.Id, c.Name, c.Description, c.Role, c.Affiliation,
-                    c.Race, c.Hometown, c.ImageUrl, c.Game.Name, c.Game.ReleaseYear, c.Popularity))
+                    c.Race, c.Hometown, c.Abilities, c.ImageUrl, c.Game.Name, c.Game.ReleaseYear, c.Popularity))
                 .FirstOrDefaultAsync(token),
             cancellationToken: ct
         );

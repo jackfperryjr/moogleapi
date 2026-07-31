@@ -103,6 +103,7 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
                         Race           = details.Race,
                         Hometown       = details.Hometown,
                         ImageUrl       = details.ImageUrl,
+                        Abilities      = details.Abilities,
                         GameId         = game.Id,
                         WikiPageLength = signals?.PageLength,
                         WikiBacklinks  = signals?.Backlinks,
@@ -120,6 +121,7 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
                     ch.Race         = details.Race        ?? ch.Race;
                     ch.Hometown     = details.Hometown    ?? ch.Hometown;
                     ch.ImageUrl     = details.ImageUrl    ?? ch.ImageUrl;
+                    ch.Abilities    = details.Abilities   ?? ch.Abilities;
                     if (signals is not null)
                     {
                         ch.WikiPageLength = signals.PageLength;
@@ -136,6 +138,7 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
                     ch.Race         ??= details.Race;
                     ch.Hometown     ??= details.Hometown;
                     ch.ImageUrl     ??= details.ImageUrl;
+                    ch.Abilities    ??= details.Abilities;
                     if (signals is not null)
                     {
                         ch.WikiPageLength = signals.PageLength;

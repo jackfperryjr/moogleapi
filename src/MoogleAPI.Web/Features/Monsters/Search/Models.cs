@@ -13,6 +13,7 @@ public record MonsterSearchResult(
     int? Level,
     string? Weaknesses,
     string? Absorbs,
+    string? Abilities,
     string? ImageUrl,
     string GameName,
     int Popularity

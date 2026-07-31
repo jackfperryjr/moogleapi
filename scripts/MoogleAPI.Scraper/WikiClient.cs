@@ -11,7 +11,8 @@ public record CharacterDetails(
     string? Role,
     string? Affiliation,
     string? Race,
-    string? Hometown
+    string? Hometown,
+    string? Abilities
 );
 
 /// <summary>Raw notability signals for a wiki page.</summary>
@@ -29,10 +30,20 @@ public record MonsterStats(
     int? Experience,
     int? Gil,
     string? Weaknesses,
-    string? Absorbs
+    string? Absorbs,
+    int? Attack,
+    int? Defense,
+    int? MagicAttack,
+    int? MagicDefense,
+    int? Speed,
+    int? Evasion,
+    string? Abilities,
+    string? Drops,
+    string? Steals
 )
 {
-    public static readonly MonsterStats Empty = new(null, null, null, null, null, null, null);
+    public static readonly MonsterStats Empty =
+        new(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 }
 
 /// <summary>Everything one enemy article yields in a single request.</summary>
@@ -127,7 +138,7 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         var imageUrl = page?.Thumbnail?.Source;
         var wikitext = page?.Revisions?.FirstOrDefault()?.Content;
 
-        string? description = null, role = null, affiliation = null, race = null, hometown = null;
+        string? description = null, role = null, affiliation = null, race = null, hometown = null, abilities = null;
         if (wikitext is not null)
         {
             description = ParseIntroText(wikitext);
@@ -137,10 +148,13 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
             hometown    = ParseInfoboxField(wikitext, "home")
                        ?? ParseInfoboxField(wikitext, "hometown")
                        ?? ParseInfoboxField(wikitext, "birthplace");
+            // A character's signature commands: "Trance/Revert", "Blk Mag, Focus". Games with
+            // several releases list one field per release ("ffviir abilities"), so all are read.
+            abilities   = ParseCharacterFieldList(wikitext, "abilities", "ability", "limit break", "special ability");
         }
 
         await Task.Delay(150, ct);
-        return new CharacterDetails(imageUrl, description, role, affiliation, race, hometown);
+        return new CharacterDetails(imageUrl, description, role, affiliation, race, hometown, abilities);
     }
 
     // Fandom lacks the PageViewInfo extension that Wikimedia wikis expose, so notability
@@ -298,15 +312,89 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         var (weaknesses, absorbs) = ParseElementalAffinities(wikitext);
 
         return new MonsterStats(
-            HitPoints:   ParseStatNumber(wikitext, "hp", "hp min"),
-            MagicPoints: ParseStatNumber(wikitext, "mp", "mp min"),
-            Level:       ParseStatNumber(wikitext, "level", "lv", "level min"),
-            Experience:  ParseStatNumber(wikitext, "exp", "exp min", "experience"),
-            Gil:         ParseStatNumber(wikitext, "gil"),
-            Weaknesses:  weaknesses,
-            Absorbs:     absorbs
+            HitPoints:    ParseStatNumber(wikitext, "hp", "hp min"),
+            MagicPoints:  ParseStatNumber(wikitext, "mp", "mp min"),
+            Level:        ParseStatNumber(wikitext, "level", "lv", "level min"),
+            Experience:   ParseStatNumber(wikitext, "exp", "exp min", "experience"),
+            Gil:          ParseStatNumber(wikitext, "gil"),
+            Weaknesses:   weaknesses,
+            Absorbs:      absorbs,
+            Attack:       ParseStatNumber(wikitext, "attack", "attack power", "strength", "str"),
+            Defense:      ParseStatNumber(wikitext, "defense", "defence"),
+            MagicAttack:  ParseStatNumber(wikitext, "magic", "magic atk", "magick power", "magic power"),
+            MagicDefense: ParseStatNumber(wikitext, "magic defense", "magic def", "magick resist", "magic defence"),
+            Speed:        ParseStatNumber(wikitext, "speed", "agility", "dexterity"),
+            Evasion:      ParseStatNumber(wikitext, "evasion", "evade"),
+            Abilities:    ParseFieldList(wikitext, AbilityFields),
+            Drops:        ParseFieldList(wikitext, DropFields),
+            Steals:       ParseFieldList(wikitext, StealFields)
         );
     }
+
+    // What the enemy does in battle. The FFX pair "weapon abilities" / "armor abilities" is
+    // deliberately absent: those are the abilities the *player* can customize onto gear using
+    // this enemy's drops, not moves the enemy has — and since StatPrefix admits only version
+    // numbers and platforms, "weapon"/"armor" can never sneak in as a prefix either.
+    private static readonly string[] AbilityFields =
+        ["abilities", "special attack", "other abilities", "technicks", "magicks", "attacks"];
+
+    private static readonly string[] DropFields =
+        ["drop 1", "drop 2", "drop", "common drop", "rare drop", "item dropped"];
+
+    private static readonly string[] StealFields =
+        ["steal 1", "steal 2", "steal", "common steal", "rare steal"];
+
+    /// <summary>
+    /// Collects every value across a set of related fields into one comma-separated list.
+    /// Articles repeat these per platform and per version ("snes rage", "gba rage") and
+    /// repeat entries within a single field — FFVII lists Bodyblow three times because the
+    /// enemy's AI rolls it three ways — so values are de-duplicated, case-insensitively,
+    /// in the order the article presents them.
+    /// </summary>
+    internal static string? ParseFieldList(string wikitext, params string[] fieldNames) =>
+        ParseFieldList(wikitext, StatPrefix, fieldNames);
+
+    // Character infoboxes name an ability field per release — "ffviir abilities",
+    // "ffviir2 abilities" — so the closed platform list that guards the enemy stat fields is
+    // too strict here. Character infoboxes have no equivalent of "bribe gil" to guard against.
+    private const string ReleasePrefix = @"(?:[a-z0-9]+\s+){0,2}";
+
+    internal static string? ParseCharacterFieldList(string wikitext, params string[] fieldNames) =>
+        ParseFieldList(wikitext, ReleasePrefix, fieldNames);
+
+    private static string? ParseFieldList(string wikitext, string prefixPattern, string[] fieldNames)
+    {
+        var seen = new List<string>();
+
+        foreach (var field in fieldNames)
+        {
+            foreach (Match match in Regex.Matches(wikitext,
+                         $@"^\|\s*{prefixPattern}{Regex.Escape(field)}\s*=\s*(.+)$",
+                         RegexOptions.IgnoreCase | RegexOptions.Multiline))
+            {
+                var cleaned = CleanFieldValue(match.Groups[1].Value);
+                if (cleaned is null) continue;
+
+                foreach (var entry in cleaned.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    // "Blaze (Level 1 = Attack x 1.5)" keeps its parenthetical; an entry that is
+                    // *only* a note ("None", "N/A") carries nothing worth storing.
+                    if (entry.Length < 2 || IsPlaceholder(entry)) continue;
+                    if (!seen.Contains(entry, StringComparer.OrdinalIgnoreCase))
+                        seen.Add(entry);
+                }
+            }
+        }
+
+        return seen.Count == 0 ? null : string.Join(", ", seen);
+    }
+
+    private static bool IsPlaceholder(string entry) =>
+        entry.Equals("None", StringComparison.OrdinalIgnoreCase) ||
+        entry.Equals("N/A", StringComparison.OrdinalIgnoreCase) ||
+        entry.Equals("Nothing", StringComparison.OrdinalIgnoreCase) ||
+        entry.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+        entry.All(c => !char.IsLetterOrDigit(c));
 
     // Stat lines carry a section number ("| 1 hp = 55") or a platform ("| snes hp = 55") when
     // the article covers more than one version, and the two can stack ("| 1 max hp ="). Anything
@@ -593,9 +681,18 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         var match = Regex.Match(wikitext,
             $@"^\|\s*{Regex.Escape(fieldName)}\s*=\s*(.+)$",
             RegexOptions.IgnoreCase | RegexOptions.Multiline);
-        if (!match.Success) return null;
 
-        var value = match.Groups[1].Value.Trim();
+        return match.Success ? CleanFieldValue(match.Groups[1].Value) : null;
+    }
+
+    /// <summary>
+    /// Strips an infobox value down to plain text: templates, file embeds, wikilinks, refs,
+    /// HTML, and bold/italic markers all go, and a &lt;br&gt; becomes a comma so multi-value
+    /// fields stay readable.
+    /// </summary>
+    private static string? CleanFieldValue(string rawValue)
+    {
+        var value = rawValue.Trim();
 
         // Strip leading list/bullet markers
         value = Regex.Replace(value, @"^[*#:;]+\s*", "");
@@ -621,7 +718,11 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         // Strip leaked field assignments appended on the same infobox line: |fieldname=...
         // Field names may contain spaces ("|japanese voice actor ="), so the name class has to
         // admit them — matching only [a-zA-Z_]+ left those assignments in the stored value.
-        value = Regex.Replace(value, @"\s*\|[a-zA-Z_][a-zA-Z_ ]*\s*=.*", "").Trim();
+        // The space after the pipe is not optional in practice — articles write "| gba drop ="
+        // far more often than "|gba drop =". Without allowing it this rule never fired, and an
+        // FFII enemy's abilities came through as "| gba drop = Wing Sword, Ice Shield": its
+        // equipment drops, presented to a battle as moves.
+        value = Regex.Replace(value, @"\s*\|\s*[a-zA-Z_][a-zA-Z_ ]*\s*=.*", "").Trim();
 
         // Strip refs and HTML tags
         value = Regex.Replace(value, @"<ref\b[^>]*/?>.*?</ref>", "", RegexOptions.Singleline);

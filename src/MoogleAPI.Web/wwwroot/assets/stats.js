@@ -2,7 +2,7 @@
  *
  * Two kinds of streak live here. Kupodle is a daily puzzle, so its streak counts consecutive
  * *days* solved and breaks when a day is skipped — winning twice in one day can't extend it.
- * Triple Triad and Guess Who are replayable, so theirs simply counts consecutive wins.
+ * Triple Triad is replayable, so its streak simply counts consecutive wins.
  */
 window.MoogleStats = (() => {
   'use strict';

@@ -46,7 +46,9 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetAllMonst
                     .Take(req.PageSize)
                     .Select(m => new MonsterSummary(
                         m.Id, m.Name, m.Category, m.Location, m.HitPoints, m.Level,
-                        m.Weaknesses, m.Absorbs, m.ImageUrl, m.Game.Name, m.Game.ReleaseYear, m.Popularity))
+                        m.Attack, m.Defense, m.MagicAttack, m.MagicDefense, m.Speed,
+                        m.Weaknesses, m.Absorbs, m.Abilities,
+                        m.ImageUrl, m.Game.Name, m.Game.ReleaseYear, m.Popularity))
                     .ToListAsync(token);
 
                 return new GetAllMonstersResponse(items, total, req.Page, req.PageSize);

@@ -26,6 +26,7 @@ public record CharacterSummary(
     string? Affiliation,
     string? Race,
     string? Hometown,
+    string? Abilities,
     string? ImageUrl,
     string GameName,
     int ReleaseYear,

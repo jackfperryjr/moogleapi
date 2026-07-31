@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Gauntlet — moogleAPI</title>
+  <meta name="description" content="Take a Final Fantasy monster through a ladder of battles, one game at a time." />
+  <!-- The wiki CDN hotlink-blocks any request carrying a Referer (404s even for moogleapi.com),
+       so monster art only loads if we send none. -->
+  <meta name="referrer" content="no-referrer" />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/games.css" />
+  <style>
+    /* ── Starter select ── */
+    .starter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .starter {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.6rem;
+      cursor: pointer;
+      text-align: center;
+      font-family: 'Raleway', sans-serif;
+      color: var(--text);
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .starter:hover { border-color: var(--accent); transform: translateY(-2px); }
+    /* Portrait 3:4 to match the card art. `contain` rather than `cover` because the library
+       is mid-migration: regenerated art fills this box exactly, while art still awaiting
+       replacement is letterboxed instead of cropped. */
+    .starter img {
+      width: 100%; aspect-ratio: 3 / 4; height: auto; object-fit: contain;
+      border-radius: 6px; margin-bottom: 0.5rem;
+    }
+    .starter-name { font-weight: 600; font-size: 0.92rem; }
+    .starter-games { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* ── Rung header ── */
+    .rung-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    .rung-game { font-family: 'Josefin Sans', sans-serif; font-size: 1.15rem; color: var(--gold); }
+    .battles-block { text-align: right; }
+    .battles-block .fighter-role { margin-bottom: 0.25rem; }
+    .rung-progress { display: flex; gap: 0.35rem; align-items: center; }
+
+    /* ── Retries ──
+       Kept away from the battle pips: side by side they read as one counter, and a player
+       glancing at the corner can't tell which number means what. */
+    .retries-bar {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-top: 0.9rem; padding: 0.5rem 0.75rem;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .retries-label {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+    }
+    .chocobos { display: flex; gap: 0.35rem; align-items: center; }
+    /* The sprite is pixel art, so it has to be scaled without smoothing — the browser's
+       default interpolation turns it into a yellow smudge at this size. */
+    .chocobo { width: 26px; height: 26px; flex: none; image-rendering: pixelated; }
+    /* Spent retries stay in place rather than disappearing, so the cost of the run is legible
+       at a glance. Drained of colour, and never colour alone — the label counts them too. */
+    .chocobo.spent { filter: grayscale(1) brightness(0.75); opacity: 0.45; }
+    .retries-none { font-size: 0.78rem; color: var(--miss-text); }
+    /* Each battle is a pip carrying a glyph, never colour alone. */
+    .pip {
+      width: 1.6rem; height: 1.6rem; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 0.8rem; font-weight: 700;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+    }
+    .pip.won  { background: var(--hit);  color: var(--hit-text);  border-color: transparent; }
+    .pip.lost { background: var(--miss); color: var(--miss-text); border-color: transparent; }
+
+    /* ── Arena ── */
+    .arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.75rem; align-items: start; }
+    .versus { align-self: center; color: var(--muted); font-size: 0.8rem; letter-spacing: 0.1em; }
+
+    .fighter { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem; }
+    .fighter.player   { border-top: 3px solid var(--player); }
+    .fighter.opponent { border-top: 3px solid var(--opponent); }
+    .fighter img { width: 100%; aspect-ratio: 3 / 4; height: auto; object-fit: contain; border-radius: 6px; }
+    .fighter-name { font-weight: 600; margin-top: 0.5rem; font-size: 0.95rem; }
+    .fighter-role { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+    .hp-track { height: 12px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; margin-top: 0.5rem; }
+    .hp-fill { height: 100%; background: var(--hit); transition: width 0.35s ease; }
+    .hp-fill.low { background: var(--near); }
+    .hp-fill.critical { background: var(--opponent); }
+    .hp-text { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--muted); margin-top: 0.25rem; }
+
+    .affinity { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
+    .tag {
+      font-size: 0.64rem; padding: 0.15rem 0.4rem; border-radius: 4px;
+      border: 1px solid var(--border); color: var(--muted); background: var(--surface-2);
+    }
+    .tag.weak   { color: var(--miss-text); border-color: #7a4450; }
+    .tag.absorb { color: var(--hit-text);  border-color: #2e7d52; }
+
+    /* ── Moves ── */
+    .moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; margin-top: 1rem; }
+    .move { text-align: left; padding: 0.6rem 0.75rem; line-height: 1.35; }
+    .move-name { display: block; font-weight: 600; font-size: 0.88rem; }
+    .move-meta { display: block; font-size: 0.68rem; color: var(--accent-2); font-family: 'JetBrains Mono', monospace; }
+    .move-warn { display: block; font-size: 0.66rem; color: var(--near-text); }
+
+    /* ── Log ── */
+    .log {
+      margin-top: 1rem; max-height: 190px; overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.7rem 0.85rem;
+    }
+    .log p { margin-bottom: 0.3rem; color: var(--muted); }
+    .log p.hit  { color: var(--hit-text); }
+    .log p.crit { color: var(--near-text); }
+    .log p.bad  { color: var(--miss-text); }
+
+    .share {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+      white-space: pre-wrap; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 0.85rem; margin: 1rem 0;
+    }
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
+
+    @media (max-width: 640px) {
+      /* Stacked, the two portraits would push the moves off screen, so cap their height and
+         let the aspect ratio give way rather than the layout. */
+      .arena { grid-template-columns: 1fr; }
+      .versus { justify-self: center; }
+      .fighter img { aspect-ratio: auto; height: 150px; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-brand" href="/">moogleAPI</a>
+    <div class="nav-links">
+      <a href="/kupodle">Kupodle</a>
+      <a href="/triple-triad">Triple Triad</a>
+      <a href="/the-gauntlet" aria-current="page">The Gauntlet</a>
+      <a href="/scalar/v1">API Docs</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <h1 class="page-title">The Gauntlet</h1>
+    <p class="page-sub">
+      Pick a monster and fight your way up through the series, one game at a time.
+      Beat <strong>all three</strong> battles — two enemies and a boss — and your monster evolves into that
+      game's version of itself. Lose one and you can spend a retry; you get
+      <strong>three for the whole run</strong>. Battles never cross games, and everyone gets the same ladder each day.
+    </p>
+
+    <div id="boot" class="loading">Loading today's gauntlet…</div>
+    <div id="error" class="error" hidden></div>
+
+    <!-- Starter select -->
+    <section id="select" hidden>
+      <h2 class="stats-label" style="margin-top:0">Choose your monster</h2>
+      <div id="starter-grid" class="starter-grid"></div>
+    </section>
+
+    <!-- Battle -->
+    <section id="battle" hidden>
+      <div class="rung-bar">
+        <div>
+          <div class="rung-game" id="rung-game"></div>
+          <div class="fighter-role" id="rung-count"></div>
+        </div>
+        <div class="battles-block">
+          <div class="fighter-role">Battles</div>
+          <div class="rung-progress" id="rung-progress" aria-label="Battle results this game"></div>
+        </div>
+      </div>
+
+      <div class="arena">
+        <div class="fighter player" id="player-card"></div>
+        <div class="versus">VS</div>
+        <div class="fighter opponent" id="opponent-card"></div>
+      </div>
+
+      <div class="retries-bar">
+        <span class="retries-label">Retries</span>
+        <span class="chocobos" id="retries" role="img"></span>
+      </div>
+
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="moves" id="moves"></div>
+      <div class="row" id="retry-row" hidden>
+        <button class="btn" id="retry-btn"></button>
+        <button class="btn btn-secondary" id="concede-btn">Concede run</button>
+      </div>
+      <div class="log" id="log" aria-label="Battle log"></div>
+    </section>
+
+    <!-- Run over -->
+    <section id="over" hidden>
+      <div class="panel">
+        <h2 class="rung-game" id="over-title"></h2>
+        <p class="page-sub" id="over-sub" style="margin:0.5rem 0 0"></p>
+        <div class="share" id="share"></div>
+        <div class="row">
+          <button class="btn" id="copy-btn">Copy result</button>
+          <button class="btn btn-secondary" id="again-btn">Pick another monster</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/the-gauntlet/game.js"></script>
+</body>
+</html>

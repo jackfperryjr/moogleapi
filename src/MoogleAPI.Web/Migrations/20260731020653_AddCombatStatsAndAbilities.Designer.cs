@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MoogleAPI.Web.Infrastructure.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MoogleAPI.Web.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731020653_AddCombatStatsAndAbilities")]
+    partial class AddCombatStatsAndAbilities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -43,9 +46,6 @@ namespace MoogleAPI.Web.Migrations
 
                     b.Property<int>("GameId")
                         .HasColumnType("integer");
-
-                    b.Property<string>("ImageSourceUrl")
-                        .HasColumnType("text");
 
                     b.Property<string>("ImageUrl")
                         .HasColumnType("text");
@@ -97,16 +97,7 @@ namespace MoogleAPI.Web.Migrations
                     b.Property<int>("GameId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("GeneratedImageUrl")
-                        .HasColumnType("text");
-
                     b.Property<string>("Hometown")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ImageKind")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ImageSourceUrl")
                         .HasColumnType("text");
 
                     b.Property<string>("ImageUrl")
@@ -213,20 +204,11 @@ namespace MoogleAPI.Web.Migrations
                     b.Property<int>("GameId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("GeneratedImageUrl")
-                        .HasColumnType("text");
-
                     b.Property<int?>("Gil")
                         .HasColumnType("integer");
 
                     b.Property<int?>("HitPoints")
                         .HasColumnType("integer");
-
-                    b.Property<string>("ImageKind")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ImageSourceUrl")
-                        .HasColumnType("text");
 
                     b.Property<string>("ImageUrl")
                         .HasColumnType("text");
