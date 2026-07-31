@@ -50,7 +50,7 @@ public class Endpoint(AppDbContext db) : Endpoint<SearchMonstersRequest, SearchM
             .Take(50)
             .Select(m => new MonsterSearchResult(
                 m.Id, m.Name, m.Description, m.Category, m.Location, m.HitPoints, m.Level,
-                m.Weaknesses, m.Absorbs, m.ImageUrl, m.Game.Name, m.Popularity))
+                m.Weaknesses, m.Absorbs, m.Abilities, m.ImageUrl, m.Game.Name, m.Popularity))
             .ToListAsync(ct);
 
         await Send.OkAsync(new SearchMonstersResponse(results), ct);

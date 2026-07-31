@@ -116,6 +116,15 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
                         Gil            = stats.Gil,
                         Weaknesses     = stats.Weaknesses,
                         Absorbs        = stats.Absorbs,
+                        Attack         = stats.Attack,
+                        Defense        = stats.Defense,
+                        MagicAttack    = stats.MagicAttack,
+                        MagicDefense   = stats.MagicDefense,
+                        Speed          = stats.Speed,
+                        Evasion        = stats.Evasion,
+                        Abilities      = stats.Abilities,
+                        Drops          = stats.Drops,
+                        Steals         = stats.Steals,
                         GameId         = game.Id,
                         WikiPageLength = details.Signals?.PageLength,
                         WikiBacklinks  = details.Signals?.Backlinks,
@@ -146,6 +155,15 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
                     monster.Gil         = stats.Gil           ?? monster.Gil;
                     monster.Weaknesses  = stats.Weaknesses    ?? monster.Weaknesses;
                     monster.Absorbs     = stats.Absorbs       ?? monster.Absorbs;
+                    monster.Attack      = stats.Attack        ?? monster.Attack;
+                    monster.Defense     = stats.Defense       ?? monster.Defense;
+                    monster.MagicAttack = stats.MagicAttack   ?? monster.MagicAttack;
+                    monster.MagicDefense = stats.MagicDefense ?? monster.MagicDefense;
+                    monster.Speed       = stats.Speed         ?? monster.Speed;
+                    monster.Evasion     = stats.Evasion       ?? monster.Evasion;
+                    monster.Abilities   = stats.Abilities     ?? monster.Abilities;
+                    monster.Drops       = stats.Drops         ?? monster.Drops;
+                    monster.Steals      = stats.Steals        ?? monster.Steals;
                     logger.LogInformation("  * refreshed {Name}", name);
                 }
                 else
@@ -160,6 +178,15 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
                     monster.Gil         ??= stats.Gil;
                     monster.Weaknesses  ??= stats.Weaknesses;
                     monster.Absorbs     ??= stats.Absorbs;
+                    monster.Attack      ??= stats.Attack;
+                    monster.Defense     ??= stats.Defense;
+                    monster.MagicAttack ??= stats.MagicAttack;
+                    monster.MagicDefense ??= stats.MagicDefense;
+                    monster.Speed       ??= stats.Speed;
+                    monster.Evasion     ??= stats.Evasion;
+                    monster.Abilities   ??= stats.Abilities;
+                    monster.Drops       ??= stats.Drops;
+                    monster.Steals      ??= stats.Steals;
                     logger.LogInformation("  ~ enriched {Name}", name);
                 }
 

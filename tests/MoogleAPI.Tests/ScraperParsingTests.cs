@@ -155,6 +155,35 @@ public class InfoboxFieldTests
         Assert.Equal("Hyur", WikiClient.ParseInfoboxField(infobox, "race"));
     }
 
+    /// <summary>
+    /// Character infoboxes name an ability field per release, so Cloud's commands sit under
+    /// "ffviir abilities" rather than "abilities" — a prefix the enemy stat parser rejects.
+    /// </summary>
+    [Fact]
+    public void ReadsCharacterAbilitiesAcrossReleasePrefixedFields()
+    {
+        const string cloud = """
+            {{infobox character
+            |name=Cloud Strife
+            |ffviir abilities=Operator Mode/Punisher Mode
+            |ffviir2 abilities=Operator Mode/Punisher Mode
+            }}
+            """;
+
+        Assert.Equal("Operator Mode/Punisher Mode",
+            WikiClient.ParseCharacterFieldList(cloud, "abilities", "ability"));
+    }
+
+    [Theory]
+    [InlineData("|abilities=Trance/Revert", "Trance/Revert")]
+    [InlineData("|abilities=Blk Mag, Focus", "Blk Mag, Focus")]
+    [InlineData("|abilities=[[Blue Magic]], [[Steal]]", "Blue Magic, Steal")]
+    public void ParsesCharacterAbilityLists(string line, string expected)
+    {
+        Assert.Equal(expected,
+            WikiClient.ParseCharacterFieldList("{{infobox character\n" + line + "\n}}", "abilities", "ability"));
+    }
+
     [Fact]
     public void UnwrapsWikilinksToTheirDisplayText()
     {
@@ -189,12 +218,21 @@ public class MonsterParsingTests
         | level = 8
         | hp = 160
         | mp = 50
+        | speed = 30
+        | attack = 10
+        | defense = 90
+        | magic = 1
         | magic defense = 150
         | exp = 35
         | gil = 80
         | ice = Weak
         | water = Weak
         | fire = Absorb
+        | snes steal 1 = [[Potion (Final Fantasy VI)|Tonic]]
+        | gba steal 2 = [[Hi-Potion (Final Fantasy VI)|Hi-Potion]]
+        | snes drop 1 = [[Hi-Potion (Final Fantasy VI)|Potion]]
+        | snes special attack = [[Final Fantasy VI enemy abilities#Hit|Hit]]
+        | snes other abilities = [[Final Fantasy VI enemy abilities#Blaze|Blaze]], [[Final Fantasy VI enemy abilities#Self-Destruct|Exploder]]
         | blind = Immune
         | poison status = Immune
         }}
@@ -365,6 +403,101 @@ public class MonsterParsingTests
 
         Assert.Null(stats.Weaknesses);
         Assert.Null(stats.Absorbs);
+    }
+
+    [Fact]
+    public void ReadsCombatStatsUnderEachGameSpelling()
+    {
+        // FFVI says "speed"/"magic defense"; FFVII says "dexterity"/"magic def"/"magic atk".
+        Assert.Equal(10,  WikiClient.ParseMonsterStats(BombVI).Attack);
+        Assert.Equal(90,  WikiClient.ParseMonsterStats(BombVI).Defense);
+        Assert.Equal(150, WikiClient.ParseMonsterStats(BombVI).MagicDefense);
+
+        const string bombVII = """
+            {{infobox enemy stats FFVII
+            | attack = 24
+            | magic atk = 22
+            | defense = 30
+            | magic def = 30
+            | dexterity = 65
+            }}
+            """;
+
+        var stats = WikiClient.ParseMonsterStats(bombVII);
+        Assert.Equal(24, stats.Attack);
+        Assert.Equal(22, stats.MagicAttack);
+        Assert.Equal(30, stats.Defense);
+        Assert.Equal(30, stats.MagicDefense);
+        Assert.Equal(65, stats.Speed);
+    }
+
+    [Fact]
+    public void CollectsAbilitiesAcrossThePlatformVariantsOfTheField()
+    {
+        // FFVI splits an enemy's moves over several platform-prefixed fields.
+        var abilities = WikiClient.ParseMonsterStats(BombVI).Abilities;
+
+        Assert.NotNull(abilities);
+        Assert.Contains("Blaze", abilities);
+        Assert.Contains("Exploder", abilities);
+    }
+
+    /// <summary>
+    /// FFVII lists the same move once per AI slot, so the raw field reads
+    /// "Bodyblow, Bodyblow, Bodyblow, Fireball, Bomb Blast".
+    /// </summary>
+    [Fact]
+    public void DeduplicatesRepeatedAbilities()
+    {
+        const string wikitext = """
+            {{infobox enemy stats FFVII
+            | abilities = ''Bodyblow'', ''Bodyblow'', ''Bodyblow'', [[Fireball]], [[Bomb Blast]]
+            }}
+            """;
+
+        Assert.Equal("Bodyblow, Fireball, Bomb Blast", WikiClient.ParseMonsterStats(wikitext).Abilities);
+    }
+
+    /// <summary>
+    /// In FFX "weapon abilities" and "armor abilities" are what the player can customize onto
+    /// gear using this enemy's drops — not moves the enemy has. Reading them as the enemy's
+    /// abilities would credit the Bomb with Firestrike and Fire Ward.
+    /// </summary>
+    [Fact]
+    public void DoesNotMistakePlayerCustomizationsForEnemyAbilities()
+    {
+        const string bombX = """
+            {{infobox enemy stats FFX
+            | weapon abilities = [[Piercing]], [[Firestrike]], [[Distill Power]]
+            | armor abilities = [[Fire Ward]]
+            | abilities = ''Rush'', [[Fire]], [[Self Destruct]]
+            }}
+            """;
+
+        var abilities = WikiClient.ParseMonsterStats(bombX).Abilities;
+
+        Assert.Equal("Rush, Fire, Self Destruct", abilities);
+        Assert.DoesNotContain("Firestrike", abilities);
+        Assert.DoesNotContain("Fire Ward", abilities);
+    }
+
+    [Fact]
+    public void ReadsDropsAndStealsSeparately()
+    {
+        var stats = WikiClient.ParseMonsterStats(BombVI);
+
+        Assert.Equal("Potion", stats.Drops);
+        Assert.Equal("Tonic, Hi-Potion", stats.Steals);
+    }
+
+    [Theory]
+    [InlineData("| abilities = None")]
+    [InlineData("| abilities = N/A")]
+    [InlineData("| abilities = —")]
+    [InlineData("| abilities = true")]
+    public void IgnoresPlaceholderValues(string line)
+    {
+        Assert.Null(WikiClient.ParseMonsterStats("{{infobox enemy stats\n" + line + "\n}}").Abilities);
     }
 
     [Fact]

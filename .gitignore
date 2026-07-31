@@ -9,6 +9,10 @@ obj/
 ## Environment
 .env
 .env.*
+# Despite the name, env.example holds real credentials here rather than placeholders —
+# the ".env.*" rule above does not match it, so it needs its own line.
+env.example
+env.*
 appsettings.Local.json
 appsettings.*.Local.json
 appsettings.Production.json
@@ -16,3 +20,6 @@ appsettings.Production.json
 ## OS
 .DS_Store
 Thumbs.db
+
+## Local image review (not committed)
+image-pilot/

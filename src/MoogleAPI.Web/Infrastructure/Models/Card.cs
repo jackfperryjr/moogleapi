@@ -23,6 +23,9 @@ public class Card
     public string? CardClass { get; set; }
 
     public string? ImageUrl { get; set; }
+
+    /// <summary>Where <see cref="ImageUrl"/> came from before it was copied to our storage.</summary>
+    public string? ImageSourceUrl { get; set; }
     public int GameId { get; set; }
 
     public Game Game { get; set; } = null!;

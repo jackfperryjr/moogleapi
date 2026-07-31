@@ -42,7 +42,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetAllChara
                     .Skip((req.Page - 1) * req.PageSize)
                     .Take(req.PageSize)
                     .Select(c => new CharacterSummary(
-                        c.Id, c.Name, c.Role, c.Affiliation, c.Race, c.Hometown,
+                        c.Id, c.Name, c.Role, c.Affiliation, c.Race, c.Hometown, c.Abilities,
                         c.ImageUrl, c.Game.Name, c.Game.ReleaseYear, c.Popularity))
                     .ToListAsync(token);
 

@@ -10,6 +10,26 @@ public class Character
     public string? Race { get; set; }
     public string? Hometown { get; set; }
     public string? ImageUrl { get; set; }
+
+    /// <summary>Where <see cref="ImageUrl"/> came from before it was copied to our storage.</summary>
+    public string? ImageSourceUrl { get; set; }
+
+    /// <summary>Replacement artwork in the catalogue's house style, kept alongside the original.</summary>
+    public string? GeneratedImageUrl { get; set; }
+
+    /// <summary>
+    /// What the artwork actually is — cutout, flat, line-art, screenshot, busy-background.
+    /// Recorded so the regeneration pass can select its batch with a query instead of
+    /// re-downloading the whole library to work it out again.
+    /// </summary>
+    public string? ImageKind { get; set; }
+
+    /// <summary>
+    /// Comma-separated signature commands, e.g. "Trance/Revert" or "Blk Mag, Focus" — the
+    /// character's battle identity rather than a full ability list.
+    /// </summary>
+    public string? Abilities { get; set; }
+
     public int GameId { get; set; }
 
     /// <summary>

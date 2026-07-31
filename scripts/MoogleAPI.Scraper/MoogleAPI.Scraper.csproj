@@ -17,6 +17,10 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <!-- Pin to match the Web project and avoid MSB3277 assembly conflicts -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.7" />
+    <!-- Cloudflare R2 speaks the S3 API, so the AWS client drives it unchanged. -->
+    <PackageReference Include="AWSSDK.S3" Version="4.0.101.6" />
+    <!-- Resize and re-encode to WebP on the way in: the wiki's originals run to megabytes. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
 </Project>

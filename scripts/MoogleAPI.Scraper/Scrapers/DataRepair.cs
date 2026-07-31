@@ -25,12 +25,42 @@ public class DataRepair(AppDbContext db, ILogger<DataRepair> logger)
     // Field names may contain spaces ("|japanese voice actor ="), hence the space in the class.
     private static readonly Regex UnparsedInfobox = new(@"\|\s*[a-zA-Z_][a-zA-Z_ ]*\s*=", RegexOptions.Compiled);
 
+    /// <summary>
+    /// Nulls monster text fields that still carry a leaked infobox assignment, so the next
+    /// scrape refetches them. Needed because the parser rule that strips those only matched
+    /// when no space followed the pipe, letting values like "| gba drop = Wing Sword" reach
+    /// the database as an enemy's ability list.
+    /// </summary>
+    private async Task ScrubMonsterFieldsAsync(CancellationToken ct)
+    {
+        var damaged = await db.Monsters
+            .Where(m => m.Abilities != null || m.Drops != null || m.Steals != null || m.Location != null)
+            .ToListAsync(ct);
+
+        var scrubbed = 0;
+        foreach (var m in damaged)
+        {
+            var before = (m.Abilities, m.Drops, m.Steals, m.Location);
+
+            m.Abilities = Clean(m.Abilities);
+            m.Drops     = Clean(m.Drops);
+            m.Steals    = Clean(m.Steals);
+            m.Location  = Clean(m.Location);
+
+            if (before != (m.Abilities, m.Drops, m.Steals, m.Location)) scrubbed++;
+        }
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Scrubbed unparsed infobox fragments from {Count} monsters.", scrubbed);
+    }
+
     public async Task RepairAsync(CancellationToken ct = default)
     {
         await RepairNamesAsync(ct);
         await ScrubFieldsAsync(ct);
         await PurgeNonMonsterRowsAsync(ct);
         await RepairMonsterNamesAsync(ct);
+        await ScrubMonsterFieldsAsync(ct);
     }
 
     /// <summary>

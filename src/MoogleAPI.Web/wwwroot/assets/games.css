@@ -40,6 +40,11 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* The hidden attribute only sets display:none through the UA stylesheet, so any author rule
+   that sets display — .row's flex, for one — silently outranks it and the element stays on
+   screen. Everything here toggles visibility with [hidden], so it has to win. */
+[hidden] { display: none !important; }
+
 body {
   background: var(--bg);
   color: var(--text);

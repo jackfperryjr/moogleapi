@@ -27,7 +27,8 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetMonsterR
                 .Select(m => new GetMonsterResponse(
                     m.Id, m.Name, m.Description, m.Category, m.Location,
                     m.HitPoints, m.MagicPoints, m.Level, m.Experience, m.Gil,
-                    m.Weaknesses, m.Absorbs, m.ImageUrl,
+                    m.Attack, m.Defense, m.MagicAttack, m.MagicDefense, m.Speed, m.Evasion,
+                    m.Weaknesses, m.Absorbs, m.Abilities, m.Drops, m.Steals, m.ImageUrl,
                     m.Game.Name, m.Game.ReleaseYear, m.Popularity))
                 .FirstOrDefaultAsync(token),
             cancellationToken: ct

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
+using MoogleAPI.Web.Infrastructure.Battle;
 using MoogleAPI.Web.Infrastructure.Data;
 using MoogleAPI.Web.Infrastructure.Middleware;
 using MoogleAPI.Web.Infrastructure.Puzzles;
@@ -52,6 +53,7 @@ builder.Services.AddOptions<DailyPuzzleOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<DailyPuzzle>();
 builder.Services.AddScoped<DailyCharacterSelector>();
+builder.Services.AddScoped<GauntletBuilder>();
 
 // Google OAuth — credentials from user-secrets (dev) or env vars (prod):
 //   Authentication__Google__ClientId / Authentication__Google__ClientSecret
