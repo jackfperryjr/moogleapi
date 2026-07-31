@@ -174,6 +174,23 @@ public class ImageStore(ImageStoreOptions options, HttpClient http, ILogger<Imag
     public string PublicUrlFor(string key) => $"{options.PublicBaseUrl}/{key}";
 
     /// <summary>
+    /// Whether an object is already in the bucket. Lets a stage adopt work a previous run
+    /// completed but failed to record — which matters most when the work costs money.
+    /// </summary>
+    public async Task<bool> ExistsAsync(string key, CancellationToken ct)
+    {
+        try
+        {
+            await _s3.GetObjectMetadataAsync(options.Bucket, key, ct);
+            return true;
+        }
+        catch (AmazonS3Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Stores bytes we already hold — generated art, rather than something fetched from a URL.
     /// Returns the public URL, or null when the image cannot be decoded or stored.
     /// </summary>

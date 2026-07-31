@@ -70,6 +70,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         var produced = new System.Collections.Concurrent.ConcurrentBag<(string Folder, int Id, string Url)>();
         var considered = 0;
         var generated = 0;
+        var adopted = 0;
         var sem = new SemaphoreSlim(Concurrency);
 
         await Task.WhenAll(candidates.Select(async candidate =>
@@ -83,6 +84,19 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
                 Interlocked.Increment(ref considered);
 
+                var objectKey = $"gen/{candidate.Folder}/{candidate.Id}.webp";
+
+                // Adopt rather than re-generate. Keys are derived from the row id, so art a
+                // previous run produced is already at its final address — and an interrupted
+                // run that stored images without recording their URLs would otherwise be paid
+                // for twice.
+                if (await store.ExistsAsync(objectKey, ct))
+                {
+                    produced.Add((candidate.Folder, candidate.Id, store.PublicUrlFor(objectKey)));
+                    Interlocked.Increment(ref adopted);
+                    return;
+                }
+
                 // Re-checked inside the gate: several tasks can pass the outer check at once.
                 if (Interlocked.Increment(ref generated) > max) { Interlocked.Decrement(ref generated); return; }
 
@@ -92,7 +106,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 var art = await RequestArtAsync(http, key, candidate, reference, ct);
                 if (art is null) { Interlocked.Decrement(ref generated); return; }
 
-                var url = await store.UploadAsync($"gen/{candidate.Folder}/{candidate.Id}.webp", art, MaxEdge, ct);
+                var url = await store.UploadAsync(objectKey, art, MaxEdge, ct);
                 if (url is null) { Interlocked.Decrement(ref generated); return; }
 
                 produced.Add((candidate.Folder, candidate.Id, url));
@@ -115,7 +129,8 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation(
-            "Generated {Made} images from {Considered} examined. Images done.", produced.Count, considered);
+            "{Made} images recorded from {Considered} examined — {New} newly generated, {Adopted} already in the bucket.",
+            produced.Count, considered, generated, adopted);
     }
 
     /// <summary>
@@ -232,9 +247,19 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             }
 
             using var doc = JsonDocument.Parse(json);
-            var part = doc.RootElement.GetProperty("candidates")[0]
-                .GetProperty("content").GetProperty("parts").EnumerateArray()
-                .FirstOrDefault(p => p.TryGetProperty("inlineData", out _));
+
+            // Every step is probed rather than indexed: a safety block or filtered reply omits
+            // "candidates" entirely, and GetProperty throws KeyNotFoundException on a missing
+            // name. One such response used to abort a batch after all its work was finished.
+            var part = default(JsonElement);
+            if (doc.RootElement.TryGetProperty("candidates", out var candidates)
+                && candidates.ValueKind == JsonValueKind.Array
+                && candidates.GetArrayLength() > 0
+                && candidates[0].TryGetProperty("content", out var content)
+                && content.TryGetProperty("parts", out var parts))
+            {
+                part = parts.EnumerateArray().FirstOrDefault(p => p.TryGetProperty("inlineData", out _));
+            }
 
             if (part.ValueKind == JsonValueKind.Undefined)
             {
