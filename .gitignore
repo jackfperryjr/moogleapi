@@ -9,8 +9,6 @@ obj/
 ## Environment
 .env
 .env.*
-# Despite the name, env.example holds real credentials here rather than placeholders —
-# the ".env.*" rule above does not match it, so it needs its own line.
 env.example
 env.*
 appsettings.Local.json
