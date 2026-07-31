@@ -168,6 +168,297 @@ public class InfoboxFieldTests
     }
 }
 
+/// <summary>
+/// Each game's enemy template names its stat fields differently, so the fixtures here are
+/// verbatim excerpts from one enemy article per template generation.
+/// </summary>
+public class MonsterParsingTests
+{
+    // Final Fantasy VI — plain field names, affinities stated as words.
+    private const string BombVI = """
+        {{infobox enemy
+        | name = Bomb
+        | image = <gallery>
+        BombFF6.PNG|SNES/PS/GBA/PR
+        Bomb-ffvi-ios.png|2014
+        </gallery>
+        |location = [[Phantom Train (Final Fantasy VI)|Phantom Train]]; [[Bomb forest]]
+        }}
+        == Stats ==
+        {{infobox enemy stats FFVI
+        | level = 8
+        | hp = 160
+        | mp = 50
+        | magic defense = 150
+        | exp = 35
+        | gil = 80
+        | ice = Weak
+        | water = Weak
+        | fire = Absorb
+        | blind = Immune
+        | poison status = Immune
+        }}
+        """;
+
+    // Final Fantasy IV — every field is prefixed with the version block it belongs to,
+    // and the article repeats the whole block for the Easy Type release.
+    private const string BombIV = """
+        {{infobox enemy stats FFIV
+        | 1 level = 14
+        | 1 hp = 55
+        | 1 mp = 3
+        | 1 gil = 76
+        | 1 exp = 361
+        | 1 poison = Immune
+        | sec 2 = Easy Type
+        | 2 level = 14
+        | 2 hp = 50
+        }}
+        """;
+
+    // Final Fantasy XII — level bands put the stats in "min"/"max" pairs.
+    private const string BombXII = """
+        {{infobox enemy stats FFXII
+        | 1 level min = 6
+        | 1 hp min = 317
+        | 1 mp min = 300
+        | 1 exp min = 154
+        | 2 hp min = 5,090
+        | gil = 0
+        | 1 fire = Absorb
+        | 1 water = Weak
+        | sleep = Immune
+        }}
+        """;
+
+    // Final Fantasy XV — affinities as damage multipliers, "Absorbs" rather than "Absorb",
+    // and weapon weaknesses sharing the same syntax as the elemental ones.
+    private const string BombXV = """
+        {{infobox enemy stats FFXV
+        | level = 15
+        | hp = 5,600
+        | exp = 17
+        | swords = Weak
+        | daggers = Weak
+        | fire = Absorbs
+        | ice = 300%
+        | light = Weak
+        }}
+        """;
+
+    [Fact]
+    public void ReadsBattleStatsFromPlainFieldNames()
+    {
+        var stats = WikiClient.ParseMonsterStats(BombVI);
+
+        Assert.Equal(160, stats.HitPoints);
+        Assert.Equal(50, stats.MagicPoints);
+        Assert.Equal(8, stats.Level);
+        Assert.Equal(35, stats.Experience);
+        Assert.Equal(80, stats.Gil);
+    }
+
+    [Fact]
+    public void ReadsTheFirstBlockOfVersionPrefixedStats()
+    {
+        var stats = WikiClient.ParseMonsterStats(BombIV);
+
+        Assert.Equal(55, stats.HitPoints);   // not the Easy Type block's 50
+        Assert.Equal(14, stats.Level);
+        Assert.Equal(361, stats.Experience);
+        Assert.Equal(76, stats.Gil);
+    }
+
+    [Fact]
+    public void FallsBackToMinimumValuesForLevelBandedStats()
+    {
+        var stats = WikiClient.ParseMonsterStats(BombXII);
+
+        Assert.Equal(317, stats.HitPoints);
+        Assert.Equal(300, stats.MagicPoints);
+        Assert.Equal(6, stats.Level);
+        Assert.Equal(154, stats.Experience);
+    }
+
+    [Fact]
+    public void ParsesThousandsSeparators()
+    {
+        Assert.Equal(5_600, WikiClient.ParseMonsterStats(BombXV).HitPoints);
+    }
+
+    /// <summary>
+    /// "| 1 bribe gil = 17,000" is what an FFX enemy costs to bribe, not what it drops.
+    /// Only a version number or a platform may sit in front of a stat's field name.
+    /// </summary>
+    [Fact]
+    public void DoesNotMistakeAPrefixedFieldForTheStatItself()
+    {
+        const string bribeOnly = """
+            {{infobox enemy stats FFX
+            | 1 bribe gil = 17,000
+            | 1 max hp = 850
+            }}
+            """;
+
+        Assert.Null(WikiClient.ParseMonsterStats(bribeOnly).Gil);
+        Assert.Equal(850, WikiClient.ParseMonsterStats(bribeOnly).HitPoints);
+    }
+
+    [Fact]
+    public void SortsElementalAffinitiesIntoWeaknessesAndAbsorptions()
+    {
+        var stats = WikiClient.ParseMonsterStats(BombVI);
+
+        Assert.Equal("Ice, Water", stats.Weaknesses);
+        Assert.Equal("Fire", stats.Absorbs);
+    }
+
+    [Fact]
+    public void ReadsAffinitiesStatedAsDamageMultipliers()
+    {
+        var stats = WikiClient.ParseMonsterStats(BombXV);
+
+        // Ice at 300% is a weakness; the sword and dagger fields are not elements at all.
+        Assert.Equal("Ice, Holy", stats.Weaknesses);
+        Assert.Equal("Fire", stats.Absorbs);
+    }
+
+    /// <summary>
+    /// Final Fantasy VIII scales enemy stats off the party's level, so its infobox holds
+    /// formula coefficients instead of HP, and its affinities are bare percentages where 100
+    /// is neutral and a negative value heals.
+    /// </summary>
+    [Fact]
+    public void ReadsAffinitiesStatedAsBarePercentages()
+    {
+        const string cactuarVIII = """
+            {{infobox enemy stats FFVIII
+            | hp a = 0.1
+            | hp b = 2
+            | water = 290
+            | fire = -100
+            | thunder = 100
+            | poison = 20
+            }}
+            """;
+
+        var stats = WikiClient.ParseMonsterStats(cactuarVIII);
+
+        Assert.Null(stats.HitPoints);              // "hp a" is a coefficient, not a stat
+        Assert.Equal("Water", stats.Weaknesses);   // thunder at 100 is neutral
+        Assert.Equal("Fire", stats.Absorbs);
+    }
+
+    [Fact]
+    public void IgnoresStatusAilmentFieldsThatShareTheAffinitySyntax()
+    {
+        const string statusesOnly = """
+            {{infobox enemy stats FFX
+            | 1 silence = 20
+            | 1 darkness = 20
+            | 1 sleep = Immune
+            | poison% = 25
+            }}
+            """;
+
+        var stats = WikiClient.ParseMonsterStats(statusesOnly);
+
+        Assert.Null(stats.Weaknesses);
+        Assert.Null(stats.Absorbs);
+    }
+
+    [Fact]
+    public void ReturnsNoStatsForAnArticleWithoutAStatsInfobox()
+    {
+        var stats = WikiClient.ParseMonsterStats("The '''Bomb''' is an enemy in ''Final Fantasy VI''.");
+
+        Assert.Equal(MonsterStats.Empty, stats);
+    }
+
+    [Fact]
+    public void TakesTheFirstGalleryEntryAsTheImageFile()
+    {
+        Assert.Equal("BombFF6.PNG", WikiClient.ParseImageFileName(BombVI));
+    }
+
+    [Theory]
+    [InlineData("| image = XII bomb render.png", "XII bomb render.png")]
+    [InlineData("| image = [[File:Bomb FFXV.png|200px]]", "Bomb FFXV.png")]
+    [InlineData("| image = Bomb from FFX.png", "Bomb from FFX.png")]
+    public void ReadsTheImageFileNameFromTheInfobox(string line, string expected)
+    {
+        Assert.Equal(expected, WikiClient.ParseImageFileName("{{infobox enemy\n" + line + "\n}}"));
+    }
+
+    [Theory]
+    [InlineData("{{infobox enemy\n| name = Bomb\n}}")]
+    [InlineData("{{infobox enemy\n| image = \n}}")]
+    public void ReturnsNoImageFileNameWhenTheFieldIsMissingOrEmpty(string wikitext)
+    {
+        Assert.Null(WikiClient.ParseImageFileName(wikitext));
+    }
+}
+
+/// <summary>
+/// Found in live data: the enemy categories carry a game's collective reference pages
+/// alongside its actual monsters, and those pages are long and heavily linked enough to
+/// score a perfect 100 — they ranked above every real boss in the scraped table.
+/// </summary>
+public class MetaArticleTests
+{
+    [Theory]
+    [InlineData("Final Fantasy VII enemy abilities")]
+    [InlineData("Final Fantasy XIV enemy actions")]
+    [InlineData("Final Fantasy VI enemy formations")]
+    [InlineData("Final Fantasy X enemy stats")]
+    [InlineData("Final Fantasy XIV enemies")]
+    [InlineData("Final Fantasy VI Bestiary")]
+    [InlineData("List of Final Fantasy XII enemies")]
+    public void ExcludesCollectiveReferencePages(string title)
+    {
+        Assert.True(MonsterScraper.IsMetaArticle(title));
+    }
+
+    [Theory]
+    [InlineData("Gilgamesh (Final Fantasy V)")]
+    [InlineData("Neo Exdeath")]
+    [InlineData("Bomb (Final Fantasy VI)")]
+    [InlineData("Dodore")]
+    [InlineData("Warmech")]
+    [InlineData("Ahriman (Final Fantasy VI)")]
+    public void KeepsRealMonsters(string title)
+    {
+        Assert.False(MonsterScraper.IsMetaArticle(title));
+    }
+}
+
+public class IntroTextTests
+{
+    /// <summary>
+    /// Reproduces a defect seen in live data: the Ruby Dragon article opened with an inline
+    /// template whose trailing period survived the strip, so the stored description read
+    /// ". Ruby Dragon , also known as Claret Dragon, is a recurring enemy…".
+    /// </summary>
+    [Fact]
+    public void DropsPunctuationLeftBehindByStrippedTemplates()
+    {
+        const string article = """
+            {{infobox enemy|name=Ruby Dragon}}
+            {{sic}}. '''Ruby Dragon''' {{J|ルビードラゴン}}, also known as '''Claret Dragon''', is a recurring enemy.
+            """;
+
+        Assert.Equal(
+            "Ruby Dragon, also known as Claret Dragon, is a recurring enemy.",
+            WikiClient.ParseIntroText(article));
+    }
+
+    [Fact]
+    public void ReturnsNullForRedirectPages()
+    {
+        Assert.Null(WikiClient.ParseIntroText("#REDIRECT [[Bomb (creature)]]"));
+    }
+}
+
 public class PopularityScoringTests
 {
     // Observed live values: Cloud Strife 118,566 bytes / 500+ backlinks;
@@ -260,5 +551,82 @@ public class DataRepairTests
     public void KeepsCleanValues(string value, string expected)
     {
         Assert.Equal(expected, DataRepair.Clean(value));
+    }
+}
+
+/// <summary>
+/// The monster table carried the same damage the character table did, plus two variants:
+/// a stranded "boss" disambiguator and a parenthetical whose closing half went missing with
+/// the stripped game title. All fixtures are real names read out of the live database.
+/// </summary>
+public class MonsterRepairTests
+{
+    [Theory]
+    [InlineData("Lamia  IV", "Lamia")]
+    [InlineData("Abyss Worm  II", "Abyss Worm")]
+    [InlineData("Adamantoise  II", "Adamantoise")]
+    [InlineData("Chaos  boss", "Chaos")]
+    [InlineData("Garland  boss", "Garland")]
+    [InlineData("Borghen (boss", "Borghen")]
+    [InlineData("Emperor (final boss", "Emperor")]
+    public void RestoresTheNameTheWikiActuallyUses(string damaged, string expected)
+    {
+        Assert.Equal(expected, DataRepair.RepairMonsterName(damaged));
+    }
+
+    [Theory]
+    [InlineData("Gilgamesh")]
+    [InlineData("Neo Exdeath")]
+    [InlineData("Ruby Weapon")]
+    [InlineData("Magic Pot")]
+    public void LeavesCleanNamesUntouched(string name)
+    {
+        Assert.Equal(name, DataRepair.RepairMonsterName(name));
+    }
+
+    [Fact]
+    public void IsIdempotent()
+    {
+        var once  = DataRepair.RepairMonsterName("Lamia  IV");
+        var twice = DataRepair.RepairMonsterName(once);
+
+        Assert.Equal(once, twice);
+    }
+
+    [Theory]
+    [InlineData("Flare  enemy ability")]
+    [InlineData("Blizzaga  enemy ability")]
+    [InlineData("Healaga (enemy ability")]
+    [InlineData("Dragon  enemy type")]
+    [InlineData("Final Fantasy II enemies")]
+    [InlineData("Final Fantasy VI Bestiary")]
+    // Survivors of the first purge: the plural form, and a row named simply "Enemy".
+    [InlineData("Final Fantasy V enemy types")]
+    [InlineData("Final Fantasy IX enemy types")]
+    [InlineData("Enemy")]
+    [InlineData("enemies")]
+    public void IdentifiesRowsThatWereNeverMonsters(string name)
+    {
+        Assert.True(DataRepair.IsNotAMonster(name));
+    }
+
+    /// <summary>A monster whose name merely starts with "enemy" wording must survive.</summary>
+    [Theory]
+    [InlineData("Enemy Launcher")]
+    [InlineData("Enemy Skill Materia Keeper")]
+    public void KeepsMonstersWhoseNamesBeginWithThatWording(string name)
+    {
+        Assert.False(DataRepair.IsNotAMonster(name));
+    }
+
+    [Theory]
+    [InlineData("Lamia  IV")]
+    [InlineData("Chaos  boss")]
+    [InlineData("Gilgamesh")]
+    [InlineData("Dodore")]
+    [InlineData("Bomb")]
+    public void DoesNotMistakeADamagedMonsterForAReferencePage(string name)
+    {
+        Assert.False(DataRepair.IsNotAMonster(name));
     }
 }

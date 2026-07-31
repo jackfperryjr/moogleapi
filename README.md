@@ -53,9 +53,11 @@ No API key required. Pass `X-Api-Key: your-key` to get 10× the rate limit.
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `GET` | `/api/monsters` | List all monsters (`gameId`, `category`, `page`, `pageSize`) |
-| `GET` | `/api/monsters/{id}` | Get a monster by ID |
+| `GET` | `/api/monsters` | List all monsters (`gameId`, `category`, `minPopularity`, `requireImage`, `page`, `pageSize`) |
+| `GET` | `/api/monsters/{id}` | Get a monster by ID — art, location, HP/MP/level/EXP/gil, elemental weaknesses |
 | `GET` | `/api/monsters/search` | Search by name/description (`query`, `gameId`, `category`) |
+
+`category` is `Boss` or `Enemy`.
 
 ### Games
 

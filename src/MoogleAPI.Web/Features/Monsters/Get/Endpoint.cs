@@ -25,7 +25,10 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetMonsterR
                 .Include(m => m.Game)
                 .Where(m => m.Id == req.Id)
                 .Select(m => new GetMonsterResponse(
-                    m.Id, m.Name, m.Description, m.Category, m.HitPoints, m.Game.Name))
+                    m.Id, m.Name, m.Description, m.Category, m.Location,
+                    m.HitPoints, m.MagicPoints, m.Level, m.Experience, m.Gil,
+                    m.Weaknesses, m.Absorbs, m.ImageUrl,
+                    m.Game.Name, m.Game.ReleaseYear, m.Popularity))
                 .FirstOrDefaultAsync(token),
             cancellationToken: ct
         );
