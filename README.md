@@ -5,12 +5,12 @@
 A free, open REST API for Final Fantasy data — characters, monsters, and games across the entire mainline series. Built with modern .NET 10 and designed to stay fast and cheap to run.
 
 <p align="center">
-  <img src="https://github.com/jackfperryjr/moogleapi/actions/workflows/deploy.yml/badge.svg" alt="Build Status" height="20">
+  <img src="https://github.com/jackfperryjr/moogleapi/actions/workflows/checks.yml/badge.svg" alt="Checks" height="20">
   <img src="https://img.shields.io/github/sponsors/jackfperryjr?style=flat-square&color=ea4aaa" alt="GitHub Sponsors">
   <img src="https://img.shields.io/badge/.NET-10-512bd4?style=flat-square&logo=dotnet" alt=".NET 10">
   <img src="https://img.shields.io/badge/FastEndpoints-black?style=flat-square&logo=fastendpoints" alt="FastEndpoints">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white" />
-  <img src="https://img.shields.io/github/license/jackfperryjr/ale-extension?style=flat-square&color=black" alt="License">
+  <img src="https://img.shields.io/github/license/jackfperryjr/moogleapi?style=flat-square&color=black" alt="License">
 </p>
 
 ---

@@ -43,9 +43,9 @@ public class DataRepair(AppDbContext db, ILogger<DataRepair> logger)
             var before = (m.Abilities, m.Drops, m.Steals, m.Location);
 
             m.Abilities = Clean(m.Abilities);
-            m.Drops     = Clean(m.Drops);
-            m.Steals    = Clean(m.Steals);
-            m.Location  = Clean(m.Location);
+            m.Drops = Clean(m.Drops);
+            m.Steals = Clean(m.Steals);
+            m.Location = Clean(m.Location);
 
             if (before != (m.Abilities, m.Drops, m.Steals, m.Location)) scrubbed++;
         }
@@ -148,7 +148,7 @@ public class DataRepair(AppDbContext db, ILogger<DataRepair> logger)
 
         foreach (var monster in damaged)
         {
-            var oldName  = monster.Name;
+            var oldName = monster.Name;
             var repaired = RepairMonsterName(oldName);
             if (repaired.Length == 0 || repaired.Equals(oldName, StringComparison.Ordinal))
                 continue;
@@ -228,7 +228,7 @@ public class DataRepair(AppDbContext db, ILogger<DataRepair> logger)
 
         foreach (var ch in damaged)
         {
-            var oldName  = ch.Name;
+            var oldName = ch.Name;
             var repaired = RepairName(oldName);
             if (repaired.Length == 0 || repaired.Equals(oldName, StringComparison.Ordinal))
                 continue;
@@ -273,10 +273,10 @@ public class DataRepair(AppDbContext db, ILogger<DataRepair> logger)
         {
             var before = (c.Role, c.Affiliation, c.Race, c.Hometown);
 
-            c.Role        = Clean(c.Role);
+            c.Role = Clean(c.Role);
             c.Affiliation = Clean(c.Affiliation);
-            c.Race        = Clean(c.Race);
-            c.Hometown    = Clean(c.Hometown);
+            c.Race = Clean(c.Race);
+            c.Hometown = Clean(c.Hometown);
 
             if (before != (c.Role, c.Affiliation, c.Race, c.Hometown))
                 scrubbed++;

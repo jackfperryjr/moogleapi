@@ -1,0 +1,42 @@
+name: Checks
+
+# The gate on every PR to main. Before this the only CI here was the weekly scraper,
+# so a PR could only be verified by reading it.
+#
+# Format, build, test. Deliberately NOT path-filtered: this is the required status
+# check for main, and a required check that never runs leaves a docs-only PR pending
+# forever. It has to report on every PR for "all checks passed" to mean anything.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore
+        run: dotnet restore MoogleApi.slnx
+
+      # There is no linter for C# here; `dotnet format` is the closest analog and
+      # covers whitespace, style, and analyzer rules. Needs the restore above.
+      - name: Format
+        run: dotnet format MoogleApi.slnx --verify-no-changes --verbosity minimal
+
+      # Release, matching the Dockerfile's `dotnet publish -c Release`, so a
+      # configuration-specific break shows up here and not at image build time.
+      - name: Build
+        run: dotnet build MoogleApi.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test MoogleApi.slnx --configuration Release --no-build --verbosity normal

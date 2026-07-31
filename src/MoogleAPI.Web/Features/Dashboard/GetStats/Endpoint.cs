@@ -15,9 +15,9 @@ public class Endpoint(AppDbContext db) : EndpointWithoutRequest<DashboardStats>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var now       = DateTime.UtcNow;
-        var todayUtc  = now.Date;
-        var last24h   = now.AddHours(-24);
+        var now = DateTime.UtcNow;
+        var todayUtc = now.Date;
+        var last24h = now.AddHours(-24);
 
         var totalRequests = await db.RequestLogs.LongCountAsync(ct);
 
@@ -39,11 +39,11 @@ public class Endpoint(AppDbContext db) : EndpointWithoutRequest<DashboardStats>
         var today = logs.Where(r => r.Timestamp >= todayUtc).ToList();
 
         var summary = new SummaryStats(
-            TotalRequests:    totalRequests,
-            RequestsToday:    today.Count,
-            ErrorsToday:      today.Count(r => r.StatusCode >= 400),
+            TotalRequests: totalRequests,
+            RequestsToday: today.Count,
+            ErrorsToday: today.Count(r => r.StatusCode >= 400),
             RateLimitedToday: today.Count(r => r.StatusCode == 429),
-            UniqueIpsToday:   today.Where(r => r.IpHash != null).Select(r => r.IpHash).Distinct().Count()
+            UniqueIpsToday: today.Where(r => r.IpHash != null).Select(r => r.IpHash).Distinct().Count()
         );
 
         var requestsOverTime = logs

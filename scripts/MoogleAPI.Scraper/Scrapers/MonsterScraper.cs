@@ -17,22 +17,22 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
 {
     private static readonly Dictionary<string, string> GameCategories = new()
     {
-        ["Final Fantasy"]      = "Enemies in Final Fantasy",
-        ["Final Fantasy II"]   = "Enemies in Final Fantasy II",
-        ["Final Fantasy III"]  = "Enemies in Final Fantasy III",
-        ["Final Fantasy IV"]   = "Enemies in Final Fantasy IV",
-        ["Final Fantasy V"]    = "Enemies in Final Fantasy V",
-        ["Final Fantasy VI"]   = "Enemies in Final Fantasy VI",
-        ["Final Fantasy VII"]  = "Enemies in Final Fantasy VII",
+        ["Final Fantasy"] = "Enemies in Final Fantasy",
+        ["Final Fantasy II"] = "Enemies in Final Fantasy II",
+        ["Final Fantasy III"] = "Enemies in Final Fantasy III",
+        ["Final Fantasy IV"] = "Enemies in Final Fantasy IV",
+        ["Final Fantasy V"] = "Enemies in Final Fantasy V",
+        ["Final Fantasy VI"] = "Enemies in Final Fantasy VI",
+        ["Final Fantasy VII"] = "Enemies in Final Fantasy VII",
         ["Final Fantasy VIII"] = "Enemies in Final Fantasy VIII",
-        ["Final Fantasy IX"]   = "Enemies in Final Fantasy IX",
-        ["Final Fantasy X"]    = "Enemies in Final Fantasy X",
-        ["Final Fantasy XI"]   = "Enemies in Final Fantasy XI",
-        ["Final Fantasy XII"]  = "Enemies in Final Fantasy XII",
+        ["Final Fantasy IX"] = "Enemies in Final Fantasy IX",
+        ["Final Fantasy X"] = "Enemies in Final Fantasy X",
+        ["Final Fantasy XI"] = "Enemies in Final Fantasy XI",
+        ["Final Fantasy XII"] = "Enemies in Final Fantasy XII",
         ["Final Fantasy XIII"] = "Enemies in Final Fantasy XIII",
-        ["Final Fantasy XIV"]  = "Enemies in Final Fantasy XIV",
-        ["Final Fantasy XV"]   = "Enemies in Final Fantasy XV",
-        ["Final Fantasy XVI"]  = "Enemies in Final Fantasy XVI",
+        ["Final Fantasy XIV"] = "Enemies in Final Fantasy XIV",
+        ["Final Fantasy XV"] = "Enemies in Final Fantasy XV",
+        ["Final Fantasy XVI"] = "Enemies in Final Fantasy XVI",
     };
 
     /// <param name="force">
@@ -104,31 +104,31 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
 
                     db.Monsters.Add(new Monster
                     {
-                        Name           = name,
-                        Description    = details.Description,
-                        Category       = monsterCategory,
-                        Location       = details.Location,
-                        ImageUrl       = imageUrl,
-                        HitPoints      = stats.HitPoints,
-                        MagicPoints    = stats.MagicPoints,
-                        Level          = stats.Level,
-                        Experience     = stats.Experience,
-                        Gil            = stats.Gil,
-                        Weaknesses     = stats.Weaknesses,
-                        Absorbs        = stats.Absorbs,
-                        Attack         = stats.Attack,
-                        Defense        = stats.Defense,
-                        MagicAttack    = stats.MagicAttack,
-                        MagicDefense   = stats.MagicDefense,
-                        Speed          = stats.Speed,
-                        Evasion        = stats.Evasion,
-                        Abilities      = stats.Abilities,
-                        Drops          = stats.Drops,
-                        Steals         = stats.Steals,
-                        GameId         = game.Id,
+                        Name = name,
+                        Description = details.Description,
+                        Category = monsterCategory,
+                        Location = details.Location,
+                        ImageUrl = imageUrl,
+                        HitPoints = stats.HitPoints,
+                        MagicPoints = stats.MagicPoints,
+                        Level = stats.Level,
+                        Experience = stats.Experience,
+                        Gil = stats.Gil,
+                        Weaknesses = stats.Weaknesses,
+                        Absorbs = stats.Absorbs,
+                        Attack = stats.Attack,
+                        Defense = stats.Defense,
+                        MagicAttack = stats.MagicAttack,
+                        MagicDefense = stats.MagicDefense,
+                        Speed = stats.Speed,
+                        Evasion = stats.Evasion,
+                        Abilities = stats.Abilities,
+                        Drops = stats.Drops,
+                        Steals = stats.Steals,
+                        GameId = game.Id,
                         WikiPageLength = details.Signals?.PageLength,
-                        WikiBacklinks  = details.Signals?.Backlinks,
-                        Popularity     = CharacterScraper.ScorePopularity(details.Signals)
+                        WikiBacklinks = details.Signals?.Backlinks,
+                        Popularity = CharacterScraper.ScorePopularity(details.Signals)
                     });
                     logger.LogInformation("  + {Name}", name);
                     continue;
@@ -146,55 +146,55 @@ public class MonsterScraper(AppDbContext db, WikiClient wiki, ILogger<MonsterScr
                     // Only overwrite when the fresh parse actually produced something —
                     // a failed parse shouldn't wipe good existing data.
                     monster.Description = details.Description ?? monster.Description;
-                    monster.Location    = details.Location    ?? monster.Location;
-                    monster.ImageUrl    = imageUrl            ?? monster.ImageUrl;
-                    monster.HitPoints   = stats.HitPoints     ?? monster.HitPoints;
-                    monster.MagicPoints = stats.MagicPoints   ?? monster.MagicPoints;
-                    monster.Level       = stats.Level         ?? monster.Level;
-                    monster.Experience  = stats.Experience    ?? monster.Experience;
-                    monster.Gil         = stats.Gil           ?? monster.Gil;
-                    monster.Weaknesses  = stats.Weaknesses    ?? monster.Weaknesses;
-                    monster.Absorbs     = stats.Absorbs       ?? monster.Absorbs;
-                    monster.Attack      = stats.Attack        ?? monster.Attack;
-                    monster.Defense     = stats.Defense       ?? monster.Defense;
-                    monster.MagicAttack = stats.MagicAttack   ?? monster.MagicAttack;
+                    monster.Location = details.Location ?? monster.Location;
+                    monster.ImageUrl = imageUrl ?? monster.ImageUrl;
+                    monster.HitPoints = stats.HitPoints ?? monster.HitPoints;
+                    monster.MagicPoints = stats.MagicPoints ?? monster.MagicPoints;
+                    monster.Level = stats.Level ?? monster.Level;
+                    monster.Experience = stats.Experience ?? monster.Experience;
+                    monster.Gil = stats.Gil ?? monster.Gil;
+                    monster.Weaknesses = stats.Weaknesses ?? monster.Weaknesses;
+                    monster.Absorbs = stats.Absorbs ?? monster.Absorbs;
+                    monster.Attack = stats.Attack ?? monster.Attack;
+                    monster.Defense = stats.Defense ?? monster.Defense;
+                    monster.MagicAttack = stats.MagicAttack ?? monster.MagicAttack;
                     monster.MagicDefense = stats.MagicDefense ?? monster.MagicDefense;
-                    monster.Speed       = stats.Speed         ?? monster.Speed;
-                    monster.Evasion     = stats.Evasion       ?? monster.Evasion;
-                    monster.Abilities   = stats.Abilities     ?? monster.Abilities;
-                    monster.Drops       = stats.Drops         ?? monster.Drops;
-                    monster.Steals      = stats.Steals        ?? monster.Steals;
+                    monster.Speed = stats.Speed ?? monster.Speed;
+                    monster.Evasion = stats.Evasion ?? monster.Evasion;
+                    monster.Abilities = stats.Abilities ?? monster.Abilities;
+                    monster.Drops = stats.Drops ?? monster.Drops;
+                    monster.Steals = stats.Steals ?? monster.Steals;
                     logger.LogInformation("  * refreshed {Name}", name);
                 }
                 else
                 {
                     monster.Description ??= details.Description;
-                    monster.Location    ??= details.Location;
-                    monster.ImageUrl    ??= imageUrl;
-                    monster.HitPoints   ??= stats.HitPoints;
+                    monster.Location ??= details.Location;
+                    monster.ImageUrl ??= imageUrl;
+                    monster.HitPoints ??= stats.HitPoints;
                     monster.MagicPoints ??= stats.MagicPoints;
-                    monster.Level       ??= stats.Level;
-                    monster.Experience  ??= stats.Experience;
-                    monster.Gil         ??= stats.Gil;
-                    monster.Weaknesses  ??= stats.Weaknesses;
-                    monster.Absorbs     ??= stats.Absorbs;
-                    monster.Attack      ??= stats.Attack;
-                    monster.Defense     ??= stats.Defense;
+                    monster.Level ??= stats.Level;
+                    monster.Experience ??= stats.Experience;
+                    monster.Gil ??= stats.Gil;
+                    monster.Weaknesses ??= stats.Weaknesses;
+                    monster.Absorbs ??= stats.Absorbs;
+                    monster.Attack ??= stats.Attack;
+                    monster.Defense ??= stats.Defense;
                     monster.MagicAttack ??= stats.MagicAttack;
                     monster.MagicDefense ??= stats.MagicDefense;
-                    monster.Speed       ??= stats.Speed;
-                    monster.Evasion     ??= stats.Evasion;
-                    monster.Abilities   ??= stats.Abilities;
-                    monster.Drops       ??= stats.Drops;
-                    monster.Steals      ??= stats.Steals;
+                    monster.Speed ??= stats.Speed;
+                    monster.Evasion ??= stats.Evasion;
+                    monster.Abilities ??= stats.Abilities;
+                    monster.Drops ??= stats.Drops;
+                    monster.Steals ??= stats.Steals;
                     logger.LogInformation("  ~ enriched {Name}", name);
                 }
 
                 if (details.Signals is not null)
                 {
                     monster.WikiPageLength = details.Signals.PageLength;
-                    monster.WikiBacklinks  = details.Signals.Backlinks;
-                    monster.Popularity     = CharacterScraper.ScorePopularity(details.Signals);
+                    monster.WikiBacklinks = details.Signals.Backlinks;
+                    monster.Popularity = CharacterScraper.ScorePopularity(details.Signals);
                 }
             }
 

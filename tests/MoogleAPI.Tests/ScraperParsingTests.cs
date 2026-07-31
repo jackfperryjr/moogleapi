@@ -409,8 +409,8 @@ public class MonsterParsingTests
     public void ReadsCombatStatsUnderEachGameSpelling()
     {
         // FFVI says "speed"/"magic defense"; FFVII says "dexterity"/"magic def"/"magic atk".
-        Assert.Equal(10,  WikiClient.ParseMonsterStats(BombVI).Attack);
-        Assert.Equal(90,  WikiClient.ParseMonsterStats(BombVI).Defense);
+        Assert.Equal(10, WikiClient.ParseMonsterStats(BombVI).Attack);
+        Assert.Equal(90, WikiClient.ParseMonsterStats(BombVI).Defense);
         Assert.Equal(150, WikiClient.ParseMonsterStats(BombVI).MagicDefense);
 
         const string bombVII = """
@@ -600,7 +600,7 @@ public class PopularityScoringTests
     public void SeriesLeadScoresFarAboveWalkOnNpc()
     {
         var cloud = CharacterScraper.ScorePopularity(new PageSignals(118_566, 500));
-        var npc   = CharacterScraper.ScorePopularity(new PageSignals(41, 0));
+        var npc = CharacterScraper.ScorePopularity(new PageSignals(41, 0));
 
         Assert.True(cloud > 90, $"expected a lead to score above 90, got {cloud}");
         Assert.True(npc < 10, $"expected a walk-on to score below 10, got {npc}");
@@ -622,9 +622,9 @@ public class PopularityScoringTests
     [Fact]
     public void ScoreIncreasesMonotonicallyWithBothSignals()
     {
-        var small  = CharacterScraper.ScorePopularity(new PageSignals(1_000, 5));
+        var small = CharacterScraper.ScorePopularity(new PageSignals(1_000, 5));
         var medium = CharacterScraper.ScorePopularity(new PageSignals(10_000, 50));
-        var large  = CharacterScraper.ScorePopularity(new PageSignals(100_000, 400));
+        var large = CharacterScraper.ScorePopularity(new PageSignals(100_000, 400));
 
         Assert.True(small < medium && medium < large, $"{small} < {medium} < {large}");
     }
@@ -655,7 +655,7 @@ public class DataRepairTests
     [Fact]
     public void IsIdempotent()
     {
-        var once  = DataRepair.RepairName("Noctis  XV party member");
+        var once = DataRepair.RepairName("Noctis  XV party member");
         var twice = DataRepair.RepairName(once);
 
         Assert.Equal(once, twice);
@@ -720,7 +720,7 @@ public class MonsterRepairTests
     [Fact]
     public void IsIdempotent()
     {
-        var once  = DataRepair.RepairMonsterName("Lamia  IV");
+        var once = DataRepair.RepairMonsterName("Lamia  IV");
         var twice = DataRepair.RepairMonsterName(once);
 
         Assert.Equal(once, twice);
