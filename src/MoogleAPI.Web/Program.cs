@@ -59,14 +59,14 @@ builder.Services.AddScoped<GauntletBuilder>();
 //   Authentication__Google__ClientId / Authentication__Google__ClientSecret
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultScheme          = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
 })
 .AddCookie(options =>
 {
-    options.LoginPath         = "/signin";
-    options.AccessDeniedPath  = "/denied";
-    options.ExpireTimeSpan    = TimeSpan.FromDays(30);
+    options.LoginPath = "/signin";
+    options.AccessDeniedPath = "/denied";
+    options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.SlidingExpiration = true;
     // Return 401 for AJAX dashboard API calls instead of redirecting
     options.Events.OnRedirectToLogin = ctx =>
@@ -80,7 +80,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddGoogle(options =>
 {
-    options.ClientId     = builder.Configuration["Authentication:Google:ClientId"]!;
+    options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
     options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
 });
 

@@ -35,15 +35,15 @@ public class RequestLoggingMiddleware(RequestDelegate next, IServiceScopeFactory
 
             db.RequestLogs.Add(new RequestLog
             {
-                Timestamp    = DateTime.UtcNow,
-                Path         = path,
-                Method       = context.Request.Method,
-                StatusCode   = context.Response.StatusCode,
-                DurationMs   = durationMs,
+                Timestamp = DateTime.UtcNow,
+                Path = path,
+                Method = context.Request.Method,
+                StatusCode = context.Response.StatusCode,
+                DurationMs = durationMs,
                 ResourceType = ExtractResourceType(path),
-                SearchTerm   = context.Request.Query["query"].FirstOrDefault(),
-                IsPremium    = context.Request.Headers.ContainsKey("X-Api-Key"),
-                IpHash       = HashIp(context.Connection.RemoteIpAddress?.ToString()),
+                SearchTerm = context.Request.Query["query"].FirstOrDefault(),
+                IsPremium = context.Request.Headers.ContainsKey("X-Api-Key"),
+                IpHash = HashIp(context.Connection.RemoteIpAddress?.ToString()),
             });
 
             await db.SaveChangesAsync();

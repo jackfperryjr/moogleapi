@@ -50,7 +50,7 @@ var logger = app.Services.GetRequiredService<ILogger<Program>>();
 // --repair     run the one-time cleanup of legacy names and unparsed infobox fragments
 // --only=x,y   restrict the run to named stages (games, characters, monsters, cards, images,
 //              audit, generate, promote)
-var force  = args.Contains("--force", StringComparer.OrdinalIgnoreCase);
+var force = args.Contains("--force", StringComparer.OrdinalIgnoreCase);
 var repair = args.Contains("--repair", StringComparer.OrdinalIgnoreCase);
 
 var onlyArg = args.FirstOrDefault(a => a.StartsWith("--only=", StringComparison.OrdinalIgnoreCase));

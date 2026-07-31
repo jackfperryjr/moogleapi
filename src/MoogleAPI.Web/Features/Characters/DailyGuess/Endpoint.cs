@@ -74,11 +74,11 @@ public class Endpoint(AppDbContext db, DailyCharacterSelector selector)
     }
 
     private static GuessComparison Compare(Character guess, Character answer) => new(
-        GameName:    Match(guess.Game.Name, answer.Game.Name),
+        GameName: Match(guess.Game.Name, answer.Game.Name),
         ReleaseYear: Match(guess.Game.ReleaseYear, answer.Game.ReleaseYear),
-        Race:        Match(guess.Race, answer.Race),
-        Hometown:    Match(guess.Hometown, answer.Hometown),
-        Role:        Match(guess.Role, answer.Role),
+        Race: Match(guess.Race, answer.Race),
+        Hometown: Match(guess.Hometown, answer.Hometown),
+        Role: Match(guess.Role, answer.Role),
         Affiliation: Match(guess.Affiliation, answer.Affiliation));
 
     // Two absent values count as a match: it's the truthful comparison, and the client renders
@@ -90,8 +90,8 @@ public class Endpoint(AppDbContext db, DailyCharacterSelector selector)
 
     private static AttributeMatch Match(int guess, int answer) => answer.CompareTo(guess) switch
     {
-        0  => AttributeMatch.Correct,
+        0 => AttributeMatch.Correct,
         > 0 => AttributeMatch.Higher,   // the answer's year is later than the guess
-        _  => AttributeMatch.Lower
+        _ => AttributeMatch.Lower
     };
 }

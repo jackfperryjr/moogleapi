@@ -142,15 +142,15 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         if (wikitext is not null)
         {
             description = ParseIntroText(wikitext);
-            role        = ParseInfoboxField(wikitext, "occupation");
+            role = ParseInfoboxField(wikitext, "occupation");
             affiliation = ParseInfoboxField(wikitext, "affiliation");
-            race        = ParseInfoboxField(wikitext, "race") ?? ParseInfoboxField(wikitext, "species");
-            hometown    = ParseInfoboxField(wikitext, "home")
+            race = ParseInfoboxField(wikitext, "race") ?? ParseInfoboxField(wikitext, "species");
+            hometown = ParseInfoboxField(wikitext, "home")
                        ?? ParseInfoboxField(wikitext, "hometown")
                        ?? ParseInfoboxField(wikitext, "birthplace");
             // A character's signature commands: "Trance/Revert", "Blk Mag, Focus". Games with
             // several releases list one field per release ("ffviir abilities"), so all are read.
-            abilities   = ParseCharacterFieldList(wikitext, "abilities", "ability", "limit break", "special ability");
+            abilities = ParseCharacterFieldList(wikitext, "abilities", "ability", "limit break", "special ability");
         }
 
         await Task.Delay(150, ct);
@@ -221,13 +221,13 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
             return new MonsterDetails(page.Thumbnail?.Source, null, null, null, null, MonsterStats.Empty, signals);
 
         return new MonsterDetails(
-            ImageUrl:      page.Thumbnail?.Source,
+            ImageUrl: page.Thumbnail?.Source,
             ImageFileName: ParseImageFileName(wikitext),
-            Description:   ParseIntroText(wikitext),
-            Location:      ParseInfoboxField(wikitext, "location"),
-            Type:          ParseInfoboxField(wikitext, "type"),
-            Stats:         ParseMonsterStats(wikitext),
-            Signals:       signals
+            Description: ParseIntroText(wikitext),
+            Location: ParseInfoboxField(wikitext, "location"),
+            Type: ParseInfoboxField(wikitext, "type"),
+            Stats: ParseMonsterStats(wikitext),
+            Signals: signals
         );
     }
 
@@ -291,12 +291,12 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
             element = null;
 
         return new CardDetails(
-            Top:       values[0],
-            Left:      values[1],
-            Right:     values[2],
-            Bottom:    values[3],
-            Element:   element,
-            Level:     levelMatch.Success ? int.Parse(levelMatch.Groups[1].Value) : 0,
+            Top: values[0],
+            Left: values[1],
+            Right: values[2],
+            Bottom: values[3],
+            Element: element,
+            Level: levelMatch.Success ? int.Parse(levelMatch.Groups[1].Value) : 0,
             CardClass: classMatch.Success ? classMatch.Groups[1].Value : null
         );
     }
@@ -312,22 +312,22 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         var (weaknesses, absorbs) = ParseElementalAffinities(wikitext);
 
         return new MonsterStats(
-            HitPoints:    ParseStatNumber(wikitext, "hp", "hp min"),
-            MagicPoints:  ParseStatNumber(wikitext, "mp", "mp min"),
-            Level:        ParseStatNumber(wikitext, "level", "lv", "level min"),
-            Experience:   ParseStatNumber(wikitext, "exp", "exp min", "experience"),
-            Gil:          ParseStatNumber(wikitext, "gil"),
-            Weaknesses:   weaknesses,
-            Absorbs:      absorbs,
-            Attack:       ParseStatNumber(wikitext, "attack", "attack power", "strength", "str"),
-            Defense:      ParseStatNumber(wikitext, "defense", "defence"),
-            MagicAttack:  ParseStatNumber(wikitext, "magic", "magic atk", "magick power", "magic power"),
+            HitPoints: ParseStatNumber(wikitext, "hp", "hp min"),
+            MagicPoints: ParseStatNumber(wikitext, "mp", "mp min"),
+            Level: ParseStatNumber(wikitext, "level", "lv", "level min"),
+            Experience: ParseStatNumber(wikitext, "exp", "exp min", "experience"),
+            Gil: ParseStatNumber(wikitext, "gil"),
+            Weaknesses: weaknesses,
+            Absorbs: absorbs,
+            Attack: ParseStatNumber(wikitext, "attack", "attack power", "strength", "str"),
+            Defense: ParseStatNumber(wikitext, "defense", "defence"),
+            MagicAttack: ParseStatNumber(wikitext, "magic", "magic atk", "magick power", "magic power"),
             MagicDefense: ParseStatNumber(wikitext, "magic defense", "magic def", "magick resist", "magic defence"),
-            Speed:        ParseStatNumber(wikitext, "speed", "agility", "dexterity"),
-            Evasion:      ParseStatNumber(wikitext, "evasion", "evade"),
-            Abilities:    ParseFieldList(wikitext, AbilityFields),
-            Drops:        ParseFieldList(wikitext, DropFields),
-            Steals:       ParseFieldList(wikitext, StealFields)
+            Speed: ParseStatNumber(wikitext, "speed", "agility", "dexterity"),
+            Evasion: ParseStatNumber(wikitext, "evasion", "evade"),
+            Abilities: ParseFieldList(wikitext, AbilityFields),
+            Drops: ParseFieldList(wikitext, DropFields),
+            Steals: ParseFieldList(wikitext, StealFields)
         );
     }
 

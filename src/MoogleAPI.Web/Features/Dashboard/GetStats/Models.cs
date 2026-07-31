@@ -1,12 +1,12 @@
 namespace MoogleAPI.Web.Features.Dashboard.GetStats;
 
 public record DashboardStats(
-    SummaryStats         Summary,
-    List<HourlyCount>    RequestsOverTime,
-    List<StatusCount>    StatusCodes,
-    List<EndpointCount>  TopEndpoints,
-    List<SearchCount>    TopSearchTerms,
-    LatencyStats         Latency
+    SummaryStats Summary,
+    List<HourlyCount> RequestsOverTime,
+    List<StatusCount> StatusCodes,
+    List<EndpointCount> TopEndpoints,
+    List<SearchCount> TopSearchTerms,
+    LatencyStats Latency
 );
 
 public record SummaryStats(
@@ -14,7 +14,7 @@ public record SummaryStats(
     long RequestsToday,
     long ErrorsToday,
     long RateLimitedToday,
-    int  UniqueIpsToday
+    int UniqueIpsToday
 );
 
 public record HourlyCount(DateTime Hour, int Count);

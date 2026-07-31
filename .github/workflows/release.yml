@@ -1,0 +1,85 @@
+name: Tag and Release
+
+# On merge to main: compute the next semver tag from the merged PR's labels and cut
+# a GitHub release with auto-generated notes. There is nothing to attach — the API
+# ships as a container built from the Dockerfile, not as downloadable artifacts —
+# so this is a version marker plus release notes, not a deploy.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    # A README tweak shouldn't cut a version. A manual run still releases regardless.
+    paths-ignore:
+      - '**.md'
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # No tags existed when this workflow was added, so the v0.0.0 fallback is the
+      # live path on the first run. Push a starting tag by hand to change the floor.
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          git fetch --tags
+          LATEST=$(git tag -l "v*" --sort=-version:refname | head -1)
+          echo "tag=${LATEST:-v0.0.0}" >> $GITHUB_OUTPUT
+
+      - name: Get merged PR labels
+        id: pr
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+            const labels = prs.data.flatMap(pr => pr.labels.map(l => l.name));
+            core.setOutput('labels', labels.join(','));
+
+      - name: Compute new tag
+        id: new_tag
+        run: |
+          VERSION="${{ steps.latest_tag.outputs.tag }}"
+          VERSION="${VERSION#v}"
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+
+          LABELS="${{ steps.pr.outputs.labels }}"
+          if echo "$LABELS" | grep -q "release:major"; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          elif echo "$LABELS" | grep -q "release:minor"; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          echo "tag=v${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
+
+      - name: Push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.new_tag.outputs.tag }}
+          git push origin ${{ steps.new_tag.outputs.tag }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.new_tag.outputs.tag }}
+          name: MoogleAPI ${{ steps.new_tag.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

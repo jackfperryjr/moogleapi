@@ -11,22 +11,22 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
 {
     private static readonly Dictionary<string, string> GameCategories = new()
     {
-        ["Final Fantasy"]      = "Characters in Final Fantasy",
-        ["Final Fantasy II"]   = "Characters in Final Fantasy II",
-        ["Final Fantasy III"]  = "Characters in Final Fantasy III",
-        ["Final Fantasy IV"]   = "Characters in Final Fantasy IV",
-        ["Final Fantasy V"]    = "Characters in Final Fantasy V",
-        ["Final Fantasy VI"]   = "Characters in Final Fantasy VI",
-        ["Final Fantasy VII"]  = "Characters in Final Fantasy VII",
+        ["Final Fantasy"] = "Characters in Final Fantasy",
+        ["Final Fantasy II"] = "Characters in Final Fantasy II",
+        ["Final Fantasy III"] = "Characters in Final Fantasy III",
+        ["Final Fantasy IV"] = "Characters in Final Fantasy IV",
+        ["Final Fantasy V"] = "Characters in Final Fantasy V",
+        ["Final Fantasy VI"] = "Characters in Final Fantasy VI",
+        ["Final Fantasy VII"] = "Characters in Final Fantasy VII",
         ["Final Fantasy VIII"] = "Characters in Final Fantasy VIII",
-        ["Final Fantasy IX"]   = "Characters in Final Fantasy IX",
-        ["Final Fantasy X"]    = "Characters in Final Fantasy X",
-        ["Final Fantasy XI"]   = "Characters in Final Fantasy XI",
-        ["Final Fantasy XII"]  = "Characters in Final Fantasy XII",
+        ["Final Fantasy IX"] = "Characters in Final Fantasy IX",
+        ["Final Fantasy X"] = "Characters in Final Fantasy X",
+        ["Final Fantasy XI"] = "Characters in Final Fantasy XI",
+        ["Final Fantasy XII"] = "Characters in Final Fantasy XII",
         ["Final Fantasy XIII"] = "Characters in Final Fantasy XIII",
-        ["Final Fantasy XIV"]  = "Characters in Final Fantasy XIV",
-        ["Final Fantasy XV"]   = "Characters in Final Fantasy XV",
-        ["Final Fantasy XVI"]  = "Characters in Final Fantasy XVI",
+        ["Final Fantasy XIV"] = "Characters in Final Fantasy XIV",
+        ["Final Fantasy XV"] = "Characters in Final Fantasy XV",
+        ["Final Fantasy XVI"] = "Characters in Final Fantasy XVI",
     };
 
     /// <param name="force">
@@ -96,18 +96,18 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
                 {
                     db.Characters.Add(new Character
                     {
-                        Name           = name,
-                        Description    = details.Description,
-                        Role           = details.Role,
-                        Affiliation    = details.Affiliation,
-                        Race           = details.Race,
-                        Hometown       = details.Hometown,
-                        ImageUrl       = details.ImageUrl,
-                        Abilities      = details.Abilities,
-                        GameId         = game.Id,
+                        Name = name,
+                        Description = details.Description,
+                        Role = details.Role,
+                        Affiliation = details.Affiliation,
+                        Race = details.Race,
+                        Hometown = details.Hometown,
+                        ImageUrl = details.ImageUrl,
+                        Abilities = details.Abilities,
+                        GameId = game.Id,
                         WikiPageLength = signals?.PageLength,
-                        WikiBacklinks  = signals?.Backlinks,
-                        Popularity     = ScorePopularity(signals)
+                        WikiBacklinks = signals?.Backlinks,
+                        Popularity = ScorePopularity(signals)
                     });
                     logger.LogInformation("  + {Name}", name);
                 }
@@ -115,35 +115,35 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
                 {
                     // Only overwrite when the fresh parse actually produced something —
                     // a failed parse shouldn't wipe good existing data.
-                    ch.Description  = details.Description ?? ch.Description;
-                    ch.Role         = details.Role        ?? ch.Role;
-                    ch.Affiliation  = details.Affiliation ?? ch.Affiliation;
-                    ch.Race         = details.Race        ?? ch.Race;
-                    ch.Hometown     = details.Hometown    ?? ch.Hometown;
-                    ch.ImageUrl     = details.ImageUrl    ?? ch.ImageUrl;
-                    ch.Abilities    = details.Abilities   ?? ch.Abilities;
+                    ch.Description = details.Description ?? ch.Description;
+                    ch.Role = details.Role ?? ch.Role;
+                    ch.Affiliation = details.Affiliation ?? ch.Affiliation;
+                    ch.Race = details.Race ?? ch.Race;
+                    ch.Hometown = details.Hometown ?? ch.Hometown;
+                    ch.ImageUrl = details.ImageUrl ?? ch.ImageUrl;
+                    ch.Abilities = details.Abilities ?? ch.Abilities;
                     if (signals is not null)
                     {
                         ch.WikiPageLength = signals.PageLength;
-                        ch.WikiBacklinks  = signals.Backlinks;
-                        ch.Popularity     = ScorePopularity(signals);
+                        ch.WikiBacklinks = signals.Backlinks;
+                        ch.Popularity = ScorePopularity(signals);
                     }
                     logger.LogInformation("  * refreshed {Name}", name);
                 }
                 else
                 {
-                    ch.Description  ??= details.Description;
-                    ch.Role         ??= details.Role;
-                    ch.Affiliation  ??= details.Affiliation;
-                    ch.Race         ??= details.Race;
-                    ch.Hometown     ??= details.Hometown;
-                    ch.ImageUrl     ??= details.ImageUrl;
-                    ch.Abilities    ??= details.Abilities;
+                    ch.Description ??= details.Description;
+                    ch.Role ??= details.Role;
+                    ch.Affiliation ??= details.Affiliation;
+                    ch.Race ??= details.Race;
+                    ch.Hometown ??= details.Hometown;
+                    ch.ImageUrl ??= details.ImageUrl;
+                    ch.Abilities ??= details.Abilities;
                     if (signals is not null)
                     {
                         ch.WikiPageLength = signals.PageLength;
-                        ch.WikiBacklinks  = signals.Backlinks;
-                        ch.Popularity     = ScorePopularity(signals);
+                        ch.WikiBacklinks = signals.Backlinks;
+                        ch.Popularity = ScorePopularity(signals);
                     }
                     if (logger.IsEnabled(LogLevel.Information))
                         logger.LogInformation("  ~ enriched {Name}", name);
@@ -171,14 +171,14 @@ public class CharacterScraper(AppDbContext db, WikiClient wiki, ILogger<Characte
     // for a walk-on NPC, ~120k bytes / 500+ links for a series lead.
     private const double MinLogLength = 1.5;   // ~32 bytes
     private const double MaxLogLength = 5.0;   // ~100k bytes
-    private const int    BacklinkCap  = 500;   // matches the API's lhlimit
+    private const int BacklinkCap = 500;   // matches the API's lhlimit
 
     internal static int ScorePopularity(PageSignals? signals)
     {
         if (signals is null) return 0;
 
         var lengthScore = Normalize(Math.Log10(signals.PageLength + 1), MinLogLength, MaxLogLength);
-        var linkScore   = Math.Log10(Math.Min(signals.Backlinks, BacklinkCap) + 1) / Math.Log10(BacklinkCap + 1);
+        var linkScore = Math.Log10(Math.Min(signals.Backlinks, BacklinkCap) + 1) / Math.Log10(BacklinkCap + 1);
 
         return (int)Math.Round(Math.Clamp(lengthScore * 0.6 + linkScore * 0.4, 0, 1) * 100);
     }

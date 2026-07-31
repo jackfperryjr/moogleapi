@@ -85,30 +85,30 @@ public class CardScraper(AppDbContext db, WikiClient wiki, ILogger<CardScraper> 
 
                 if (existing.TryGetValue(name, out var card))
                 {
-                    card.Top       = d.Top;
-                    card.Left      = d.Left;
-                    card.Right     = d.Right;
-                    card.Bottom    = d.Bottom;
-                    card.Element   = d.Element;
-                    card.Level     = d.Level;
+                    card.Top = d.Top;
+                    card.Left = d.Left;
+                    card.Right = d.Right;
+                    card.Bottom = d.Bottom;
+                    card.Element = d.Element;
+                    card.Level = d.Level;
                     card.CardClass = d.CardClass;
-                    card.ImageUrl  = imageUrl ?? card.ImageUrl;
+                    card.ImageUrl = imageUrl ?? card.ImageUrl;
                     logger.LogInformation("  * refreshed {Card}", name);
                 }
                 else
                 {
                     db.Cards.Add(new Card
                     {
-                        Name      = name,
-                        Top       = d.Top,
-                        Left      = d.Left,
-                        Right     = d.Right,
-                        Bottom    = d.Bottom,
-                        Element   = d.Element,
-                        Level     = d.Level,
+                        Name = name,
+                        Top = d.Top,
+                        Left = d.Left,
+                        Right = d.Right,
+                        Bottom = d.Bottom,
+                        Element = d.Element,
+                        Level = d.Level,
                         CardClass = d.CardClass,
-                        ImageUrl  = imageUrl,
-                        GameId    = game.Id
+                        ImageUrl = imageUrl,
+                        GameId = game.Id
                     });
                     logger.LogInformation("  + {Card}  {T}/{L}/{R}/{B}", name, d.Top, d.Left, d.Right, d.Bottom);
                 }
