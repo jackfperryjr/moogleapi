@@ -1,0 +1,17 @@
+name = "moogleapi-maintenance"
+main = "worker.js"
+compatibility_date = "2026-07-31"
+
+# Both hostnames are routed so the maintenance page still appears if someone is on
+# www during an outage. If you add the www redirect rule described in README.md,
+# that rule runs first and www requests never reach this Worker in practice.
+[[routes]]
+pattern = "moogleapi.com/*"
+zone_name = "moogleapi.com"
+
+[[routes]]
+pattern = "www.moogleapi.com/*"
+zone_name = "moogleapi.com"
+
+# No observability, KV, or bindings on purpose — this Worker is pure pass-through
+# and adding state would put something else in the critical path of every request.
