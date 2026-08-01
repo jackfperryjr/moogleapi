@@ -71,16 +71,20 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         var considered = 0;
         var generated = 0;
         var adopted = 0;
+        // Raised the first time the API refuses on the per-day quota. Everything still in flight
+        // finishes; nothing new starts. Without it the run would keep pulling fresh candidates,
+        // because a failed row decrements the counter and the batch is nowhere near its ceiling.
+        var quotaSpent = 0;
         var sem = new SemaphoreSlim(Concurrency);
 
         await Task.WhenAll(candidates.Select(async candidate =>
         {
-            if (Volatile.Read(ref generated) >= max) return;
+            if (Volatile.Read(ref generated) >= max || Volatile.Read(ref quotaSpent) == 1) return;
 
             await sem.WaitAsync(ct);
             try
             {
-                if (Volatile.Read(ref generated) >= max) return;
+                if (Volatile.Read(ref generated) >= max || Volatile.Read(ref quotaSpent) == 1) return;
 
                 Interlocked.Increment(ref considered);
 
@@ -103,7 +107,22 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 var reference = await DownloadAsync(http, candidate.ImageUrl, ct);
                 if (reference is null) { Interlocked.Decrement(ref generated); return; }
 
-                var art = await RequestArtAsync(http, key, candidate, reference, ct);
+                byte[]? art;
+                try
+                {
+                    art = await RequestArtAsync(http, key, candidate, reference, ct);
+                }
+                catch (DailyQuotaSpentException ex)
+                {
+                    Interlocked.Decrement(ref generated);
+
+                    // Logged once however many tasks trip over the wall at the same moment.
+                    if (Interlocked.Exchange(ref quotaSpent, 1) == 0)
+                        logger.LogError("Daily quota for {Model} is spent — stopping. {Detail}", Model, ex.Message);
+
+                    return;
+                }
+
                 if (art is null) { Interlocked.Decrement(ref generated); return; }
 
                 var url = await store.UploadAsync(objectKey, art, MaxEdge, ct);
@@ -127,10 +146,18 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 (await db.Characters.FirstAsync(c => c.Id == id, ct)).GeneratedImageUrl = url;
         }
 
+        // Saved even when the quota cut the run short: the images were paid for and uploaded, and
+        // leaving the column null would make the next run buy them again.
         await db.SaveChangesAsync(ct);
         logger.LogInformation(
             "{Made} images recorded from {Considered} examined — {New} newly generated, {Adopted} already in the bucket.",
             produced.Count, considered, generated, adopted);
+
+        if (Volatile.Read(ref quotaSpent) == 1)
+            logger.LogWarning(
+                "Stopped on the daily quota with {Untouched} of {Total} candidates never attempted. " +
+                "Rerun the same command once it resets — they have no GeneratedImageUrl, so they are still selected.",
+                candidates.Count - considered, candidates.Count);
     }
 
     /// <summary>
@@ -235,6 +262,18 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests
                 || (int)response.StatusCode >= 500)
             {
+                // A 429 is two unrelated problems sharing one status code, and only the body
+                // separates them. A per-minute burst limit clears while we sleep. The per-day
+                // quota resets in hours, so backing off cannot help: the three attempts spend
+                // three more requests to learn the same thing, and then the run does it again on
+                // the next row. Batch 3's first attempt burned ~300 requests that way and
+                // produced nothing.
+                if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests
+                    && IsDailyQuota(await response.Content.ReadAsStringAsync(ct), out var detail))
+                {
+                    throw new DailyQuotaSpentException(detail);
+                }
+
                 await Task.Delay(TimeSpan.FromSeconds(15 * (attempt + 1)), ct);
                 continue;
             }
@@ -277,6 +316,68 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     }
 
     /// <summary>
+    /// Whether a 429 body is the per-day quota rather than a per-minute burst limit.
+    /// </summary>
+    /// <remarks>
+    /// Keyed on <c>quotaId</c> containing <c>PerDay</c> rather than on the human-readable
+    /// message, which is prose and free to change. Anything unrecognised is treated as a burst
+    /// limit: guessing "burst" costs one wasted retry, guessing "daily" would abandon a run that
+    /// could have finished.
+    /// </remarks>
+    internal static bool IsDailyQuota(string body, out string detail)
+    {
+        detail = "no reset time given";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+
+            if (!doc.RootElement.TryGetProperty("error", out var error)
+                || !error.TryGetProperty("status", out var status)
+                || status.GetString() != "RESOURCE_EXHAUSTED"
+                || !error.TryGetProperty("details", out var details)
+                || details.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            var daily = false;
+
+            foreach (var entry in details.EnumerateArray())
+            {
+                if (entry.TryGetProperty("violations", out var violations)
+                    && violations.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var violation in violations.EnumerateArray())
+                    {
+                        if (violation.TryGetProperty("quotaId", out var id)
+                            && id.GetString() is { } quotaId
+                            && quotaId.Contains("PerDay", StringComparison.OrdinalIgnoreCase))
+                        {
+                            daily = true;
+                        }
+                    }
+                }
+
+                // "72193s" — seconds with a trailing s, per google.protobuf.Duration.
+                if (entry.TryGetProperty("retryDelay", out var delay)
+                    && delay.GetString() is { } raw
+                    && double.TryParse(raw.TrimEnd('s'), out var seconds))
+                {
+                    detail = $"resets in about {TimeSpan.FromSeconds(seconds):h\\h\\ m\\m}";
+                }
+            }
+
+            return daily;
+        }
+        catch (JsonException)
+        {
+            // An unparseable body is not evidence of a daily quota. Let the retry handle it.
+            return false;
+        }
+    }
+
+    /// <summary>
     /// One fixed instruction block with only the subject interpolated — identical phrasing
     /// across thousands of calls is what makes the results look like one set.
     /// </summary>
@@ -311,3 +412,9 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             """;
     }
 }
+
+/// <summary>
+/// The per-day generation quota is gone. Distinct from an ordinary failed row because it ends the
+/// whole run: no later row can succeed either, and every attempt still costs a request.
+/// </summary>
+public class DailyQuotaSpentException(string detail) : Exception(detail);
