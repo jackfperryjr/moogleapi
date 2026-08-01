@@ -11,11 +11,42 @@
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/games.css" />
   <style>
+    /* ── Nav ──
+       The hub is the landing page's Games section given its own address, so its chrome matches
+       the landing page rather than the in-game pages: same padding, same type sizes, the moogle
+       in the corner, and the API Docs link as a filled pill. The four game pages keep the more
+       compact bar from games.css, which has to hold five links and a game title. */
+    nav { padding: 1.25rem 2rem; gap: 1.5rem; }
+    .nav-brand { font-size: 1.25rem; }
+    .nav-brand img {
+      height: 1.4em;
+      width: auto;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+      display: inline-block;
+      transform: rotate(-8deg);
+    }
+    .nav-links { gap: 1.5rem; }
+    .nav-links a { font-size: 0.875rem; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a[aria-current="page"] { color: var(--text); }
+    .btn-docs {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.8rem !important;
+      transition: opacity 0.2s !important;
+    }
+    .btn-docs:hover { opacity: 0.85; }
+
     .hub-intro { max-width: 46rem; }
 
+    /* Four games, two by two. Fixed rather than auto-fit: the tiles are the whole page, and a
+       track count that changes with the viewport would put three across on a wide screen and
+       leave the fourth stranded on a row of its own. */
     .tiles {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 1.1rem;
       margin-top: 2rem;
     }
@@ -127,7 +158,18 @@
     }
     .hub-note a { color: var(--accent-2); }
 
+    /* Two columns need more room than the tiles' old 260px minimum implied — below this the
+       description wraps to five or six lines and the pair stops reading as a row. */
+    @media (max-width: 720px) {
+      .tiles { grid-template-columns: 1fr; }
+    }
+
     @media (max-width: 640px) {
+      nav { padding: 0.9rem 1.25rem; gap: 0.5rem; }
+      .nav-brand { font-size: 1rem; }
+      .nav-links { gap: 0.85rem; }
+      .nav-links a { font-size: 0.78rem; }
+
       .tile { padding: 1.1rem 1rem; }
       .tile-art { height: 70px; }
     }
@@ -135,14 +177,15 @@
 </head>
 <body>
   <nav>
-    <a class="nav-brand" href="/">moogleAPI</a>
+    <a class="nav-brand" href="/"><img src="/moogle.png" alt="" /> moogleAPI</a>
     <div class="nav-links">
       <a href="/games" aria-current="page">Games</a>
       <a href="/kupodle">Kupodle</a>
       <a href="/triple-triad">Triple Triad</a>
       <a href="/kupo-climb">Kupo Climb</a>
       <a href="/battle-square">Battle Square</a>
-      <a href="/scalar/v1">API Docs</a>
+      <a href="https://github.com/jackfperryjr/moogleapi" target="_blank" rel="noopener">GitHub</a>
+      <a href="/scalar/v1" class="btn-docs">API Docs →</a>
     </div>
   </nav>
 
