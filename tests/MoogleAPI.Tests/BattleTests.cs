@@ -241,6 +241,78 @@ public class MoveBuilderTests
         Assert.Equal(4, names.Count);           // Attack plus three
         Assert.Contains("Bodyblow", names);
     }
+
+    [Theory]
+    [InlineData("Poison", StatusEffect.Poison)]
+    [InlineData("Venom", StatusEffect.Poison)]
+    [InlineData("Bio", StatusEffect.Poison)]
+    [InlineData("Bad Breath", StatusEffect.Poison)]
+    [InlineData("Blind", StatusEffect.Blind)]
+    [InlineData("Sandstorm", StatusEffect.Blind)]
+    [InlineData("Ink", StatusEffect.Blind)]
+    [InlineData("Silence", StatusEffect.Silence)]
+    [InlineData("Mute", StatusEffect.Silence)]
+    public void InfersTheStatusFromTheAbilityName(string ability, StatusEffect expected)
+    {
+        Assert.Equal(expected, MoveBuilder.StatusFor(ability));
+    }
+
+    /// <summary>
+    /// The Dark element pattern already claims "dark", "shadow" and "doom". Folding Final Fantasy
+    /// IV's blinding "Darkness" into the Blind patterns would have taken all of them with it and
+    /// quietly made every shadow-flavoured move in the series blinding.
+    /// </summary>
+    [Theory]
+    [InlineData("Darkness")]
+    [InlineData("Shadow Flare")]
+    [InlineData("Doom")]
+    [InlineData("Attack")]
+    [InlineData("Blizzaga")]
+    public void LeavesOrdinaryMovesFreeOfStatus(string ability)
+    {
+        Assert.Equal(StatusEffect.None, MoveBuilder.StatusFor(ability));
+    }
+
+    [Fact]
+    public void AStatusMoveGivesUpPowerToInflict()
+    {
+        var plain = MoveBuilder.Build("Bodyblow").Single(m => m.Name == "Bodyblow");
+        var poisons = MoveBuilder.Build("Poison Sting").Single(m => m.Name == "Poison Sting");
+
+        Assert.Equal(StatusEffect.None, plain.Status);
+        Assert.Equal(StatusEffect.Poison, poisons.Status);
+        Assert.True(poisons.Power < plain.Power);
+    }
+
+    /// <summary>
+    /// Silence locks out Magic moves, so a monster whose whole kit is silenced would have nothing
+    /// to press. The basic Attack every combatant is handed is Physical, which is what guarantees
+    /// a turn is never lost — the client's foe picker leans on it directly.
+    /// </summary>
+    [Fact]
+    public void EveryMonsterKeepsAPhysicalMoveThroughSilence()
+    {
+        var moves = MoveBuilder.Build("Firaga, Blizzaga, Thundaga");
+
+        Assert.Contains(moves, m => m.Kind == MoveKind.Physical);
+    }
+
+    /// <summary>
+    /// Three buttons for twenty abilities means the ordering decides what a monster actually is.
+    /// A status move has to outrank plain flavour damage or the enemy side of the feature is
+    /// never seen — an FFI Piscodemon offering "Bodyblow, Rush, Charge" over "Silence" is a
+    /// worse fight than the same monster with the condition on the board.
+    /// </summary>
+    [Fact]
+    public void PrefersStatusMovesOverPlainFlavourDamage()
+    {
+        var names = MoveBuilder.Build("Bodyblow, Rush, Charge, Silence, Blaze")
+            .Select(m => m.Name).ToList();
+
+        Assert.Contains("Blaze", names);     // elemental still outranks everything
+        Assert.Contains("Silence", names);
+        Assert.DoesNotContain("Charge", names);
+    }
 }
 
 public class DeterministicRandomTests
@@ -408,10 +480,10 @@ public class LadderTests
     [Fact]
     public void SkipsTheGamesWithoutPublishedEnemyStats()
     {
-        Assert.DoesNotContain(8, GauntletBuilder.LadderGameIds);
-        Assert.DoesNotContain(11, GauntletBuilder.LadderGameIds);
-        Assert.DoesNotContain(14, GauntletBuilder.LadderGameIds);
-        Assert.DoesNotContain(16, GauntletBuilder.LadderGameIds);
+        Assert.DoesNotContain(8, ClimbBuilder.LadderGameIds);
+        Assert.DoesNotContain(11, ClimbBuilder.LadderGameIds);
+        Assert.DoesNotContain(14, ClimbBuilder.LadderGameIds);
+        Assert.DoesNotContain(16, ClimbBuilder.LadderGameIds);
     }
 
     /// <summary>
@@ -421,12 +493,12 @@ public class LadderTests
     [Fact]
     public void SkipsTheGameWithNoElementalCounterplay()
     {
-        Assert.DoesNotContain(2, GauntletBuilder.LadderGameIds);
+        Assert.DoesNotContain(2, ClimbBuilder.LadderGameIds);
     }
 
     [Fact]
     public void RunsInReleaseOrder()
     {
-        Assert.Equal(GauntletBuilder.LadderGameIds.OrderBy(id => id), GauntletBuilder.LadderGameIds);
+        Assert.Equal(ClimbBuilder.LadderGameIds.OrderBy(id => id), ClimbBuilder.LadderGameIds);
     }
 }

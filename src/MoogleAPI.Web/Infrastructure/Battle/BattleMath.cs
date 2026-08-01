@@ -30,10 +30,29 @@ public static class BattleMath
     public const double MinRatio = 0.2;
     public const double MaxRatio = 0.8;
 
+    /// <summary>Share of maximum HP that Poison bleeds after the afflicted combatant acts.</summary>
+    public const double PoisonShare = 0.06;
+
+    /// <summary>What a Physical move is worth while its user is Blind.</summary>
+    public const double BlindMultiplier = 0.5;
+
+    /// <summary>
+    /// How long a status lasts, counted in the afflicted combatant's own turns. Long enough to
+    /// change the shape of a fight, short enough that landing one is worth doing again.
+    /// </summary>
+    public const int StatusTurns = 3;
+
     public static double Ratio(int offence, int guard) =>
         Math.Clamp(offence / (double)Math.Max(1, offence + guard), MinRatio, MaxRatio);
 
     /// <summary>Damage one use of a move deals. Zero when the defender absorbs its element.</summary>
+    /// <remarks>
+    /// Statuses are deliberately not modelled here. This arithmetic exists to vet a matchup as
+    /// winnable, and it should describe the fight at its worst rather than its best: an estimate
+    /// that counted the player's poison would rate matchups as fair that are only fair if a
+    /// particular button lands, while one that counted the enemy's blind would reject rungs that
+    /// play fine. Ignoring both keeps the estimate conservative in the direction that matters.
+    /// </remarks>
     public static double DamagePerHit(Fighter attacker, Fighter defender, Move move)
     {
         if (move.Element is not null && Lists(defender.Absorbs).Contains(move.Element))

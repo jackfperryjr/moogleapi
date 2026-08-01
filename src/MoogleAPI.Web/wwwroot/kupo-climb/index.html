@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The Gauntlet — moogleAPI</title>
-  <meta name="description" content="Take a Final Fantasy monster through a ladder of battles, one game at a time." />
+  <title>Kupo Climb — moogleAPI</title>
+  <meta name="description" content="Take a Final Fantasy monster up through the series, one game at a time." />
   <!-- The wiki CDN hotlink-blocks any request carrying a Referer (404s even for moogleapi.com),
        so monster art only loads if we send none. -->
   <meta name="referrer" content="no-referrer" />
@@ -15,6 +15,9 @@
   <link rel="stylesheet" href="/assets/games.css" />
   <style>
     /* ── Starter select ── */
+    /* The tooltip is positioned against this wrapper rather than the viewport, which keeps it
+       anchored to its card when the page scrolls under it. */
+    .starter-area { position: relative; }
     .starter-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -32,7 +35,7 @@
       color: var(--text);
       transition: border-color 0.15s, transform 0.15s;
     }
-    .starter:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .starter:hover, .starter:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
     /* Portrait 3:4 to match the card art. `contain` rather than `cover` because the library
        is mid-migration: regenerated art fills this box exactly, while art still awaiting
        replacement is letterboxed instead of cropped. */
@@ -43,6 +46,43 @@
     .starter-name { font-weight: 600; font-size: 0.92rem; }
     .starter-games { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
+    /* ── Starter tooltip ──
+       Two monsters look identical on a card and fight nothing alike, so the choice needs the
+       numbers. `pointer-events: none` keeps the panel from stealing the hover that opened it,
+       which would otherwise flicker the card underneath. */
+    .starter-tip {
+      position: absolute; z-index: 20; width: min(19rem, 90vw);
+      pointer-events: none;
+      background: var(--surface-2); border: 1px solid var(--accent);
+      border-radius: var(--radius); padding: 0.75rem 0.85rem;
+      box-shadow: 0 12px 28px rgb(0 0 0 / 0.45);
+      font-family: 'Raleway', sans-serif; text-align: left;
+    }
+    .tip-name { font-family: 'Josefin Sans', sans-serif; font-size: 1.05rem; color: var(--gold); }
+    .tip-sub { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+    .tip-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3rem;
+      margin: 0.6rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+    }
+    .tip-stat {
+      display: flex; justify-content: space-between; gap: 0.4rem;
+      background: var(--surface); border-radius: 4px; padding: 0.2rem 0.4rem;
+    }
+    .tip-stat span { color: var(--muted); }
+    .tip-affinity { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .tip-none { font-size: 0.68rem; color: var(--muted); font-style: italic; }
+    .tip-label {
+      margin-top: 0.6rem; font-size: 0.64rem; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--muted);
+    }
+    .tip-moves { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.25rem; }
+    .tip-move {
+      font-size: 0.68rem; padding: 0.12rem 0.4rem; border-radius: 4px;
+      background: var(--surface); border: 1px solid var(--border); color: var(--accent-2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tip-games { margin-top: 0.25rem; font-size: 0.68rem; color: var(--muted); line-height: 1.5; }
+
     /* ── Rung header ── */
     .rung-bar {
       display: flex; align-items: center; justify-content: space-between;
@@ -52,6 +92,26 @@
     .battles-block { text-align: right; }
     .battles-block .fighter-role { margin-bottom: 0.25rem; }
     .rung-progress { display: flex; gap: 0.35rem; align-items: center; }
+
+    /* ── Turn order ──
+       Speed has always decided who swings first, but the player only ever found out by being
+       hit after clicking attack. Saying it before the choice is what turns a pre-emptive strike
+       from a bug into a matchup. */
+    .initiative {
+      display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+      margin-bottom: 0.9rem; padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+    .initiative.mine   { border-left-color: var(--player); }
+    .initiative.theirs { border-left-color: var(--opponent); }
+    .initiative-label {
+      font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+    }
+    .initiative-seq { font-size: 0.85rem; }
+    .initiative-seq b { color: var(--gold); }
+    .initiative-arrow { color: var(--muted); margin: 0 0.4rem; }
+    .initiative-why { font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
 
     /* ── Retries ──
        Kept away from the battle pips: side by side they read as one counter, and a player
@@ -90,14 +150,26 @@
     .fighter.player   { border-top: 3px solid var(--player); }
     .fighter.opponent { border-top: 3px solid var(--opponent); }
     .fighter img { width: 100%; aspect-ratio: 3 / 4; height: auto; object-fit: contain; border-radius: 6px; }
-    .fighter-name { font-weight: 600; margin-top: 0.5rem; font-size: 0.95rem; }
+    .fighter-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-top: 0.5rem; }
+    .fighter-name { font-weight: 600; font-size: 0.95rem; }
     .fighter-role { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    /* Carries its own text, so which side strikes first is never signalled by the border alone. */
+    .first-badge {
+      flex: none; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em;
+      padding: 0.15rem 0.35rem; border-radius: 4px;
+      background: var(--near); color: var(--near-text);
+    }
 
     .hp-track { height: 12px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; margin-top: 0.5rem; }
     .hp-fill { height: 100%; background: var(--hit); transition: width 0.35s ease; }
     .hp-fill.low { background: var(--near); }
     .hp-fill.critical { background: var(--opponent); }
     .hp-text { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--muted); margin-top: 0.25rem; }
+
+    .stat-row {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; color: var(--muted);
+    }
 
     .affinity { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
     .tag {
@@ -107,12 +179,37 @@
     .tag.weak   { color: var(--miss-text); border-color: #7a4450; }
     .tag.absorb { color: var(--hit-text);  border-color: #2e7d52; }
 
-    /* ── Moves ── */
-    .moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; margin-top: 1rem; }
-    .move { text-align: left; padding: 0.6rem 0.75rem; line-height: 1.35; }
-    .move-name { display: block; font-weight: 600; font-size: 0.88rem; }
-    .move-meta { display: block; font-size: 0.68rem; color: var(--accent-2); font-family: 'JetBrains Mono', monospace; }
-    .move-warn { display: block; font-size: 0.66rem; color: var(--near-text); }
+    /* ── Statuses ──
+       Each carries its own word and its remaining turns, so none of the three is ever
+       distinguished by colour alone. */
+    .statuses { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; min-height: 1.35rem; }
+    .status {
+      font-size: 0.64rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px;
+      border: 1px solid var(--border); background: var(--surface-2);
+    }
+    .status.poison  { color: #d7b8f0; border-color: #6b4a86; }
+    .status.blind   { color: var(--muted); border-color: #5b6b73; }
+    .status.silence { color: var(--near-text); border-color: #8a6d1f; }
+    .status-none { font-size: 0.64rem; color: var(--muted); font-style: italic; }
+
+    /* ── Moves ──
+       Both fighters carry their own list now, so a matchup can be read off the two cards
+       instead of being discovered one surprise at a time. */
+    .move-label {
+      margin-top: 0.7rem; font-size: 0.64rem; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--muted);
+    }
+    .moves { display: grid; gap: 0.4rem; margin-top: 0.35rem; }
+    .move { text-align: left; padding: 0.5rem 0.6rem; line-height: 1.35; }
+    .move-name { display: block; font-weight: 600; font-size: 0.84rem; }
+    .move-meta { display: block; font-size: 0.66rem; color: var(--accent-2); font-family: 'JetBrains Mono', monospace; }
+    .move-warn { display: block; font-size: 0.64rem; color: var(--near-text); }
+    /* The enemy's moves are information, not buttons — flat, unclickable, and visibly so. */
+    .foe-move {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text);
+    }
+    .foe-move.locked { opacity: 0.5; }
 
     /* ── Log ── */
     .log {
@@ -149,27 +246,35 @@
     <div class="nav-links">
       <a href="/kupodle">Kupodle</a>
       <a href="/triple-triad">Triple Triad</a>
-      <a href="/the-gauntlet" aria-current="page">The Gauntlet</a>
+      <a href="/kupo-climb" aria-current="page">Kupo Climb</a>
       <a href="/scalar/v1">API Docs</a>
     </div>
   </nav>
 
   <main class="wrap">
-    <h1 class="page-title">The Gauntlet</h1>
+    <h1 class="page-title">Kupo Climb</h1>
     <p class="page-sub">
-      Pick a monster and fight your way up through the series, one game at a time.
+      Pick a monster and climb the series, one game per rung.
       Beat <strong>all three</strong> battles — two enemies and a boss — and your monster evolves into that
       game's version of itself. Lose one and you can spend a retry; you get
       <strong>three for the whole run</strong>. Battles never cross games, and everyone gets the same ladder each day.
     </p>
 
-    <div id="boot" class="loading">Loading today's gauntlet…</div>
+    <div id="boot" class="loading">Loading today's climb…</div>
     <div id="error" class="error" hidden></div>
 
     <!-- Starter select -->
     <section id="select" hidden>
       <h2 class="stats-label" style="margin-top:0">Choose your monster</h2>
-      <div id="starter-grid" class="starter-grid"></div>
+      <p class="page-sub" style="margin:0.35rem 0 0; font-size:0.8rem">
+        Hover or tab to a monster to see how it fights on the first rung.
+      </p>
+      <!-- The tooltip is a sibling of the grid, not a child: rendering the starters replaces the
+           grid's contents wholesale, which would take the panel with it. -->
+      <div class="starter-area">
+        <div id="starter-grid" class="starter-grid"></div>
+        <div id="starter-tip" class="starter-tip" role="tooltip" hidden></div>
+      </div>
     </section>
 
     <!-- Battle -->
@@ -185,7 +290,9 @@
         </div>
       </div>
 
-      <div class="arena">
+      <div class="initiative" id="initiative"></div>
+
+      <div class="arena" id="arena">
         <div class="fighter player" id="player-card"></div>
         <div class="versus">VS</div>
         <div class="fighter opponent" id="opponent-card"></div>
@@ -197,7 +304,6 @@
       </div>
 
       <div class="status" id="status" role="status" aria-live="polite"></div>
-      <div class="moves" id="moves"></div>
       <div class="row" id="retry-row" hidden>
         <button class="btn" id="retry-btn"></button>
         <button class="btn btn-secondary" id="concede-btn">Concede run</button>
@@ -219,6 +325,6 @@
     </section>
   </main>
 
-  <script src="/the-gauntlet/game.js"></script>
+  <script src="/kupo-climb/game.js"></script>
 </body>
 </html>

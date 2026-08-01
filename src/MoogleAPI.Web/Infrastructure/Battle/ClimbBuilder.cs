@@ -31,15 +31,30 @@ public record BattleRung(int Number, int GameId, string GameName, Fighter Player
 
 public record SkippedGame(int GameId, string GameName, string Reason);
 
-public record Gauntlet(string Family, DateOnly Date, IReadOnlyList<BattleRung> Rungs, IReadOnlyList<SkippedGame> Skipped);
-
-public record Starter(string Family, int GameCount, string? ImageUrl, IReadOnlyList<string> Games);
+public record Climb(string Family, DateOnly Date, IReadOnlyList<BattleRung> Rungs, IReadOnlyList<SkippedGame> Skipped);
 
 /// <summary>
-/// Builds a day's gauntlet: a ladder of games, the player's form of their chosen monster in
+/// The monster as it fights on the first rung — what the picker is actually choosing between.
+/// </summary>
+/// <remarks>
+/// Taken from the earliest game the family appears in, which is the first rung in every case but
+/// one: a rung is dropped when its game can't field three comparable opponents, and if that
+/// happens to the earliest game the run really starts one game later with slightly different
+/// numbers. Vetting the whole ladder to show a tooltip would cost a full run build per starter,
+/// so the picker shows the earliest form and the climb begins wherever it can.
+/// </remarks>
+public record StarterForm(
+    string GameName, int HitPoints, int Attack, int Defense, int MagicAttack, int MagicDefense, int Speed,
+    IReadOnlyList<string> Weaknesses, IReadOnlyList<string> Absorbs, IReadOnlyList<string> Moves);
+
+public record Starter(
+    string Family, int GameCount, string? ImageUrl, IReadOnlyList<string> Games, StarterForm StartingForm);
+
+/// <summary>
+/// Builds a day's climb: a ladder of games, the player's form of their chosen monster in
 /// each, and three opponents per rung.
 /// </summary>
-public class GauntletBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puzzle)
+public class ClimbBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puzzle)
 {
     /// <summary>
     /// The games a battle can actually take place in. Battles never cross games, so a rung is
@@ -80,13 +95,26 @@ public class GauntletBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puz
                 Family: g.Key,
                 GameCount: g.Select(f => f.GameId).Distinct().Count(),
                 ImageUrl: g.OrderBy(f => f.GameId).Select(f => f.ImageUrl).FirstOrDefault(u => u is not null),
-                Games: g.OrderBy(f => f.GameId).Select(f => f.GameName).Distinct().ToList()))
+                Games: g.OrderBy(f => f.GameId).Select(f => f.GameName).Distinct().ToList(),
+                StartingForm: FormOf(g.OrderBy(f => f.GameId).First())))
             .OrderByDescending(s => s.GameCount)
             .ThenBy(s => s.Family, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
-    public async Task<Gauntlet?> BuildAsync(string family, DateOnly date, CancellationToken ct)
+    private static StarterForm FormOf(Fighter f) => new(
+        f.GameName, f.HitPoints, f.Attack, f.Defense, f.MagicAttack, f.MagicDefense, f.Speed,
+        SplitList(f.Weaknesses), SplitList(f.Absorbs),
+        MoveBuilder.Build(f.Abilities).Select(m => m.Name).ToList());
+
+    /// <summary>Affinities are stored comma-separated for the plain data endpoints; a browser
+    /// wants them as an array.</summary>
+    public static IReadOnlyList<string> SplitList(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    public async Task<Climb?> BuildAsync(string family, DateOnly date, CancellationToken ct)
     {
         var pool = await GetPoolAsync(ct);
 
@@ -96,6 +124,8 @@ public class GauntletBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puz
 
         if (forms.Count == 0) return null;
 
+        // The seed string keeps its original name on purpose. It is not shown anywhere; renaming
+        // it would reshuffle every ladder in the game for a cosmetic reason.
         var seed = puzzle.SeedFor(date, $"gauntlet:v1:{family.ToLowerInvariant()}");
         var byGame = pool.GroupBy(f => f.GameId).ToDictionary(g => g.Key, g => g.ToList());
         var moves = new MoveCache();
@@ -124,7 +154,7 @@ public class GauntletBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puz
             rungs.Add(new BattleRung(rungs.Count + 1, gameId, player.GameName, player, opponents));
         }
 
-        return new Gauntlet(forms.Values.First().Name, date, rungs, skipped);
+        return new Climb(forms.Values.First().Name, date, rungs, skipped);
     }
 
     /// <summary>

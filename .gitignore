@@ -21,3 +21,6 @@ Thumbs.db
 
 ## Local image review (not committed)
 image-pilot/
+
+## Agent settings and transcripts — local to whoever is working, not part of the project
+.claude/

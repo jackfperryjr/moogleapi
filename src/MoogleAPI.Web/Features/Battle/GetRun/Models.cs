@@ -8,7 +8,11 @@ public record GetRunRequest(string Family, DateOnly? Date);
 /// <param name="Kind">Physical is reduced by Defense, Magic by MagicDefense.</param>
 /// <param name="Power">Multiplier on the attacker's offence stat.</param>
 /// <param name="Recoil">Fraction of the user's own max HP the move costs, 0 for most moves.</param>
-public record MoveOption(string Name, string? Element, string Kind, double Power, double Recoil);
+/// <param name="Status">
+/// Condition inflicted on the defender: "Poison", "Blind", "Silence", or "None". A move that
+/// inflicts one hits softer in exchange.
+/// </param>
+public record MoveOption(string Name, string? Element, string Kind, double Power, double Recoil, string Status);
 
 /// <param name="Weaknesses">Elements this monster takes double damage from.</param>
 /// <param name="Absorbs">Elements that heal it instead of hurting it.</param>
@@ -50,11 +54,17 @@ public record SkippedRung(int GameId, string GameName, string Reason);
 /// <param name="WeaknessMultiplier">Applied when a move's element is one of the defender's weaknesses.</param>
 /// <param name="MinRatio">Floor on the attack-to-defence ratio, so no monster is unhittable.</param>
 /// <param name="MaxRatio">Ceiling on it, so no monster is one-shot.</param>
+/// <param name="PoisonShare">Share of maximum HP Poison bleeds after the afflicted acts.</param>
+/// <param name="BlindMultiplier">What a Physical move is worth while its user is Blind.</param>
+/// <param name="StatusTurns">How long a status lasts, in the afflicted combatant's own turns.</param>
 public record BattleRules(
     double DamageShare,
     double WeaknessMultiplier,
     double MinRatio,
-    double MaxRatio
+    double MaxRatio,
+    double PoisonShare,
+    double BlindMultiplier,
+    int StatusTurns
 );
 
 /// <param name="RetriesPerRun">
