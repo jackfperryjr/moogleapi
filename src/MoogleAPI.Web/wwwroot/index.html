@@ -342,9 +342,12 @@
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
-      /* Nav: drop section anchors, keep GitHub + API Docs */
+      /* Nav: drop the section anchors, keep the links that go somewhere. Games is matched by
+         href rather than left to the :not() chain — it used to be a #games anchor and was
+         dropped here with the rest, but it is a page of its own now and the one link on this
+         nav a phone visitor is most likely to want. */
       nav { padding: 0.9rem 1.25rem; }
-      .nav-links a:not(.btn-docs):not([href*="github"]) { display: none; }
+      .nav-links a:not(.btn-docs):not([href*="github"]):not([href="/games"]) { display: none; }
 
       /* Hero */
       .hero { padding: 3rem 1.25rem 1.5rem; }
@@ -551,7 +554,7 @@
   <a class="nav-brand" href="/"><img src="/moogle.png" alt="" style="height:1.4em;width:auto;vertical-align:middle;margin-right:0.4rem;transform:rotate(-8deg);display:inline-block;"> moogleAPI</a>
   <div class="nav-links">
     <a href="#endpoints">Endpoints</a>
-    <a href="#games">Games</a>
+    <a href="/games">Games</a>
     <a href="#try-it">Try It</a>
     <a href="#stack">Stack</a>
     <a href="https://github.com/jackfperryjr/moogleapi" target="_blank">GitHub</a>
