@@ -3,8 +3,10 @@ main = "worker.js"
 compatibility_date = "2026-07-31"
 
 # Both hostnames are routed so the maintenance page still appears if someone is on
-# www during an outage. If you add the www redirect rule described in README.md,
-# that rule runs first and www requests never reach this Worker in practice.
+# www during an outage. In practice the www route is dead weight: the redirect rule
+# described in README.md is live, and dynamic redirects run before Workers, so www
+# requests are answered at the edge and never reach this Worker. Kept anyway — it
+# costs nothing and covers the case where that rule is disabled.
 [[routes]]
 pattern = "moogleapi.com/*"
 zone_name = "moogleapi.com"
