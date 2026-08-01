@@ -15,6 +15,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/games.css" />
   <style>
+    /* Triple Triad is played on a blue felt table in Final Fantasy VIII, and the card backs are
+    blue. The accent follows the game rather than the site. */
+    body {
+      --accent:   #5b9bd5;
+      --accent-2: #cfe4f7;
+    }
+
     .board-area { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 
     .scoreline {
@@ -137,9 +144,11 @@
   <nav>
     <a class="nav-brand" href="/">moogleAPI</a>
     <div class="nav-links">
+      <a href="/games">Games</a>
       <a href="/kupodle">Kupodle</a>
       <a href="/triple-triad" aria-current="page">Triple Triad</a>
       <a href="/kupo-climb">Kupo Climb</a>
+      <a href="/battle-square">Battle Square</a>
       <a href="/scalar/v1">API Docs</a>
     </div>
   </nav>

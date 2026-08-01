@@ -24,6 +24,7 @@ host.Services.AddScoped<GameSeeder>();
 host.Services.AddScoped<CharacterScraper>();
 host.Services.AddScoped<MonsterScraper>();
 host.Services.AddScoped<CardScraper>();
+host.Services.AddScoped<PlayableScraper>();
 host.Services.AddScoped<DataRepair>();
 
 // Image hosting is optional: without R2 credentials every other stage still runs, and the
@@ -48,8 +49,8 @@ var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
 // --force      re-parse and overwrite existing field values instead of only filling nulls
 // --repair     run the one-time cleanup of legacy names and unparsed infobox fragments
-// --only=x,y   restrict the run to named stages (games, characters, monsters, cards, images,
-//              audit, generate, promote)
+// --only=x,y   restrict the run to named stages (games, characters, playable, monsters, cards,
+//              images, audit, generate, promote)
 var force = args.Contains("--force", StringComparer.OrdinalIgnoreCase);
 var repair = args.Contains("--repair", StringComparer.OrdinalIgnoreCase);
 
@@ -90,6 +91,10 @@ if (ShouldRun("games"))
 
 if (ShouldRun("characters"))
     await scope.ServiceProvider.GetRequiredService<CharacterScraper>().ScrapeAsync(force);
+
+// After characters: it flags rows the character scrape has to have created first.
+if (ShouldRun("playable"))
+    await scope.ServiceProvider.GetRequiredService<PlayableScraper>().ScrapeAsync();
 
 if (ShouldRun("monsters"))
     await scope.ServiceProvider.GetRequiredService<MonsterScraper>().ScrapeAsync(force);

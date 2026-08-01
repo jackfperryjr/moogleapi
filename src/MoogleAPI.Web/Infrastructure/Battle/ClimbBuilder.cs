@@ -1,6 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Hybrid;
-using MoogleAPI.Web.Infrastructure.Data;
 using MoogleAPI.Web.Infrastructure.Puzzles;
 
 namespace MoogleAPI.Web.Infrastructure.Battle;
@@ -54,24 +51,10 @@ public record Starter(
 /// Builds a day's climb: a ladder of games, the player's form of their chosen monster in
 /// each, and three opponents per rung.
 /// </summary>
-public class ClimbBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puzzle)
+public class ClimbBuilder(BattlePool pool, DailyPuzzle puzzle)
 {
-    /// <summary>
-    /// The games a battle can actually take place in. Battles never cross games, so a rung is
-    /// only playable when both sides come from the same one.
-    /// </summary>
-    /// <remarks>
-    /// Absent for want of stats: VIII, whose enemy articles give HP as level-scaling
-    /// coefficients rather than a number, and XI, XIV and XVI, which publish almost none.
-    /// <para>
-    /// II is absent for a different reason. It has HP and art for 166 monsters, so it looks
-    /// playable — but exactly one of them has a listed elemental weakness, against 31–91% in
-    /// every other game here. Elemental choice is the whole decision in a battle, so a rung in
-    /// II is a damage race with nothing to think about, and it happened to be the opening rung
-    /// for the most popular starter.
-    /// </para>
-    /// </remarks>
-    public static readonly int[] LadderGameIds = [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 15];
+    /// <inheritdoc cref="BattlePool.GameIds"/>
+    public static int[] LadderGameIds => BattlePool.GameIds;
 
     /// <summary>How many games a name must appear in, battle-ready, to be offered as a starter.</summary>
     private const int MinStarterGames = 5;
@@ -86,9 +69,9 @@ public class ClimbBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puzzle
 
     public async Task<IReadOnlyList<Starter>> GetStartersAsync(CancellationToken ct)
     {
-        var pool = await GetPoolAsync(ct);
+        var battlePool = await pool.GetAsync(ct);
 
-        return pool
+        return battlePool
             .GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Select(f => f.GameId).Distinct().Count() >= MinStarterGames)
             .Select(g => new Starter(
@@ -116,9 +99,9 @@ public class ClimbBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puzzle
 
     public async Task<Climb?> BuildAsync(string family, DateOnly date, CancellationToken ct)
     {
-        var pool = await GetPoolAsync(ct);
+        var battlePool = await pool.GetAsync(ct);
 
-        var forms = pool
+        var forms = battlePool
             .Where(f => f.Name.Equals(family, StringComparison.OrdinalIgnoreCase))
             .ToDictionary(f => f.GameId);
 
@@ -127,7 +110,7 @@ public class ClimbBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puzzle
         // The seed string keeps its original name on purpose. It is not shown anywhere; renaming
         // it would reshuffle every ladder in the game for a cosmetic reason.
         var seed = puzzle.SeedFor(date, $"gauntlet:v1:{family.ToLowerInvariant()}");
-        var byGame = pool.GroupBy(f => f.GameId).ToDictionary(g => g.Key, g => g.ToList());
+        var byGame = battlePool.GroupBy(f => f.GameId).ToDictionary(g => g.Key, g => g.ToList());
         var moves = new MoveCache();
 
         var rungs = new List<BattleRung>();
@@ -240,118 +223,7 @@ public class ClimbBuilder(AppDbContext db, HybridCache cache, DailyPuzzle puzzle
     /// <summary>A fight decided in a click or two isn't one; three turns is the floor.</summary>
     private const int MinTurns = 3;
 
-    /// <summary>
-    /// Move lists are derived by regex from each monster's abilities, and vetting a rung
-    /// compares the player against every candidate in the game — hundreds of monsters, twice
-    /// each. Building them once per run keeps that off the hot path.
-    /// </summary>
-    private sealed class MoveCache
-    {
-        private readonly Dictionary<int, IReadOnlyList<Move>> _moves = [];
-
-        public IReadOnlyList<Move> For(Fighter fighter)
-        {
-            if (_moves.TryGetValue(fighter.Id, out var cached)) return cached;
-
-            var built = MoveBuilder.Build(fighter.Abilities);
-            _moves[fighter.Id] = built;
-            return built;
-        }
-    }
-
     private static string GameNameFor(Dictionary<int, List<Fighter>> byGame, int gameId) =>
         byGame.TryGetValue(gameId, out var fighters) && fighters.Count > 0 ? fighters[0].GameName : $"Game {gameId}";
 
-    /// <summary>
-    /// Every monster that can fight, across the ladder's games. Loaded whole and cached: it is
-    /// a few thousand small rows, and holding it in memory keeps a twelve-rung build to one
-    /// query instead of twenty-four.
-    /// </summary>
-    private async Task<List<Fighter>> GetPoolAsync(CancellationToken ct) =>
-        await cache.GetOrCreateAsync(
-            "battle:pool:v2",
-            async token =>
-            {
-                var raw = await db.Monsters
-                    .Where(m => LadderGameIds.Contains(m.GameId)
-                                && m.HitPoints != null && m.HitPoints > 0
-                                && m.ImageUrl != null
-                                // Content that was never a real encounter. The wiki documents
-                                // cut and debug entries as enemies — Final Fantasy VI's
-                                // "Unnamed cutscene" is a dummied cutscene loader with 1 HP —
-                                // and they're valid data, just not something to fight. They
-                                // stay in the API and are excluded only from the battle pool.
-                                && !m.Name.StartsWith("Unnamed")
-                                && (m.Description == null
-                                    || (!m.Description.Contains("dummied")
-                                        && !m.Description.Contains("unused")
-                                        && !m.Description.Contains("is a debug"))))
-                    .OrderBy(m => m.Id)
-                    .Select(m => new RawFighter(
-                        m.Id, m.Name, m.GameId, m.Game.Name, m.Category, m.HitPoints!.Value,
-                        m.Attack, m.Defense, m.MagicAttack, m.MagicDefense, m.Speed,
-                        m.Weaknesses, m.Absorbs, m.Abilities, m.ImageUrl))
-                    .ToListAsync(token);
-
-                return FillGapsWithGameMedians(raw);
-            },
-            cancellationToken: ct) ?? [];
-
-    /// <summary>
-    /// Articles omit individual stats constantly — Final Fantasy II publishes no magic attack
-    /// at all — so a monster missing one is still a fine opponent and shouldn't be excluded.
-    /// What it can't have is a flat placeholder: a fixed default of 10 sits wildly above or
-    /// below whatever scale the game actually uses, and a fight between one monster's real
-    /// stat and another's placeholder becomes a blowout. An FFII Ogre Chief with a defaulted
-    /// magic attack of 10 hit a Bomb's genuine magic defence of 4 for a third of its health a
-    /// turn. Filling from the game's own median keeps both sides on the same scale.
-    /// </summary>
-    private static List<Fighter> FillGapsWithGameMedians(List<RawFighter> raw)
-    {
-        var fighters = new List<Fighter>(raw.Count);
-
-        foreach (var game in raw.GroupBy(r => r.GameId))
-        {
-            // A stat is only ever compared against its opposite, so when a game publishes none
-            // of one it borrows the other's scale rather than a constant. Final Fantasy II
-            // lists no magic attack whatsoever but does list magic defence in single digits —
-            // pairing them keeps that exchange even, where a flat 10 against a real 4 let every
-            // FFII enemy hit for a third of the player's health per turn.
-            var attack = Median(game, r => r.Attack, r => r.Defense);
-            var defense = Median(game, r => r.Defense, r => r.Attack);
-            var magicAttack = Median(game, r => r.MagicAttack, r => r.MagicDefense);
-            var magicDefense = Median(game, r => r.MagicDefense, r => r.MagicAttack);
-            var speed = Median(game, r => r.Speed, r => r.Speed);
-
-            fighters.AddRange(game.Select(r => new Fighter(
-                r.Id, r.Name, r.GameId, r.GameName, r.Category, r.HitPoints,
-                r.Attack ?? attack, r.Defense ?? defense,
-                r.MagicAttack ?? magicAttack, r.MagicDefense ?? magicDefense, r.Speed ?? speed,
-                r.Weaknesses, r.Absorbs, r.Abilities, r.ImageUrl)));
-        }
-
-        return fighters.OrderBy(f => f.Id).ToList();
-    }
-
-    /// <summary>
-    /// Median of the values a game publishes for a stat, falling back to its opposing stat's
-    /// median, and to 10 only when the game publishes neither.
-    /// </summary>
-    private static int Median(IEnumerable<RawFighter> game, Func<RawFighter, int?> stat, Func<RawFighter, int?> opposite)
-    {
-        var fighters = game as IReadOnlyCollection<RawFighter> ?? game.ToList();
-
-        return MedianOf(fighters, stat) ?? MedianOf(fighters, opposite) ?? 10;
-    }
-
-    private static int? MedianOf(IEnumerable<RawFighter> game, Func<RawFighter, int?> stat)
-    {
-        var values = game.Select(stat).Where(v => v is > 0).Select(v => v!.Value).OrderBy(v => v).ToList();
-        return values.Count == 0 ? null : values[values.Count / 2];
-    }
-
-    private record RawFighter(
-        int Id, string Name, int GameId, string GameName, string? Category, int HitPoints,
-        int? Attack, int? Defense, int? MagicAttack, int? MagicDefense, int? Speed,
-        string? Weaknesses, string? Absorbs, string? Abilities, string? ImageUrl);
 }

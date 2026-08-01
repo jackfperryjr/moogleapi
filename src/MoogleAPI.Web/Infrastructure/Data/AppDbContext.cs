@@ -24,9 +24,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(c => c.Id);
             e.Property(c => c.Name).HasMaxLength(200).IsRequired();
+            e.Property(c => c.Job).HasMaxLength(100);
+            e.Property(c => c.Weapon).HasMaxLength(200);
             e.HasIndex(c => new { c.Name, c.GameId }).IsUnique();
             // Games filter on Popularity to skip obscure NPCs, then pick by offset.
             e.HasIndex(c => c.Popularity);
+            // Battle Square draws its roster from this and nothing else, and it selects ~85 rows
+            // out of 2,100. Filtered so the index is the size of the roster rather than the table.
+            e.HasIndex(c => new { c.GameId, c.IsPlayable })
+             .HasFilter("\"IsPlayable\" = true");
+            // Declared by hand because the filtered index above otherwise convinces EF that the
+            // foreign key's own index is redundant — it leads on GameId, so it looks like a
+            // superset. It isn't: the filter means it can only answer for playable rows, and
+            // dropping this would take the index off every ordinary /api/characters?gameId= call.
+            e.HasIndex(c => c.GameId);
             e.HasOne(c => c.Game)
              .WithMany(g => g.Characters)
              .HasForeignKey(c => c.GameId)

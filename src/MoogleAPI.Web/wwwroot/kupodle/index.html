@@ -14,6 +14,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/assets/games.css" />
   <style>
+    /* Kupodle's identity is the guess grid, so the theme stays close to the site's default and
+    just shifts the accent green — the same green the board already uses for a correct
+    attribute. Anything louder would compete with the tiles the player is actually reading. */
+    body {
+      --accent:   #7cc4a4;
+      --accent-2: #cdeadd;
+    }
+
     .combo { position: relative; }
     .combo-row { display: flex; gap: 0.6rem; }
     .combo-row input { flex: 1; }
@@ -119,9 +127,11 @@
   <nav>
     <a class="nav-brand" href="/">moogleAPI</a>
     <div class="nav-links">
+      <a href="/games">Games</a>
       <a href="/kupodle" aria-current="page">Kupodle</a>
       <a href="/triple-triad">Triple Triad</a>
       <a href="/kupo-climb">Kupo Climb</a>
+      <a href="/battle-square">Battle Square</a>
       <a href="/scalar/v1">API Docs</a>
     </div>
   </nav>
