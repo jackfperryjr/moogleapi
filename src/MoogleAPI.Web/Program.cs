@@ -129,6 +129,25 @@ app.MapScalarApiReference(options =>
     options.WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
 });
 
+// ── Health ────────────────────────────────────────────────────────────────────
+// Point Railway's Healthcheck Path at this. Railway holds the old container in
+// service until the new one answers here, which is what turns a deploy from a
+// hard restart into a handover — see cloudflare/maintenance-worker/README.md.
+//
+// Deliberately liveness only, not readiness. Answering at all already proves the
+// interesting part: EF migrations run to completion before app.RunAsync() below,
+// so nothing binds the port until the schema is current. Probing the database here
+// too would mean a transient Neon hiccup could fail an otherwise good deploy.
+//
+// Rate limiting off — the probe hits repeatedly from one address and would
+// otherwise eat into the 60/min anonymous partition and start 429ing itself.
+// HEAD as well as GET: uptime monitors default to HEAD, and MapGet alone answers
+// those with 405, which reads as an outage to the very thing meant to detect one.
+app.MapMethods("/health", [HttpMethods.Get, HttpMethods.Head],
+        () => Results.Ok(new { status = "healthy" }))
+   .DisableRateLimiting()
+   .ExcludeFromDescription();
+
 // ── Dashboard routes ──────────────────────────────────────────────────────────
 // Served through a protected endpoint rather than static files so auth is enforced.
 app.MapGet("/dashboard", (IWebHostEnvironment env) =>
