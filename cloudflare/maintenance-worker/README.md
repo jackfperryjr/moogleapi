@@ -59,17 +59,38 @@ then temporarily add `return maintenanceResponse(request);` at the top of `fetch
 
 ## The `www` hostname
 
-`www.moogleapi.com` already resolves and is proxied by Cloudflare, and Cloudflare's
-certificate covers `*.moogleapi.com`. What's missing is that **Railway has no custom
-domain for `www`**, so it answers with its own fallback `404` and a
-`*.up.railway.app` certificate.
+`www.moogleapi.com` 301s to the apex at the Cloudflare edge. **Live since 2026-08-01.**
 
-Pick one:
+Railway has no custom domain for `www` and deliberately never gets one — without the
+redirect it answers with its own fallback `404` and a `*.up.railway.app` certificate,
+which is the bug this fixes. The redirect resolves at the edge, so `www` requests
+never reach the origin at all.
 
-1. **Redirect (recommended).** Cloudflare → Rules → Redirect Rules. If hostname
-   equals `www.moogleapi.com`, dynamic 301 to
-   `concat("https://moogleapi.com", http.request.uri.path)`. Never touches Railway,
-   keeps the apex canonical, and costs nothing.
-2. **Serve both.** Add `www.moogleapi.com` as a second custom domain in Railway. The
-   site then answers on both hostnames, which splits your canonical URL and is worth
-   avoiding unless you have a reason.
+The rule lives in Cloudflare → Rules → Redirect Rules:
+
+| Setting | Value |
+| --- | --- |
+| Filter expression | `(http.host eq "www.moogleapi.com")` |
+| Target URL | Dynamic — `concat("https://moogleapi.com", http.request.uri.path)` |
+| Status code | 301 |
+| Preserve query string | on |
+
+**Preserve query string is not optional.** With it off the path survives but the query
+does not, so `?pageSize=5` is silently dropped and a shared link lands on unfiltered
+page 1 with nothing to explain why. It fails quietly, which is worse than failing.
+
+Verify from a shell rather than a browser — a browser will have cached the old `404`:
+
+```sh
+curl -sS -o /dev/null -D - --max-redirs 0 'https://www.moogleapi.com/api/monsters?pageSize=5'
+```
+
+Expect `301` with `location: https://moogleapi.com/api/monsters?pageSize=5` and **no**
+`x-railway-*` headers. Those headers disappearing is the real signal: it means the edge
+answered and the origin was never touched. If you see `x-railway-fallback: true`, the
+rule is not matching — check that it is enabled and on the right zone before touching
+the target.
+
+The rejected alternative was adding `www.moogleapi.com` as a second custom domain in
+Railway. It works, but it splits the canonical URL across two hostnames and puts the
+origin back in the path for no gain.
