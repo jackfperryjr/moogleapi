@@ -1,14 +1,36 @@
 name: Scrape Final Fantasy Data
 
+# The weekly run takes every stage and no arguments. The manual run takes both, because a
+# targeted scrape is the normal way to fix or backfill one thing: marking playable characters
+# is eleven requests, where a full run walks tens of thousands of articles over hours.
 on:
   workflow_dispatch:
+    inputs:
+      stages:
+        description: 'Stages to run, comma-separated (games, characters, playable, monsters, cards, images, audit, generate, promote). Empty runs the usual set.'
+        required: false
+        default: ''
+      force:
+        description: 'Re-parse and overwrite existing values instead of only filling nulls. Needed to backfill a newly added field.'
+        type: boolean
+        required: false
+        default: false
+      repair:
+        description: 'Run the one-time cleanup of legacy names and unparsed infobox fragments.'
+        type: boolean
+        required: false
+        default: false
   schedule:
     - cron: '0 2 * * 0'   # Every Sunday at 2 AM UTC
-  
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
     environment: Production
+
+    # A full scrape walks the whole wiki and routinely runs for hours. Naming the ceiling keeps
+    # a hung request from holding a runner for the default six before anyone notices.
+    timeout-minutes: 360
 
     steps:
       - uses: actions/checkout@v7
@@ -20,7 +42,23 @@ jobs:
       - name: Restore
         run: dotnet restore scripts/MoogleAPI.Scraper/MoogleAPI.Scraper.csproj
 
+      # Arguments are assembled in the shell rather than interpolated into the command line, so
+      # the scheduled run — where every input is empty — passes no flags at all and behaves
+      # exactly as it did before this was made configurable.
       - name: Run scraper
         env:
           CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
-        run: dotnet run --project scripts/MoogleAPI.Scraper --configuration Release --no-restore
+          STAGES: ${{ inputs.stages }}
+          FORCE: ${{ inputs.force }}
+          REPAIR: ${{ inputs.repair }}
+        # Written as if-blocks rather than `[ -n "$X" ] && args+=(...)`: this step runs under
+        # `bash -e`, where a one-liner whose test is false returns non-zero and takes the whole
+        # step down with it. A scheduled run leaves every input empty, so that is the common case.
+        run: |
+          args=()
+          if [ -n "$STAGES" ]; then args+=("--only=$STAGES"); fi
+          if [ "$FORCE" = "true" ]; then args+=("--force"); fi
+          if [ "$REPAIR" = "true" ]; then args+=("--repair"); fi
+
+          echo "Running scraper with: ${args[*]:-(no arguments)}"
+          dotnet run --project scripts/MoogleAPI.Scraper --configuration Release --no-restore -- "${args[@]}"
