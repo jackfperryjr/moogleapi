@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Games — moogleAPI</title>
+  <meta name="description" content="Four browser games built on the moogleAPI Final Fantasy data — Kupodle, Triple Triad, Kupo Climb and Battle Square." />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/games.css" />
+  <style>
+    .hub-intro { max-width: 46rem; }
+
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.1rem;
+      margin-top: 2rem;
+    }
+
+    /* Each tile carries its own accent through a custom property, so one rule styles four
+       games and adding a fifth is a colour and a link rather than a new block of CSS. */
+    .tile {
+      --tile: var(--accent);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 1.4rem 1.3rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: inherit;
+      text-decoration: none;
+      transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+    }
+    .tile::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 3px;
+      background: var(--tile);
+    }
+    /* The wash is the only thing carrying the game's colour at rest, so it has to survive a
+       dark and a light surface alike — hence a translucent tint rather than a fixed hex. */
+    .tile::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tile) 16%, transparent) 0%, transparent 70%);
+      pointer-events: none;
+      opacity: 0.65;
+      transition: opacity 0.18s;
+    }
+    .tile:hover, .tile:focus-visible {
+      border-color: var(--tile);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 26px rgb(0 0 0 / 0.35);
+    }
+    .tile:hover::after, .tile:focus-visible::after { opacity: 1; }
+
+    .tile > * { position: relative; z-index: 1; }
+
+    /* Logo slot. The art is supplied per game; until a file exists the script swaps in the
+       wordmark below, so a missing image is a different-looking tile rather than a broken one. */
+    .tile-art {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 88px;
+      margin-bottom: 1rem;
+    }
+    .tile-art img { max-height: 100%; max-width: 100%; object-fit: contain; }
+    .tile-wordmark {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--tile);
+      text-align: center;
+      line-height: 1.15;
+    }
+
+    .tile-name {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+    }
+    .tile-desc { font-size: 0.86rem; color: var(--muted); line-height: 1.55; flex: 1; }
+
+    .tile-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 1.1rem;
+    }
+    .tile-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.18rem 0.6rem;
+    }
+    .tile-go {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--tile);
+      white-space: nowrap;
+      transition: transform 0.18s;
+    }
+    .tile:hover .tile-go { transform: translateX(3px); }
+
+    .hub-note {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .hub-note a { color: var(--accent-2); }
+
+    @media (max-width: 640px) {
+      .tile { padding: 1.1rem 1rem; }
+      .tile-art { height: 70px; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-brand" href="/">moogleAPI</a>
+    <div class="nav-links">
+      <a href="/games" aria-current="page">Games</a>
+      <a href="/kupodle">Kupodle</a>
+      <a href="/triple-triad">Triple Triad</a>
+      <a href="/kupo-climb">Kupo Climb</a>
+      <a href="/battle-square">Battle Square</a>
+      <a href="/scalar/v1">API Docs</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <h1 class="page-title">Games</h1>
+    <p class="page-sub hub-intro">
+      Four browser games built on this API. Every one of them uses public endpoints you can call
+      yourself — no private data, no server-side state. Pick a cabinet.
+    </p>
+
+    <div class="tiles">
+      <a class="tile" href="/kupodle" style="--tile:#7cc4a4">
+        <div class="tile-art" data-wordmark="Kupodle">
+          <img src="/assets/logos/kupodle.png" alt="" />
+        </div>
+        <div class="tile-name">Kupodle</div>
+        <div class="tile-desc">
+          Guess the daily Final Fantasy character in six tries. Every guess narrows it by game,
+          role, race, hometown and release year.
+        </div>
+        <div class="tile-foot">
+          <span class="tile-tag">Daily · Puzzle</span>
+          <span class="tile-go">Play →</span>
+        </div>
+      </a>
+
+      <a class="tile" href="/triple-triad" style="--tile:#5b9bd5">
+        <div class="tile-art" data-wordmark="Triple Triad">
+          <img src="/assets/logos/triple-triad.png" alt="" />
+        </div>
+        <div class="tile-name">Triple Triad</div>
+        <div class="tile-desc">
+          The Final Fantasy VIII card game, with all 110 authentic cards and their real corner
+          values. Three-by-three, capture by the numbers.
+        </div>
+        <div class="tile-foot">
+          <span class="tile-tag">Cards · Versus</span>
+          <span class="tile-go">Play →</span>
+        </div>
+      </a>
+
+      <a class="tile" href="/kupo-climb" style="--tile:#c98b4b">
+        <div class="tile-art" data-wordmark="Kupo Climb">
+          <img src="/assets/logos/kupo-climb.png" alt="" />
+        </div>
+        <div class="tile-name">Kupo Climb</div>
+        <div class="tile-desc">
+          Take one monster up through the series, a game per rung. Beat all three battles and it
+          evolves into that game's version of itself.
+        </div>
+        <div class="tile-foot">
+          <span class="tile-tag">Daily · Battle</span>
+          <span class="tile-go">Play →</span>
+        </div>
+      </a>
+
+      <a class="tile" href="/battle-square" style="--tile:#b07cc6">
+        <div class="tile-art" data-wordmark="Battle Square">
+          <img src="/assets/logos/battle-square.png" alt="" />
+        </div>
+        <div class="tile-name">Battle Square</div>
+        <div class="tile-desc">
+          The Gold Saucer's arena, opened to the whole series. One character against eight
+          straight waves — and the slots take something away between each.
+        </div>
+        <div class="tile-foot">
+          <span class="tile-tag">Daily · Arena</span>
+          <span class="tile-go">Play →</span>
+        </div>
+      </a>
+    </div>
+
+    <p class="hub-note">
+      Not affiliated with Square Enix. Character and monster data comes from the
+      <a href="https://finalfantasy.fandom.com/">Final Fantasy Wiki</a>, served through
+      <a href="/scalar/v1">this API</a>.
+    </p>
+  </main>
+
+  <script>
+    // Logos are dropped in per game and may not exist yet. Rather than leave a broken-image
+    // glyph on the tile, swap in the game's name set in the site's display face — which is what
+    // the tile would have shown anyway had it been designed without art.
+    for (const slot of document.querySelectorAll('.tile-art')) {
+      const img = slot.querySelector('img');
+      if (!img) continue;
+
+      const fallback = () => {
+        slot.innerHTML = '';
+        const mark = document.createElement('div');
+        mark.className = 'tile-wordmark';
+        mark.textContent = slot.dataset.wordmark ?? '';
+        slot.appendChild(mark);
+      };
+
+      img.addEventListener('error', fallback);
+      // A cached failure can land before the listener is attached, so check the decoded state too.
+      if (img.complete && img.naturalWidth === 0) fallback();
+    }
+  </script>
+</body>
+</html>

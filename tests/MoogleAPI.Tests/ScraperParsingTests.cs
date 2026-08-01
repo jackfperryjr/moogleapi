@@ -763,3 +763,190 @@ public class MonsterRepairTests
         Assert.False(DataRepair.IsNotAMonster(name));
     }
 }
+
+/// <summary>
+/// Fixtures are verbatim excerpts of the live character navbox templates, so these fail if the
+/// wiki restructures the group/list layout the roster is read from.
+/// </summary>
+public class PlayableRosterParsingTests
+{
+    // Template:Navbox characters FFVII — the plain shape: a "Playable" group with its names on
+    // the matching list line.
+    private const string SeventhNavbox = """
+        | 1 group = Playable
+        | 1 list = [[Cloud Strife]] - [[Barret Wallace]] - [[Tifa Lockhart]] - [[Aerith Gainsborough|Aerith Gainsborough]] - [[Red XIII]] - [[Cait Sith (Final Fantasy VII)|Cait Sith]] - [[Cid Highwind]] - [[Yuffie Kisaragi]] - [[Vincent Valentine]]
+        | 2 group = Temporary playable
+        | 2 list = [[Sephiroth]]
+        | 3 group = [[Shinra Electric Power Company|Shinra Staff]]
+        | 3 list = [[Rufus Shinra]] - [[President Shinra]] - [[Professor Hojo]] - [[Tseng]] - [[Reno]]
+        | 4 group = Other
+        | 4 list = [[Biggs (Final Fantasy VII)|Biggs]] - [[Butch (Final Fantasy VII)|Butch]] - [[Jenova]]
+        """;
+
+    // Template:Navbox characters FFXII — the nested shape: the "Playable" group holds nothing
+    // itself and hangs its names off subgroups.
+    private const string TwelfthNavbox = """
+        | 1 group =  Playable
+        | 1.1 group = Main
+        | 1.1 list = [[Vaan]] - [[Penelo]] - [[Balthier]] - [[Fran (Final Fantasy XII)|Fran]] - [[Basch fon Ronsenburg]] - [[Ashelia B'nargin Dalmasca]]
+        | 1.2 group = Temporary
+        | 1.2 list = [[Reks]]
+        | 1.3 group = Guests
+        | 1.3 list = [[Larsa Ferrinas Solidor]] - [[Vossler York Azelas]] - [[Reddas]]
+        | 1.4 group = AI members
+        | 1.4 list = [[Bangaa Hunter]] - [[Krjn]] - [[Monid]]
+        | 3 group = Non-playable
+        | 3 list = [[Al-Cid Margrace]] - [[Anastasis]] - [[Old Dalan|Dalan]]
+        """;
+
+    // Template:Navbox characters FFXV and FFIII — the same idea under labels that never say
+    // "Playable" in the plain form.
+    private const string FifteenthNavbox = """
+        | 1 group = Main party
+        | 1 list = [[Noctis Lucis Caelum]] - [[Gladiolus Amicitia]] - [[Ignis Scientia]] - [[Prompto Argentum]]
+        | 2 group = Guests
+        | 2 list = [[Aranea Highwind]] - [[Cor Leonis]] - [[Iris Amicitia]]
+        | 3 group = Antagonists
+        | 3 list = [[Ardyn Izunia]] - [[Iedolas Aldercapt]]
+        """;
+
+    private const string ThirdNavbox = """
+        | 1 group = Famicon playable
+        | 1 list = [[Onion Knight (Final Fantasy III)|Onion Knights]]
+        | 2 group = Remake playable
+        | 2 list = [[Luneth]] - [[Arc]] - [[Refia]] - [[Ingus]]
+        | 3 group = Guests
+        | 3 list = [[Desch]] - [[Cid Haze]]
+        """;
+
+    [Fact]
+    public void ReadsThePlayableGroup()
+    {
+        var roster = WikiClient.ParsePlayableRoster(SeventhNavbox);
+
+        Assert.Contains("Cloud Strife", roster);
+        Assert.Contains("Tifa Lockhart", roster);
+        Assert.Contains("Vincent Valentine", roster);
+    }
+
+    /// <summary>
+    /// The display text wins over the article title, because that is the name the character
+    /// scraper stored: "[[Cait Sith (Final Fantasy VII)|Cait Sith]]" has to match the row.
+    /// </summary>
+    [Fact]
+    public void PrefersTheDisplayNameOverTheArticleTitle()
+    {
+        var roster = WikiClient.ParsePlayableRoster(SeventhNavbox);
+
+        Assert.Contains("Cait Sith", roster);
+        Assert.DoesNotContain("Cait Sith (Final Fantasy VII)", roster);
+    }
+
+    /// <summary>
+    /// Sephiroth is playable for exactly one flashback, and the wiki says so. Including the
+    /// temporary group is what puts him on the roster.
+    /// </summary>
+    [Fact]
+    public void IncludesTemporarilyPlayableCharacters() =>
+        Assert.Contains("Sephiroth", WikiClient.ParsePlayableRoster(SeventhNavbox));
+
+    [Fact]
+    public void LeavesOutEveryoneWhoIsNotPlayable()
+    {
+        var roster = WikiClient.ParsePlayableRoster(SeventhNavbox);
+
+        Assert.DoesNotContain("Rufus Shinra", roster);
+        Assert.DoesNotContain("Professor Hojo", roster);
+        Assert.DoesNotContain("Butch", roster);
+        Assert.DoesNotContain("Jenova", roster);
+    }
+
+    /// <summary>
+    /// Final Fantasy X and XII put nothing in the "Playable" group itself and hang the names off
+    /// nested subgroups, so a reader that only looks at top-level groups returns nothing for
+    /// either game.
+    /// </summary>
+    [Fact]
+    public void ReadsNamesNestedUnderAPlayableGroup()
+    {
+        var roster = WikiClient.ParsePlayableRoster(TwelfthNavbox);
+
+        Assert.Contains("Vaan", roster);
+        Assert.Contains("Ashelia B'nargin Dalmasca", roster);
+        Assert.Contains("Reks", roster);
+    }
+
+    /// <summary>
+    /// Guests and AI members are escorts the player never controls — a Bangaa Hunter is not a
+    /// character anyone picked.
+    /// </summary>
+    [Fact]
+    public void LeavesOutGuestsAndAiMembers()
+    {
+        var roster = WikiClient.ParsePlayableRoster(TwelfthNavbox);
+
+        Assert.DoesNotContain("Reddas", roster);
+        Assert.DoesNotContain("Bangaa Hunter", roster);
+        Assert.DoesNotContain("Krjn", roster);
+    }
+
+    /// <summary>"Non-playable" contains the word and must never match on it.</summary>
+    [Fact]
+    public void IsNotFooledByTheNonPlayableGroup()
+    {
+        var roster = WikiClient.ParsePlayableRoster(TwelfthNavbox);
+
+        Assert.DoesNotContain("Al-Cid Margrace", roster);
+        Assert.DoesNotContain("Dalan", roster);
+    }
+
+    [Fact]
+    public void ReadsAPartyThatIsNotLabelledPlayable()
+    {
+        var roster = WikiClient.ParsePlayableRoster(FifteenthNavbox);
+
+        Assert.Equal(["Noctis Lucis Caelum", "Gladiolus Amicitia", "Ignis Scientia", "Prompto Argentum"], roster);
+    }
+
+    [Fact]
+    public void ReadsBothOfTheThirdGamesPlayableGroups()
+    {
+        var roster = WikiClient.ParsePlayableRoster(ThirdNavbox);
+
+        Assert.Contains("Luneth", roster);
+        Assert.Contains("Ingus", roster);
+        Assert.Contains("Onion Knights", roster);
+        Assert.DoesNotContain("Desch", roster);
+    }
+
+    /// <summary>
+    /// Final Fantasy's navbox groups its party as "Warriors of Light" and lists the six job
+    /// classes rather than characters, so it legitimately yields nothing and the scraper has to
+    /// treat an empty roster as a game to skip rather than an error.
+    /// </summary>
+    [Fact]
+    public void ReturnsNothingWhenAGameListsNoPlayableCharacters()
+    {
+        const string first = """
+            | 1 group = [[Warriors of Light]]
+            | 1 list = [[Warrior (Final Fantasy)|Warrior]] - [[Thief (Final Fantasy)|Thief]] - [[Monk (Final Fantasy)|Monk]]
+            | 2 group = Fiends of Chaos
+            | 2 list = [[Lich (Final Fantasy)|Lich]] - [[Marilith (Final Fantasy)|Marilith]]
+            """;
+
+        Assert.Empty(WikiClient.ParsePlayableRoster(first));
+    }
+
+    [Fact]
+    public void DoesNotListACharacterTwice()
+    {
+        const string repeated = """
+            | 1 group = Playable
+            | 1 list = [[Vaan]] - [[Penelo]]
+            | 2 group = Temporary playable
+            | 2 list = [[Vaan]]
+            """;
+
+        Assert.Equal(["Vaan", "Penelo"], WikiClient.ParsePlayableRoster(repeated));
+    }
+}

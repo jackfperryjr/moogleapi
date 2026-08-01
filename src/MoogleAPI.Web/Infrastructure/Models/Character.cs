@@ -30,6 +30,35 @@ public class Character
     /// </summary>
     public string? Abilities { get; set; }
 
+    /// <summary>
+    /// Whether the player controls this character in battle, taken from the "Playable" group of
+    /// the game's character navbox on the wiki.
+    /// </summary>
+    /// <remarks>
+    /// There is no category for this and no infobox field either. <c>|type=npc</c> exists but is
+    /// set on barely a sixth of the non-playable rows, and the prose test — "is a playable
+    /// character" — answers for the whole compilation rather than this game: it makes Jessie and
+    /// the three Turks playable in <em>Final Fantasy VII</em> because they are in Remake, and
+    /// Zack because he is in Crisis Core. The navbox is the only source scoped to the one game,
+    /// and it is curated by hand, so it also settles the cases an automated rule gets wrong —
+    /// Sephiroth is listed under "Temporary playable", which he is, for one flashback.
+    /// </remarks>
+    public bool IsPlayable { get; set; }
+
+    /// <summary>Battle class from the infobox, e.g. "Black Mage", "Knight", "Sky Pirate".</summary>
+    public string? Job { get; set; }
+
+    /// <summary>
+    /// What the character fights with, e.g. "Knuckles", "Staves", "Bows, staves".
+    /// </summary>
+    /// <remarks>
+    /// Kept because it is the one battle-role signal nearly every playable article carries.
+    /// <see cref="Job"/> is absent for about half of them — the job-system games have no fixed
+    /// class to record, and Lightning's article lists neither — while the weapon is almost always
+    /// there and says the same thing: knuckles are a monk, staves a mage, firearms a marksman.
+    /// </remarks>
+    public string? Weapon { get; set; }
+
     public int GameId { get; set; }
 
     /// <summary>

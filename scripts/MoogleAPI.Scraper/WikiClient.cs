@@ -12,7 +12,9 @@ public record CharacterDetails(
     string? Affiliation,
     string? Race,
     string? Hometown,
-    string? Abilities
+    string? Abilities,
+    string? Job,
+    string? Weapon
 );
 
 /// <summary>Raw notability signals for a wiki page.</summary>
@@ -138,11 +140,18 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         var imageUrl = page?.Thumbnail?.Source;
         var wikitext = page?.Revisions?.FirstOrDefault()?.Content;
 
-        string? description = null, role = null, affiliation = null, race = null, hometown = null, abilities = null;
+        string? description = null, role = null, affiliation = null, race = null, hometown = null,
+            abilities = null, job = null, weapon = null;
         if (wikitext is not null)
         {
             description = ParseIntroText(wikitext);
             role = ParseInfoboxField(wikitext, "occupation");
+            // Battle class and armament. Both are read for the same reason: they say what a
+            // character does in a fight, where "occupation" says what they do for a living —
+            // Aerith's is "Florist" and Tifa's "Bar hostess", which describes neither of them
+            // holding a weapon.
+            job = ParseInfoboxField(wikitext, "job") ?? ParseInfoboxField(wikitext, "class");
+            weapon = ParseInfoboxField(wikitext, "weapon") ?? ParseInfoboxField(wikitext, "weapons");
             affiliation = ParseInfoboxField(wikitext, "affiliation");
             race = ParseInfoboxField(wikitext, "race") ?? ParseInfoboxField(wikitext, "species");
             hometown = ParseInfoboxField(wikitext, "home")
@@ -154,8 +163,98 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         }
 
         await Task.Delay(150, ct);
-        return new CharacterDetails(imageUrl, description, role, affiliation, race, hometown, abilities);
+        return new CharacterDetails(
+            imageUrl, description, role, affiliation, race, hometown, abilities, job, weapon);
     }
+
+    /// <summary>
+    /// The names the wiki lists as playable in one game, read from its character navbox.
+    /// </summary>
+    /// <remarks>
+    /// A navbox is a flat list of <c>| N group =</c> / <c>| N list =</c> pairs, and the groups
+    /// are what make it usable: the wiki has already sorted each game's cast into "Playable",
+    /// "Non-playable", "Villains" and so on by hand. Only the playable groups are read.
+    /// <para>
+    /// Two shapes have to be handled. Final Fantasy X and XII put nothing in the "Playable"
+    /// group itself and hang the names off nested subgroups (<c>| 1.1 group = Main</c>), so a
+    /// child counts when its parent is playable. And the label is not always the word: III
+    /// splits its cast into "Famicon playable" and "Remake playable", and XV calls the party
+    /// "Main party".
+    /// </para>
+    /// </remarks>
+    public async Task<List<string>> GetPlayableRosterAsync(string navboxTitle, CancellationToken ct = default)
+    {
+        var wikitext = await GetRawPageAsync(navboxTitle, ct);
+        return wikitext is null ? [] : ParsePlayableRoster(wikitext);
+    }
+
+    private static readonly Regex NavboxField =
+        new(@"^\|\s*([\d.]+)\s*(group|list)\s*=\s*(.*)$", RegexOptions.Compiled | RegexOptions.Multiline);
+
+    private static readonly Regex WikiLink =
+        new(@"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", RegexOptions.Compiled);
+
+    // "Playable", "Temporary playable", "Remake playable", "Main party".
+    private static readonly Regex PlayableGroup =
+        new(@"\bplayable\b|^\s*main party\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Checked separately rather than as a lookahead on the pattern above, so it disqualifies a
+    // label wherever the word appears instead of only at the start.
+    private static readonly Regex NonPlayableGroup =
+        new(@"\bnon[- ]?playable\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static bool IsPlayableGroup(string label) =>
+        PlayableGroup.IsMatch(label) && !NonPlayableGroup.IsMatch(label);
+
+    // Subgroups of a playable group. "Guests" and "AI members" are deliberately excluded:
+    // Final Fantasy XII files a Garif Hunter and a Rabanastre Watch under them, which are
+    // escorts the player never controls.
+    private static readonly Regex PlayableSubgroup =
+        new(@"^(main|temporary)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    internal static List<string> ParsePlayableRoster(string wikitext)
+    {
+        var groups = new Dictionary<string, string>();
+        var lists = new Dictionary<string, string>();
+
+        foreach (Match match in NavboxField.Matches(wikitext))
+        {
+            var target = match.Groups[2].Value.Equals("group", StringComparison.OrdinalIgnoreCase) ? groups : lists;
+            target[match.Groups[1].Value] = match.Groups[3].Value.Trim();
+        }
+
+        var names = new List<string>();
+
+        foreach (var (key, list) in lists)
+        {
+            var label = groups.GetValueOrDefault(key, "");
+
+            var isPlayable = IsPlayableGroup(label);
+            if (!isPlayable && key.Contains('.'))
+            {
+                var parent = groups.GetValueOrDefault(key[..key.IndexOf('.')], "");
+                isPlayable = IsPlayableGroup(parent) && PlayableSubgroup.IsMatch(label);
+            }
+
+            if (!isPlayable) continue;
+
+            foreach (Match link in WikiLink.Matches(list))
+            {
+                // "[[Cait Sith (Final Fantasy VII)|Cait Sith]]" — the display text is the name
+                // as the character scraper stored it, so it wins over the article title.
+                var name = (link.Groups[2].Success ? link.Groups[2].Value : link.Groups[1].Value).Trim();
+                name = TrailingParenthetical.Replace(name, "").Trim();
+
+                if (name.Length > 0 && !names.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    names.Add(name);
+            }
+        }
+
+        return names;
+    }
+
+    private static readonly Regex TrailingParenthetical =
+        new(@"\s*\([^)]*\)\s*$", RegexOptions.Compiled);
 
     // Fandom lacks the PageViewInfo extension that Wikimedia wikis expose, so notability
     // is inferred from article size and how many other articles link here. Both discriminate

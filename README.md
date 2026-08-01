@@ -73,6 +73,17 @@ GET /api/monsters?gameId=4                     # every Final Fantasy IV monster 
 | `GET` | `/api/games` | List all games (`page`, `pageSize`) |
 | `GET` | `/api/games/{id}` | Get a game by ID (includes character + monster counts) |
 
+### Arena
+
+Powers [Battle Square](https://moogleapi.com/battle-square) — one character against eight consecutive waves of their own game's monsters.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/arena/roster` | Playable characters that can enter (`gameId`) |
+| `GET` | `/api/arena/run` | A day's eight waves (`characterId`, `level`, `date`) |
+
+Levels are **positions in a game's own stat distribution**, not absolute numbers — the series has no shared scale, so a Final Fantasy Goblin has 8 HP where a Final Fantasy XV Bomb has 5,600. Level 40 places a character above the same share of their game's monsters everywhere. `recommendedLevel` is solved against the day's actual waves rather than looked up.
+
 Full interactive docs at [`/scalar/v1`](https://api.moogleapi.com/scalar/v1).
 
 ---
@@ -97,6 +108,12 @@ MoogleApi.sln
 ├── src/
 │   └── MoogleAPI.Web/
 │       ├── Features/
+│       │   ├── Arena/
+│       │   │   ├── GetRoster/
+│       │   │   └── GetRun/       ← Endpoint + Models + Validator
+│       │   ├── Battle/
+│       │   │   ├── GetStarters/
+│       │   │   └── GetRun/
 │       │   ├── Characters/
 │       │   │   ├── Get/          ← Endpoint + Models
 │       │   │   ├── GetAll/
@@ -109,10 +126,12 @@ MoogleApi.sln
 │       │       ├── GetAll/
 │       │       └── Search/
 │       ├── Infrastructure/
+│       │   ├── Arena/            ← Level curve, stat scale, waves, handicaps
+│       │   ├── Battle/           ← Shared damage model + monster pool
 │       │   ├── Data/             ← AppDbContext
 │       │   ├── Models/           ← Game, Character, Monster
 │       │   └── RateLimiting/
-│       ├── wwwroot/              ← Landing page
+│       ├── wwwroot/              ← Landing page + /games hub + four games
 │       └── Program.cs
 ├── scripts/
 │   └── MoogleAPI.Scraper/        ← Console app, runs in GitHub Actions
@@ -124,6 +143,8 @@ MoogleApi.sln
 ## 🤖 Data Pipeline
 
 A GitHub Action runs every Sunday at 2 AM UTC and scrapes the [Final Fantasy Wiki](https://finalfantasy.fandom.com) via the MediaWiki API. It upserts characters and monsters per game — no duplicates, no full reloads.
+
+Stages can be run individually with `--only=`: `games`, `characters`, `playable`, `monsters`, `cards`, `images`, `audit`, `generate`, `promote`. The `playable` stage reads each game's character navbox to mark which characters the player actually controls — the only source scoped to a single game, since the wiki has no playable-character category and the prose test answers for the whole compilation.
 
 ---
 
