@@ -53,7 +53,7 @@ builder.Services.AddOptions<DailyPuzzleOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<DailyPuzzle>();
 builder.Services.AddScoped<DailyCharacterSelector>();
-builder.Services.AddScoped<GauntletBuilder>();
+builder.Services.AddScoped<ClimbBuilder>();
 
 // Google OAuth — credentials from user-secrets (dev) or env vars (prod):
 //   Authentication__Google__ClientId / Authentication__Google__ClientSecret
@@ -146,6 +146,11 @@ app.MapScalarApiReference(options =>
 app.MapMethods("/health", [HttpMethods.Get, HttpMethods.Head],
         () => Results.Ok(new { status = "healthy" }))
    .DisableRateLimiting()
+   .ExcludeFromDescription();
+
+// The Gauntlet was renamed to Kupo Climb. The old path is in shared results and whatever people
+// bookmarked, so it moves permanently rather than 404ing — the page itself is gone, not the game.
+app.MapGet("/the-gauntlet", () => Results.Redirect("/kupo-climb", permanent: true))
    .ExcludeFromDescription();
 
 // ── Dashboard routes ──────────────────────────────────────────────────────────

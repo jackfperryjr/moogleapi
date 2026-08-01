@@ -9,7 +9,7 @@ namespace MoogleAPI.Web.Features.Battle.GetRun;
 /// resolves in the browser with no further calls, which is what keeps a twelve-rung run inside
 /// the anonymous rate limit and lets a player finish one on a flaky connection.
 /// </remarks>
-public class Endpoint(GauntletBuilder gauntlet) : Endpoint<GetRunRequest, GetRunResponse>
+public class Endpoint(ClimbBuilder climb) : Endpoint<GetRunRequest, GetRunResponse>
 {
     /// <summary>
     /// Every battle on a rung has to be won, so the boss at the end of each one is a real wall
@@ -29,7 +29,7 @@ public class Endpoint(GauntletBuilder gauntlet) : Endpoint<GetRunRequest, GetRun
 
         Summary(s =>
         {
-            s.Summary = "Get a day's gauntlet run for one monster";
+            s.Summary = "Get a day's climb for one monster";
             s.Description =
                 "Returns the full ladder: your monster's form in each game, and the three opponents waiting " +
                 "there — two ordinary enemies and a boss. All three must be beaten to advance, and your " +
@@ -60,7 +60,7 @@ public class Endpoint(GauntletBuilder gauntlet) : Endpoint<GetRunRequest, GetRun
             return;
         }
 
-        var run = await gauntlet.BuildAsync(req.Family, date, ct);
+        var run = await climb.BuildAsync(req.Family, date, ct);
         if (run is null || run.Rungs.Count == 0)
         {
             await Send.NotFoundAsync(ct);
@@ -76,7 +76,10 @@ public class Endpoint(GauntletBuilder gauntlet) : Endpoint<GetRunRequest, GetRun
                     BattleMath.DamageShare,
                     BattleMath.WeaknessMultiplier,
                     BattleMath.MinRatio,
-                    BattleMath.MaxRatio),
+                    BattleMath.MaxRatio,
+                    BattleMath.PoisonShare,
+                    BattleMath.BlindMultiplier,
+                    BattleMath.StatusTurns),
                 run.Rungs.Select(ToRung).ToList(),
                 run.Skipped.Select(s => new SkippedRung(s.GameId, s.GameName, s.Reason)).ToList()),
             ct);
@@ -92,16 +95,10 @@ public class Endpoint(GauntletBuilder gauntlet) : Endpoint<GetRunRequest, GetRun
     private static Combatant ToCombatant(Fighter f) => new(
         f.Id, f.Name, f.GameName, f.Category,
         f.HitPoints, f.Attack, f.Defense, f.MagicAttack, f.MagicDefense, f.Speed,
-        SplitList(f.Weaknesses),
-        SplitList(f.Absorbs),
+        ClimbBuilder.SplitList(f.Weaknesses),
+        ClimbBuilder.SplitList(f.Absorbs),
         MoveBuilder.Build(f.Abilities)
-            .Select(m => new MoveOption(m.Name, m.Element, m.Kind.ToString(), m.Power, m.Recoil))
+            .Select(m => new MoveOption(m.Name, m.Element, m.Kind.ToString(), m.Power, m.Recoil, m.Status.ToString()))
             .ToList(),
         f.ImageUrl);
-
-    // Stored comma-separated for the plain data endpoints; a browser wants them as an array.
-    private static IReadOnlyList<string> SplitList(string? value) =>
-        string.IsNullOrWhiteSpace(value)
-            ? []
-            : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }

@@ -9,9 +9,36 @@ namespace MoogleAPI.Web.Infrastructure.Battle;
 /// Fraction of the user's own maximum HP the move costs. Non-zero only for the series'
 /// self-destruct moves, which are the whole personality of a Bomb.
 /// </param>
-public record Move(string Name, string? Element, MoveKind Kind, double Power, double Recoil = 0);
+/// <param name="Status">Condition the move inflicts on the defender, on top of its damage.</param>
+public record Move(
+    string Name, string? Element, MoveKind Kind, double Power, double Recoil = 0,
+    StatusEffect Status = StatusEffect.None);
 
 public enum MoveKind { Physical, Magic }
+
+/// <summary>
+/// The conditions a battle can inflict.
+/// </summary>
+/// <remarks>
+/// Deliberately the three that change what a turn is worth without taking the turn away.
+/// The series' Sleep and Paralyze are absent: combat here is fully deterministic, so a status
+/// that skips turns doesn't sometimes skip one — it reliably skips every turn it is up, and a
+/// chain of those is the game playing itself while the player watches.
+/// </remarks>
+public enum StatusEffect
+{
+    None,
+
+    /// <summary>Bleeds a fixed share of maximum HP after the afflicted acts.</summary>
+    Poison,
+
+    /// <summary>Physical moves land for a fraction of their damage.</summary>
+    Blind,
+
+    /// <summary>Magic moves are locked out. The basic Attack is Physical, so a silenced
+    /// combatant can always still act.</summary>
+    Silence,
+}
 
 /// <summary>
 /// Turns a monster's scraped ability list into moves a player can actually choose between.
@@ -39,6 +66,33 @@ public static class MoveBuilder
         ("Holy",    @"holy|pearl|banish|dia|divine|seraph"),
         ("Dark",    @"dark|shadow|night|doom|death|curse|evil|demi|bio|venom|poison"),
     ];
+
+    /// <summary>
+    /// Status is inferred from the ability name for the same reason the element is: the wiki
+    /// publishes the name and nothing else. A move can carry both — Final Fantasy's Bio is
+    /// Dark-elemental <em>and</em> poisons.
+    /// </summary>
+    /// <remarks>
+    /// Bare "dark" is deliberately absent from the Blind patterns even though Final Fantasy IV's
+    /// blinding attack is called Darkness. It would collide with the Dark element pattern above
+    /// and quietly make every shadow-flavoured move in the series blinding, which is a much
+    /// bigger error than missing one ability.
+    /// </remarks>
+    private static readonly (StatusEffect Status, string Pattern)[] StatusPatterns =
+    [
+        (StatusEffect.Poison,  @"poison|venom|toxic|^bio|miasma|sting|pollen|bad breath|virus|plague"),
+        (StatusEffect.Blind,   @"blind|flash|smoke|sand ?storm|dazzle|glare|^ink$"),
+        (StatusEffect.Silence, @"silence|mute|hush"),
+    ];
+
+    public static StatusEffect StatusFor(string abilityName)
+    {
+        foreach (var (status, pattern) in StatusPatterns)
+            if (Regex.IsMatch(abilityName, pattern, RegexOptions.IgnoreCase))
+                return status;
+
+        return StatusEffect.None;
+    }
 
     // "Explode" is the NES-era translation of Self-Destruct and has to count as one, or an
     // FFII Bomb ends up offering the same suicide move twice under two names.
@@ -101,12 +155,15 @@ public static class MoveBuilder
 
         // An enemy with twenty usable moves only gets three buttons, so they go to the moves
         // that make a matchup a decision rather than a damage race: self-destruct first for its
-        // risk, then the elemental ones. Article order would hand Gilgamesh "Flee" and "Jump"
-        // and leave Omega's Atomic Ray unreachable.
+        // risk, then the elemental ones, then the ones that inflict a status. Article order
+        // would hand Gilgamesh "Flee" and "Jump" and leave Omega's Atomic Ray unreachable.
         // Only one suicide button: it is a decision, and three of them is not a choice.
+        static bool Plain(string c) => !SelfDestruct.IsMatch(c);
+
         var chosen = candidates.Where(c => SelfDestruct.IsMatch(c)).Take(1)
-            .Concat(candidates.Where(c => !SelfDestruct.IsMatch(c) && ElementFor(c) is not null))
-            .Concat(candidates.Where(c => !SelfDestruct.IsMatch(c) && ElementFor(c) is null))
+            .Concat(candidates.Where(c => Plain(c) && ElementFor(c) is not null))
+            .Concat(candidates.Where(c => Plain(c) && ElementFor(c) is null && StatusFor(c) is not StatusEffect.None))
+            .Concat(candidates.Where(c => Plain(c) && ElementFor(c) is null && StatusFor(c) is StatusEffect.None))
             .Take(MaxAbilityMoves);
 
         moves.AddRange(chosen.Select(BuildOne));
@@ -121,10 +178,14 @@ public static class MoveBuilder
             return new Move(name, null, MoveKind.Magic, 2.6, Recoil: 0.5);
 
         var element = ElementFor(name);
+        var status = StatusFor(name);
 
+        // A move that inflicts a status gives up some of its power to do it. Left at full damage
+        // it is strictly better than everything beside it, and a button that is never wrong is
+        // not a choice — the same reason self-destruct pays for its power in health.
         return element is null
-            ? new Move(name, null, MoveKind.Physical, 1.15)
-            : new Move(name, element, MoveKind.Magic, 1.3);
+            ? new Move(name, null, MoveKind.Physical, status is StatusEffect.None ? 1.15 : 0.9, Status: status)
+            : new Move(name, element, MoveKind.Magic, status is StatusEffect.None ? 1.3 : 1.05, Status: status);
     }
 
     public static string? ElementFor(string abilityName)
