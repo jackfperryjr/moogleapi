@@ -1,6 +1,13 @@
 /* Shared chrome for the moogleAPI games. Tokens mirror the landing page so the games
    read as part of the same site.
 
+   Every page links this and its own game.js with a ?v= stamp. That was needed once, to escape
+   edge entries cached before the app started sending Cache-Control itself — Cloudflare had
+   filled the silence with a four-hour default, and a browser a version behind on game.js is
+   running a different damage model than the server that picked its opponents. The origin now
+   says no-cache for markup, scripts and styles, so this should not be needed again; bump the
+   stamp anyway if a script change ever has to reach players faster than a cache can expire.
+
    Each game then makes itself look like itself by overriding these custom properties on
    `body`, rather than restyling the components: everything below — nav, buttons, inputs,
    panels, focus rings — is written against the tokens, so a game gets its own identity from
