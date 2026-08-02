@@ -191,6 +191,33 @@ public class ImageStore(ImageStoreOptions options, HttpClient http, ILogger<Imag
     }
 
     /// <summary>
+    /// Removes an object. Returns true when the bucket no longer holds the key, including when
+    /// it never did.
+    /// </summary>
+    /// <remarks>
+    /// Deleting generated art is what makes discarding a batch stick. Keys derive from the row
+    /// id, so a generated image sits at a fixed address and <see cref="ExistsAsync"/> will adopt
+    /// it on the next run rather than pay to make it again — which is the behaviour you want
+    /// after a crash and exactly the wrong one after a decision to redo the art. Clearing the
+    /// database column alone would leave the old picture to be picked straight back up.
+    /// </remarks>
+    public async Task<bool> DeleteAsync(string key, CancellationToken ct)
+    {
+        try
+        {
+            await _s3.DeleteObjectAsync(options.Bucket, key, ct);
+            return true;
+        }
+        catch (AmazonS3Exception ex)
+        {
+            // S3 treats deleting an absent key as success; a 404 here means the bucket or the
+            // credentials are wrong, which is worth surfacing rather than counting as done.
+            logger.LogWarning("Could not delete {Key}: {Message}", key, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Stores bytes we already hold — generated art, rather than something fetched from a URL.
     /// Returns the public URL, or null when the image cannot be decoded or stored.
     /// </summary>

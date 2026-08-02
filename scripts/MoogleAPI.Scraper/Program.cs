@@ -41,6 +41,7 @@ if (imageOptions is not null)
     host.Services.AddScoped<ImageScraper>();
     host.Services.AddScoped<ImageGenerator>();
     host.Services.AddScoped<ImageAuditor>();
+    host.Services.AddScoped<ImageReverter>();
 }
 
 var app = host.Build();
@@ -50,7 +51,7 @@ var logger = app.Services.GetRequiredService<ILogger<Program>>();
 // --force      re-parse and overwrite existing field values instead of only filling nulls
 // --repair     run the one-time cleanup of legacy names and unparsed infobox fragments
 // --only=x,y   restrict the run to named stages (games, characters, playable, monsters, cards,
-//              images, audit, generate, promote)
+//              images, audit, generate, promote, unpromote)
 var force = args.Contains("--force", StringComparer.OrdinalIgnoreCase);
 var repair = args.Contains("--repair", StringComparer.OrdinalIgnoreCase);
 
@@ -133,6 +134,18 @@ if (stages is not null && stages.Contains("promote"))
         logger.LogWarning("Skipping promote — image storage is not configured.");
     else
         await scope.ServiceProvider.GetRequiredService<ImageGenerator>().PromoteAsync();
+}
+
+// Puts the served URLs back on the copied originals and deletes the generated art. Destructive
+// and asked for by name, like generate — and for the same reason, since what it throws away was
+// paid for. Both halves are one stage on purpose: reverting without deleting leaves the next
+// batch to adopt the very images that were just rejected.
+if (stages is not null && stages.Contains("unpromote"))
+{
+    if (imageOptions is null)
+        logger.LogWarning("Skipping unpromote — image storage is not configured.");
+    else
+        await scope.ServiceProvider.GetRequiredService<ImageReverter>().RevertAsync();
 }
 
 logger.LogInformation("Scrape complete — {Time}", DateTimeOffset.UtcNow);
