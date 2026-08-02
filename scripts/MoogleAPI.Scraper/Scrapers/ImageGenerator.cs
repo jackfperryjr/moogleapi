@@ -25,8 +25,28 @@ namespace MoogleAPI.Scraper.Scrapers;
 /// </remarks>
 public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGenerator> logger)
 {
-    /// <summary>Modest: this is a paid API with per-minute limits, and a batch is hundreds of calls.</summary>
-    private const int Concurrency = 3;
+    /// <summary>
+    /// One request at a time. A batch is hundreds of calls against a per-minute limit, and
+    /// parallelism here does not buy throughput — it buys collisions.
+    /// </summary>
+    /// <remarks>
+    /// At three, a 700-image batch produced 304 and abandoned 225 to repeated rate limiting,
+    /// taking two hours to do it. The three workers were competing for the same per-minute
+    /// allowance and losing, and every abandoned image had still spent its requests against the
+    /// daily cap — which is counted in calls, not pictures, so the waste came directly out of
+    /// the day's yield. Serially there is nothing to collide with, and the pace is set by
+    /// <see cref="MaxAttempts"/> backing off against what the API asks for.
+    /// </remarks>
+    private const int Concurrency = 1;
+
+    /// <summary>
+    /// Tries per image. Higher than it was, because a retry that waits long enough is cheaper
+    /// than an abandoned image: both spend the request, only one comes back with a picture.
+    /// </summary>
+    private const int MaxAttempts = 5;
+
+    /// <summary>Ceiling on a single wait, so one absurd hint cannot stall a whole batch.</summary>
+    private static readonly TimeSpan MaxBackoff = TimeSpan.FromSeconds(120);
 
     /// <summary>Generated art is the hero image now, so it keeps more resolution than a sprite needs.</summary>
     private const int MaxEdge = 1024;
@@ -254,7 +274,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{Model}:generateContent?key={key}";
 
-        for (var attempt = 0; attempt < 3; attempt++)
+        for (var attempt = 0; attempt < MaxAttempts; attempt++)
         {
             using var response = await http.PostAsync(
                 url, new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), ct);
@@ -262,19 +282,30 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests
                 || (int)response.StatusCode >= 500)
             {
+                var wait = FallbackBackoff(attempt);
+
                 // A 429 is two unrelated problems sharing one status code, and only the body
                 // separates them. A per-minute burst limit clears while we sleep. The per-day
-                // quota resets in hours, so backing off cannot help: the three attempts spend
-                // three more requests to learn the same thing, and then the run does it again on
-                // the next row. Batch 3's first attempt burned ~300 requests that way and
-                // produced nothing.
-                if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests
-                    && IsDailyQuota(await response.Content.ReadAsStringAsync(ct), out var detail))
+                // quota resets in hours, so backing off cannot help: the attempts spend more
+                // requests to learn the same thing, and then the run does it again on the next
+                // row. Batch 3's first attempt burned ~300 requests that way and produced nothing.
+                if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests)
                 {
-                    throw new DailyQuotaSpentException(detail);
+                    var payload = await response.Content.ReadAsStringAsync(ct);
+
+                    if (IsDailyQuota(payload, out var detail))
+                        throw new DailyQuotaSpentException(detail);
+
+                    // The response says how long it wants us gone. It was being read only to
+                    // phrase the daily-quota message and thrown away for burst limits, which
+                    // left the wait a guess — and a guess that came back too early spends a
+                    // request to be told the same thing again. Never shorter than the ladder,
+                    // so repeated failures still lengthen.
+                    if (RetryDelayFrom(payload) is { } advised && advised > wait)
+                        wait = advised;
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(15 * (attempt + 1)), ct);
+                await Task.Delay(wait < MaxBackoff ? wait : MaxBackoff, ct);
                 continue;
             }
 
@@ -313,6 +344,49 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         logger.LogWarning("  ! {Name}: gave up after repeated rate limiting", c.Name);
         return null;
+    }
+
+    /// <summary>How long to wait before attempt <paramref name="attempt"/> + 1, absent a hint.</summary>
+    private static TimeSpan FallbackBackoff(int attempt) => TimeSpan.FromSeconds(20 * (attempt + 1));
+
+    /// <summary>
+    /// The delay the API asks for in a 429 body, if it gives one.
+    /// </summary>
+    /// <remarks>
+    /// Google returns <c>retryDelay</c> on a rate-limited response, and honouring it is strictly
+    /// better than a ladder we invented: it is the only party that knows when the window opens.
+    /// </remarks>
+    internal static TimeSpan? RetryDelayFrom(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+
+            if (!doc.RootElement.TryGetProperty("error", out var error)
+                || !error.TryGetProperty("details", out var details)
+                || details.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            foreach (var entry in details.EnumerateArray())
+            {
+                // "21s" — seconds with a trailing s, per google.protobuf.Duration.
+                if (entry.TryGetProperty("retryDelay", out var delay)
+                    && delay.GetString() is { } raw
+                    && double.TryParse(raw.TrimEnd('s'), out var seconds)
+                    && seconds > 0)
+                {
+                    return TimeSpan.FromSeconds(seconds);
+                }
+            }
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
