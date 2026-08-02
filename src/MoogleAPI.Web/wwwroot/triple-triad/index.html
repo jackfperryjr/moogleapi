@@ -13,14 +13,50 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/games.css?v=20260802" />
+  <link rel="stylesheet" href="/assets/games.css?v=20260802b" />
   <style>
-    /* Triple Triad is played on a blue felt table in Final Fantasy VIII, and the card backs are
-    blue. The accent follows the game rather than the site. */
+    /* ── Triple Triad ──
+       Final Fantasy VIII's menus are translucent blue panels with a hairline border and a thin
+       inner glow, and the game is played on felt. So: a felt-green table under a blue interface,
+       panels that look lit from within rather than filled, and a serif face for headings — the
+       one game here whose source material is a card, and cards have typography. */
     body {
-      --accent:   #5b9bd5;
-      --accent-2: #cfe4f7;
+      --bg:        #10231c;
+      --surface:   rgba(22, 54, 92, 0.82);
+      --surface-2: rgba(14, 38, 68, 0.85);
+      --border:    #4d7fb5;
+      --accent:    #5b9bd5;
+      --accent-2:  #cfe4f7;
+      --gold:      #e8d9a0;
+      --muted:     #93b2ce;
+      --nav-bg:    rgba(11, 30, 52, 0.92);
+      --radius:    6px;
+
+      /* Felt: a soft radial lift in the middle of the table, darker at the edges. */
+      background:
+        radial-gradient(ellipse 90% 70% at 50% 32%, #1c4034 0%, #12271f 55%, #0c1a15 100%)
+        fixed;
     }
+
+    .page-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: var(--gold);
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+
+    /* The FFVIII menu panel: translucent, hairline bordered, lit from inside. */
+    .panel {
+      backdrop-filter: blur(3px);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07), 0 6px 22px rgba(0,0,0,0.4);
+    }
+    .btn {
+      font-family: Georgia, 'Times New Roman', serif;
+      letter-spacing: 0.04em;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10);
+    }
+    .stat { backdrop-filter: blur(3px); }
 
     .board-area { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 
@@ -142,14 +178,9 @@
 </head>
 <body>
   <nav>
-    <a class="nav-brand" href="/">moogleAPI</a>
+    <a class="nav-brand" href="/"><img src="/moogle.png" alt="" /> moogleAPI</a>
     <div class="nav-links">
-      <a href="/games">Games</a>
-      <a href="/kupodle">Kupodle</a>
-      <a href="/triple-triad" aria-current="page">Triple Triad</a>
-      <a href="/kupo-climb">Kupo Climb</a>
-      <a href="/battle-square">Battle Square</a>
-      <a href="/scalar/v1">API Docs</a>
+      <a class="nav-back" href="/games">← Games</a>
     </div>
   </nav>
 
@@ -190,7 +221,7 @@
     </section>
   </main>
 
-  <script src="/assets/stats.js?v=20260802"></script>
-  <script src="/triple-triad/game.js?v=20260802"></script>
+  <script src="/assets/stats.js?v=20260802b"></script>
+  <script src="/triple-triad/game.js?v=20260802b"></script>
 </body>
 </html>

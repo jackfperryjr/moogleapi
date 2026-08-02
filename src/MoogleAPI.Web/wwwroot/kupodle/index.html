@@ -12,15 +12,49 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/games.css?v=20260802" />
+  <link rel="stylesheet" href="/assets/games.css?v=20260802b" />
   <style>
-    /* Kupodle's identity is the guess grid, so the theme stays close to the site's default and
-    just shifts the accent green — the same green the board already uses for a correct
-    attribute. Anything louder would compete with the tiles the player is actually reading. */
+    /* ── Kupodle ──
+       A puzzle board, so the page is built like one: squared corners everywhere, a faint grid
+       ruled across the background, and the panels flattened so nothing casts a shadow the tiles
+       don't. The guess grid is the only thing on screen a player reads carefully, and every
+       rounded, floating, gradient-filled element was competing with it for attention. */
     body {
-      --accent:   #7cc4a4;
-      --accent-2: #cdeadd;
+      --bg:        #1c2220;
+      --surface:   #26302c;
+      --surface-2: #1f2825;
+      --border:    #3b4a44;
+      --accent:    #7cc4a4;
+      --accent-2:  #cdeadd;
+      --gold:      #d8e8b0;
+      --muted:     #8fa89c;
+      --nav-bg:    rgba(28, 34, 32, 0.92);
+      --radius:    2px;
+
+      background-color: var(--bg);
+      /* Ruled, not decorative: it reads as squared paper and sets the grid's rhythm before the
+         board has loaded. Two hairlines rather than a texture, so it costs nothing. */
+      background-image:
+        linear-gradient(rgba(124,196,164,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,196,164,0.045) 1px, transparent 1px);
+      background-size: 44px 44px;
+      background-attachment: fixed;
     }
+
+    .page-title {
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+    }
+    .page-sub { letter-spacing: 0.01em; }
+
+    /* Flat and squared. A puzzle board is a grid of equal cells; a panel with a soft radius and
+       a drop shadow reads as a card sitting on top of one. */
+    .panel { box-shadow: none; }
+    .btn { border-radius: 2px; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.82rem; }
+    input[type="text"], select { border-radius: 2px; }
+    .stat { border-radius: 2px; }
 
     .combo { position: relative; }
     .combo-row { display: flex; gap: 0.6rem; }
@@ -125,14 +159,9 @@
 </head>
 <body>
   <nav>
-    <a class="nav-brand" href="/">moogleAPI</a>
+    <a class="nav-brand" href="/"><img src="/moogle.png" alt="" /> moogleAPI</a>
     <div class="nav-links">
-      <a href="/games">Games</a>
-      <a href="/kupodle" aria-current="page">Kupodle</a>
-      <a href="/triple-triad">Triple Triad</a>
-      <a href="/kupo-climb">Kupo Climb</a>
-      <a href="/battle-square">Battle Square</a>
-      <a href="/scalar/v1">API Docs</a>
+      <a class="nav-back" href="/games">← Games</a>
     </div>
   </nav>
 
@@ -169,7 +198,7 @@
     </section>
   </main>
 
-  <script src="/assets/stats.js?v=20260802"></script>
-  <script src="/kupodle/game.js?v=20260802"></script>
+  <script src="/assets/stats.js?v=20260802b"></script>
+  <script src="/kupodle/game.js?v=20260802b"></script>
 </body>
 </html>
