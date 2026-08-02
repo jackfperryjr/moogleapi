@@ -1,12 +1,22 @@
 /* Shared chrome for the moogleAPI games. Tokens mirror the landing page so the games
    read as part of the same site.
 
-   Every page links this and its own game.js with a ?v= stamp. That was needed once, to escape
-   edge entries cached before the app started sending Cache-Control itself — Cloudflare had
-   filled the silence with a four-hour default, and a browser a version behind on game.js is
-   running a different damage model than the server that picked its opponents. The origin now
-   says no-cache for markup, scripts and styles, so this should not be needed again; bump the
-   stamp anyway if a script change ever has to reach players faster than a cache can expire.
+   BUMP THE ?v= STAMP ON EVERY CHANGE TO THIS FILE OR TO ANY game.js.
+
+   It is the only thing that makes a script change reach players. The app sets Cache-Control:
+   no-cache on markup, scripts and styles, but the zone in front of it has a fixed four-hour
+   Browser Cache TTL, and that setting overrides any origin lifetime *shorter* than itself —
+   measured on 2026-08-02, the 30-day header on /moogle.png passes through untouched while
+   no-cache on this file comes back as max-age=14400. The markup is never edge-cached, so a new
+   ?v= is a new cache key and is the one lever that still works.
+
+   It matters more than a stylesheet usually would: game.js is the client half of the damage
+   model, and the server picks a run's opponents with the same arithmetic. A browser one version
+   behind is not showing a stale page, it is playing a different game — after the damage curve
+   changed, a cached client still needed four hits to kill a seven-HP Goblin balanced around two.
+
+   Setting the zone's Browser Cache TTL to "Respect Existing Headers" would retire this rule and
+   let no-cache do the job on its own.
 
    Each game then makes itself look like itself by overriding these custom properties on
    `body`, rather than restyling the components: everything below — nav, buttons, inputs,
