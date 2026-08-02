@@ -37,12 +37,25 @@ public static class ChampionBuilder
     public const string ChampionCategory = "Character";
 
     /// <summary>
-    /// Characters carry more health than anything they fight, and the arena is the one place
-    /// that matters: damage is a share of the defender's own maximum HP, so this changes no
-    /// single exchange, but a wave carries its damage into the next one and the pool is what
-    /// eight of them are drawn from.
+    /// What a champion's health is worth against their game's <em>median</em> enemy, from level
+    /// 1 to level 99.
     /// </summary>
-    private const double PartyHitPoints = 2.4;
+    /// <remarks>
+    /// Health is the one stat not read off a percentile of the game's distribution, because that
+    /// distribution has a tail nothing else has. Final Fantasy X's monsters run from 696 HP at
+    /// the twentieth percentile to 2,000,000 at the ninety-fifth — Penance and the dark aeons —
+    /// so a level 99 champion placed at the top of it came out with <em>five million health</em>.
+    /// The median is the robust centre: it ignores the superbosses entirely and lands within
+    /// sight of what the games actually give a party. Final Fantasy's median enemy has 212 HP,
+    /// and six times that is about what a level 99 Warrior of Light really has.
+    /// <para>
+    /// Nothing mechanical rests on the number — damage is a share of the defender's own maximum,
+    /// so health cancels out of every exchange — but it is the most-read figure on the screen,
+    /// and five million of it is not a balance problem, it is a credibility one.
+    /// </para>
+    /// </remarks>
+    private const double MinHitPointsOfMedian = 0.8;
+    private const double MaxHitPointsOfMedian = 6.0;
 
     public static Fighter Build(ArenaCharacter character, int level, GameStatScale scale, string gameName)
     {
@@ -50,13 +63,20 @@ public static class ChampionBuilder
         var archetype = ArchetypeReader.For(character.Job, character.Weapon, character.Abilities);
         var weights = ArchetypeReader.WeightsFor(archetype);
 
+        // Health grows against the median rather than climbing the distribution, so a game's
+        // superbosses cannot drag it into the millions. Every other stat is a percentile: they
+        // are all compared against an opponent's matching stat, where being quoted on the game's
+        // own spread is the whole point.
+        var growth = MinHitPointsOfMedian
+            + (MaxHitPointsOfMedian - MinHitPointsOfMedian) * LevelCurve.ProgressFor(level);
+
         return new Fighter(
             Id: character.Id,
             Name: character.Name,
             GameId: character.GameId,
             GameName: gameName,
             Category: ChampionCategory,
-            HitPoints: Scale(scale.HitPointsAt(percentile), weights.HitPoints * PartyHitPoints),
+            HitPoints: Scale(scale.HitPointsAt(0.5), weights.HitPoints * growth),
             Attack: Scale(scale.AttackAt(percentile), weights.Attack),
             Defense: Scale(scale.DefenseAt(percentile), weights.Defense),
             MagicAttack: Scale(scale.MagicAttackAt(percentile), weights.MagicAttack),

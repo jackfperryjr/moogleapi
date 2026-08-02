@@ -15,12 +15,16 @@ const API = '/api/battle';
  *  browser would drift and quietly break that guarantee. These values are only a fallback for
  *  a payload from an older server. */
 let rules = {
-  damageShare: 0.30, weaknessMultiplier: 2, minRatio: 0.2, maxRatio: 0.8,
+  damageShare: 0.30, weaknessMultiplier: 2, minRatio: 0.2, maxRatio: 4, ratioScale: 0.5,
   poisonShare: 0.06, blindMultiplier: 0.5, statusTurns: 3,
 };
 
+/** The square root of the advantage, not offence/(offence+guard) — that expression cannot exceed
+ *  1 however large the advantage grows, so past about four-to-one extra attack bought nothing and
+ *  no fight could ever end in fewer than four turns. */
 const ratio = (offence, guard) =>
-  Math.min(rules.maxRatio, Math.max(rules.minRatio, offence / (offence + guard || 1)));
+  Math.min(rules.maxRatio,
+           Math.max(rules.minRatio, rules.ratioScale * Math.sqrt(offence / Math.max(1, guard))));
 
 /**
  * The three conditions a battle can inflict. Each carries its own wording because "Chimera is
