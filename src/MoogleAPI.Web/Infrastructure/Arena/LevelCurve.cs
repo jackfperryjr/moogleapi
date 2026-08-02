@@ -50,12 +50,22 @@ public static class LevelCurve
     /// </summary>
     private const double Shape = 0.75;
 
-    /// <summary>The share of a game's monsters a character at this level stands above.</summary>
-    public static double PercentileFor(int level)
+    /// <summary>
+    /// How far along the curve a level sits, from 0 at level 1 to 1 at level 99.
+    /// </summary>
+    /// <remarks>
+    /// Exposed separately because health does not use a percentile — see
+    /// <see cref="ChampionBuilder"/> for why — but still has to grow on the same curve, so that
+    /// a level buys a consistent share of everything it buys.
+    /// </remarks>
+    public static double ProgressFor(int level)
     {
         var clamped = Math.Clamp(level, MinLevel, MaxLevel);
-        var progress = Math.Pow((clamped - MinLevel) / (double)(MaxLevel - MinLevel), Shape);
 
-        return MinPercentile + (MaxPercentile - MinPercentile) * progress;
+        return Math.Pow((clamped - MinLevel) / (double)(MaxLevel - MinLevel), Shape);
     }
+
+    /// <summary>The share of a game's monsters a character at this level stands above.</summary>
+    public static double PercentileFor(int level) =>
+        MinPercentile + (MaxPercentile - MinPercentile) * ProgressFor(level);
 }

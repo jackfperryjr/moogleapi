@@ -394,12 +394,68 @@ public class BattleMathTests
     private static IReadOnlyList<Move> MovesOf(Fighter f) => MoveBuilder.Build(f.Abilities);
 
     [Fact]
-    public void RatioIsClampedSoNothingIsOneShotOrUnhittable()
+    public void RatioIsClampedAtBothEnds()
     {
-        // Ifrit's defence of 5 against a 177 attack would otherwise be a 0.97 ratio.
-        Assert.Equal(BattleMath.MaxRatio, BattleMath.Ratio(177, 5));
         Assert.Equal(BattleMath.MinRatio, BattleMath.Ratio(1, 999));
+        Assert.Equal(BattleMath.MaxRatio, BattleMath.Ratio(10000, 1));
         Assert.InRange(BattleMath.Ratio(50, 50), BattleMath.MinRatio, BattleMath.MaxRatio);
+    }
+
+    /// <summary>
+    /// The curve was changed, and this is the promise that made it safe: an evenly matched pair
+    /// scores exactly what it scored under the old <c>offence / (offence + guard)</c>, and the
+    /// two stay close out to a two-to-one advantage. Everything the climb stages lives in that
+    /// band, because its opponents are vetted to be comparable.
+    /// </summary>
+    [Fact]
+    public void EvenlyMatchedFightsAreUnchanged()
+    {
+        Assert.Equal(0.5, BattleMath.Ratio(50, 50), precision: 10);
+        Assert.Equal(0.5, BattleMath.Ratio(1000, 1000), precision: 10);
+
+        // Two-to-one: 0.707 against the old formula's 0.667.
+        Assert.InRange(BattleMath.Ratio(100, 50), 0.65, 0.75);
+    }
+
+    /// <summary>
+    /// The bug this curve exists to fix. A level 99 Tidus with 211 attack could not kill a
+    /// 110 HP Killer Bee in one hit, because the old ceiling of 0.8 threw away all but a sliver
+    /// of a forty-to-one advantage and put a floor of four turns on every fight in the game.
+    /// </summary>
+    [Fact]
+    public void OverwhelmingForceKillsInOneHit()
+    {
+        // The real row, from /api/monsters/11562 — a Kilika Woods encounter with 1 defence.
+        var bee = new Fighter(
+            Id: 11562, Name: "Killer Bee", GameId: 10, GameName: "Final Fantasy X", Category: "Enemy",
+            HitPoints: 110, Attack: 8, Defense: 1, MagicAttack: 1, MagicDefense: 1, Speed: 8,
+            Weaknesses: "Ice", Absorbs: null, Abilities: "Poison Dart", ImageUrl: "x");
+
+        // Tidus at level 99: a Warrior on Final Fantasy X's scale, which is where the 211 comes
+        // from — the game's attack values reach 169 at the ninety-fifth percentile.
+        var tidus = new Fighter(
+            Id: 4, Name: "Tidus", GameId: 10, GameName: "Final Fantasy X", Category: "Character",
+            HitPoints: 60030, Attack: 211, Defense: 90, MagicAttack: 60, MagicDefense: 80, Speed: 120,
+            Weaknesses: null, Absorbs: null, Abilities: null, ImageUrl: "x");
+
+        var swing = new Move("Attack", null, MoveKind.Physical, 1.0);
+
+        Assert.True(BattleMath.DamagePerHit(tidus, bee, swing) >= bee.HitPoints,
+            "a forty-to-one advantage should end the fight in one swing");
+        Assert.Equal(1, BattleMath.TurnsToKill(tidus, [swing], bee));
+    }
+
+    /// <summary>
+    /// The floor still has to hold in the other direction, or a hopeless matchup becomes an
+    /// unkillable one and a run stalls forever rather than ending.
+    /// </summary>
+    [Fact]
+    public void ABadlyOutmatchedAttackerStillChipsAway()
+    {
+        var ratio = BattleMath.Ratio(offence: 3, guard: 900);
+
+        Assert.Equal(BattleMath.MinRatio, ratio);
+        Assert.True(ratio > 0);
     }
 
     [Fact]

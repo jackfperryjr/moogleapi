@@ -15,7 +15,7 @@ const API = '/api/arena';
  *  the difficulty ramp would stop describing the fights the player actually gets. These values
  *  are only a fallback for a payload from an older server. */
 let rules = {
-  damageShare: 0.30, weaknessMultiplier: 2, minRatio: 0.2, maxRatio: 0.8,
+  damageShare: 0.30, weaknessMultiplier: 2, minRatio: 0.2, maxRatio: 4, ratioScale: 0.5,
   poisonShare: 0.06, blindMultiplier: 0.5, statusTurns: 3, handicapStatPenalty: 0.66,
 };
 
@@ -23,8 +23,12 @@ let rules = {
  *  the server solves the recommended level against exactly this number. */
 const WAVE_RECOVERY = 0.20;
 
+/** The square root of the advantage, not offence/(offence+guard) — that expression cannot exceed
+ *  1 however large the advantage grows, so past about four-to-one extra attack bought nothing and
+ *  no fight could ever end in fewer than four turns. */
 const ratio = (offence, guard) =>
-  Math.min(rules.maxRatio, Math.max(rules.minRatio, offence / (offence + guard || 1)));
+  Math.min(rules.maxRatio,
+           Math.max(rules.minRatio, rules.ratioScale * Math.sqrt(offence / Math.max(1, guard))));
 
 const STATUS = {
   Poison: {

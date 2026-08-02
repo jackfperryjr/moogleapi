@@ -84,6 +84,7 @@ public class Endpoint(ArenaBuilder arena) : Endpoint<GetArenaRunRequest, GetAren
                     BattleMath.WeaknessMultiplier,
                     BattleMath.MinRatio,
                     BattleMath.MaxRatio,
+                    BattleMath.RatioScale,
                     BattleMath.PoisonShare,
                     BattleMath.BlindMultiplier,
                     BattleMath.StatusTurns,

@@ -77,6 +77,7 @@ public class Endpoint(ClimbBuilder climb) : Endpoint<GetRunRequest, GetRunRespon
                     BattleMath.WeaknessMultiplier,
                     BattleMath.MinRatio,
                     BattleMath.MaxRatio,
+                    BattleMath.RatioScale,
                     BattleMath.PoisonShare,
                     BattleMath.BlindMultiplier,
                     BattleMath.StatusTurns),

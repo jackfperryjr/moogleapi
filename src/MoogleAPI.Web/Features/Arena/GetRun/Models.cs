@@ -74,6 +74,7 @@ public record BattleRules(
     double WeaknessMultiplier,
     double MinRatio,
     double MaxRatio,
+    double RatioScale,
     double PoisonShare,
     double BlindMultiplier,
     int StatusTurns,

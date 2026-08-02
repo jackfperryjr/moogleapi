@@ -53,7 +53,8 @@ public record SkippedRung(int GameId, string GameName, string Reason);
 /// <param name="DamageShare">Damage as a fraction of the defender's maximum HP.</param>
 /// <param name="WeaknessMultiplier">Applied when a move's element is one of the defender's weaknesses.</param>
 /// <param name="MinRatio">Floor on the attack-to-defence ratio, so no monster is unhittable.</param>
-/// <param name="MaxRatio">Ceiling on it, so no monster is one-shot.</param>
+/// <param name="MaxRatio">Ceiling on it. High enough that an overwhelming advantage can end a fight in one hit.</param>
+/// <param name="RatioScale">Coefficient on the ratio curve, which is <c>scale * sqrt(offence / guard)</c>.</param>
 /// <param name="PoisonShare">Share of maximum HP Poison bleeds after the afflicted acts.</param>
 /// <param name="BlindMultiplier">What a Physical move is worth while its user is Blind.</param>
 /// <param name="StatusTurns">How long a status lasts, in the afflicted combatant's own turns.</param>
@@ -62,6 +63,7 @@ public record BattleRules(
     double WeaknessMultiplier,
     double MinRatio,
     double MaxRatio,
+    double RatioScale,
     double PoisonShare,
     double BlindMultiplier,
     int StatusTurns

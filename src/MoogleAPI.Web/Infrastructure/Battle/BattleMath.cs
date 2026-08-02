@@ -22,13 +22,37 @@ public static class BattleMath
     public const double WeaknessMultiplier = 2.0;
 
     /// <summary>
-    /// The attack-to-defence ratio is clamped so no matchup is a formality. Articles publish a
-    /// defence of 0 or an attack ten times the game's norm often enough that an unclamped
-    /// ratio ends fights in a single turn — a Final Fantasy IV Ifrit has defence 5 while a
-    /// Deathmask in the same game has 131.
+    /// Floor on the attack-to-defence ratio, so nothing is ever unhittable. Articles publish a
+    /// defence of 0 or an attack ten times the game's norm often enough that an unguarded
+    /// formula produces absurdities in both directions.
     /// </summary>
     public const double MinRatio = 0.2;
-    public const double MaxRatio = 0.8;
+
+    /// <summary>
+    /// Ceiling on it. High enough that overwhelming force actually overwhelms: at
+    /// <see cref="DamageShare"/> 0.30 a ratio above about 2.6 kills in one hit.
+    /// </summary>
+    /// <remarks>
+    /// This was 0.8, which combined with <see cref="DamageShare"/> put a hard floor of roughly
+    /// four turns on <em>every</em> fight in the game, no matter how lopsided. A level 99 Tidus
+    /// with 211 attack needed four turns to kill a 110 HP Killer Bee, because the ceiling threw
+    /// away all but a sliver of a forty-to-one advantage. That is defensible when both sides are
+    /// monsters of a comparable tier, which is all Kupo Climb ever stages — but Battle Square
+    /// deliberately opens on enemies far beneath the player, and a model with no concept of a
+    /// rout reads as broken rather than as balanced.
+    /// </remarks>
+    public const double MaxRatio = 4.0;
+
+    /// <summary>
+    /// The ratio at parity, and so the coefficient on the curve below.
+    /// </summary>
+    /// <remarks>
+    /// Chosen to hold the old behaviour exactly where the old behaviour was right. An evenly
+    /// matched pair scored 0.5 under the previous formula and scores 0.5 here, and the two stay
+    /// within a few percent of each other out to about a two-to-one advantage. They only diverge
+    /// where the old one had stopped responding at all.
+    /// </remarks>
+    public const double RatioScale = 0.5;
 
     /// <summary>Share of maximum HP that Poison bleeds after the afflicted combatant acts.</summary>
     public const double PoisonShare = 0.06;
@@ -42,8 +66,19 @@ public static class BattleMath
     /// </summary>
     public const int StatusTurns = 3;
 
+    /// <summary>
+    /// How much of its nominal damage a move keeps, given the attacker's offence against the
+    /// defender's guard.
+    /// </summary>
+    /// <remarks>
+    /// The square root of the advantage rather than <c>offence / (offence + guard)</c>. That
+    /// expression cannot exceed 1 however large the advantage grows — a thousand-to-one edge
+    /// scores 0.999, the same as a four-to-one edge — so past a certain point extra attack
+    /// bought nothing at all. A root keeps rising, gently: four times the attack is twice the
+    /// damage, and it takes a forty-to-one advantage to kill in a single hit.
+    /// </remarks>
     public static double Ratio(int offence, int guard) =>
-        Math.Clamp(offence / (double)Math.Max(1, offence + guard), MinRatio, MaxRatio);
+        Math.Clamp(RatioScale * Math.Sqrt(offence / (double)Math.Max(1, guard)), MinRatio, MaxRatio);
 
     /// <summary>Damage one use of a move deals. Zero when the defender absorbs its element.</summary>
     /// <remarks>
