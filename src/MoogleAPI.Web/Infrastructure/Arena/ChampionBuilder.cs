@@ -1,7 +1,28 @@
 using MoogleAPI.Web.Infrastructure.Battle;
-using MoogleAPI.Web.Infrastructure.Models;
 
 namespace MoogleAPI.Web.Infrastructure.Arena;
+
+/// <summary>
+/// A playable character reduced to what the arena needs, detached from the database.
+/// </summary>
+/// <remarks>
+/// Deliberately not <see cref="Models.Character"/>. The roster is cached, and HybridCache
+/// serializes what it stores — an EF entity loaded with its <c>Game</c> navigation carries
+/// <c>Game.Characters</c> back with it, so serializing one walks
+/// <c>Character → Game → Characters → Game</c> until the serializer gives up at depth 64 and the
+/// endpoint answers 400. Projecting to plain values in the query is what makes the cache safe,
+/// and it keeps the whole games's character list from being materialized to read six fields.
+/// </remarks>
+public record ArenaCharacter(
+    int Id,
+    string Name,
+    int GameId,
+    string GameName,
+    string? Job,
+    string? Weapon,
+    string? Abilities,
+    string? ImageUrl,
+    int Popularity);
 
 /// <summary>
 /// Builds the character the player takes into the arena: their stats at a level, and the moves
@@ -23,7 +44,7 @@ public static class ChampionBuilder
     /// </summary>
     private const double PartyHitPoints = 2.4;
 
-    public static Fighter Build(Character character, int level, GameStatScale scale, string gameName)
+    public static Fighter Build(ArenaCharacter character, int level, GameStatScale scale, string gameName)
     {
         var percentile = LevelCurve.PercentileFor(level);
         var archetype = ArchetypeReader.For(character.Job, character.Weapon, character.Abilities);
@@ -52,7 +73,7 @@ public static class ChampionBuilder
 
     private static int Scale(int baseline, double weight) => Math.Max(1, (int)Math.Round(baseline * weight));
 
-    public static Archetype ArchetypeOf(Character character) =>
+    public static Archetype ArchetypeOf(ArenaCharacter character) =>
         ArchetypeReader.For(character.Job, character.Weapon, character.Abilities);
 
     /// <summary>
@@ -71,7 +92,7 @@ public static class ChampionBuilder
     /// given one is never given something their game did not have.
     /// </para>
     /// </remarks>
-    public static IReadOnlyList<Move> MovesFor(Character character, Archetype archetype)
+    public static IReadOnlyList<Move> MovesFor(ArenaCharacter character, Archetype archetype)
     {
         var moves = new List<Move>(MoveBuilder.Build(character.Abilities));
 
