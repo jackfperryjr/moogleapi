@@ -99,3 +99,61 @@ public class ImageQuotaTests
         Assert.False(ImageGenerator.IsDailyQuota(body, out _));
     }
 }
+
+/// <summary>
+/// Bodies are verbatim shapes of Gemini 429 responses, so these fail if the error envelope
+/// changes the field the backoff now depends on.
+/// </summary>
+public class RetryDelayTests
+{
+    private const string BurstLimitBody = """
+        {
+          "error": {
+            "code": 429,
+            "status": "RESOURCE_EXHAUSTED",
+            "details": [
+              {
+                "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                "violations": [
+                  { "quotaId": "GenerateRequestsPerMinutePerProjectPerModel" }
+                ]
+              },
+              { "@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "43s" }
+            ]
+          }
+        }
+        """;
+
+    /// <summary>
+    /// The bug this exists for: the API says how long it wants us gone, and that value was read
+    /// only to phrase the daily-quota message and thrown away for burst limits. The wait was a
+    /// guessed ladder, and a guess that came back early spends a request to be told the same
+    /// thing again — 225 images in one batch were abandoned that way.
+    /// </summary>
+    [Fact]
+    public void ReadsTheDelayTheApiAsksFor() =>
+        Assert.Equal(TimeSpan.FromSeconds(43), ImageGenerator.RetryDelayFrom(BurstLimitBody));
+
+    [Fact]
+    public void ABurstLimitIsNotTheDailyQuota() =>
+        Assert.False(ImageGenerator.IsDailyQuota(BurstLimitBody, out _));
+
+    [Theory]
+    [InlineData("""{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[]}}""")]
+    [InlineData("""{"error":{"code":500}}""")]
+    [InlineData("not json at all")]
+    [InlineData("")]
+    public void FallsBackToTheLadderWhenNoDelayIsGiven(string body) =>
+        Assert.Null(ImageGenerator.RetryDelayFrom(body));
+
+    /// <summary>A zero or negative hint is not a wait, and must not shorten the ladder to nothing.</summary>
+    [Theory]
+    [InlineData("0s")]
+    [InlineData("-5s")]
+    public void IgnoresAnUnusableDelay(string raw)
+    {
+        var body = """{"error":{"code":429,"details":[{"retryDelay":"RAW"}]}}""".Replace("RAW", raw);
+
+        Assert.Null(ImageGenerator.RetryDelayFrom(body));
+    }
+}
