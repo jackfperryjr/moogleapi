@@ -60,8 +60,11 @@ public static class ArchetypeReader
     private static readonly (Archetype Archetype, Regex Pattern)[] WeaponPatterns =
     [
         (Archetype.Mage, new Regex(@"\b(rods?|staff|staves|dolls?|tomes?|books?|grimoires?|bells?|instruments?)\b", RegexOptions.IgnoreCase)),
-        (Archetype.Scout, new Regex(@"\b(knuckles?|claws?|daggers?|knife|knives|firearms?|guns?|pistols?|bows?|boomerangs?|throwing|whips?|rackets?|cards?|dice|coins?)\b", RegexOptions.IgnoreCase)),
-        (Archetype.Warrior, new Regex(@"(swords?|katanas?|\baxes?\b|\bspears?\b|\blances?\b|\bhammers?\b|\bmaces?\b|\bshields?\b|blades?)\b", RegexOptions.IgnoreCase)),
+        (Archetype.Scout, new Regex(@"\b(knuckles?|claws?|daggers?|knife|knives|firearms?|guns?|rifles?|pistols?|bows?|boomerangs?|shurikens?|blitzballs?|throwing|whips?|rackets?|cards?|dice|coins?)\b", RegexOptions.IgnoreCase)),
+        // "Masamune" is here rather than left to fall through because it is not a proper noun
+        // that happens to be a sword — in this series it *is* the katana, and it is the only
+        // thing Sephiroth's article lists in the field.
+        (Archetype.Warrior, new Regex(@"(swords?|katanas?|masamune|\baxes?\b|\bspears?\b|\blances?\b|\bhammers?\b|\bmaces?\b|\bshields?\b|blades?)\b", RegexOptions.IgnoreCase)),
     ];
 
     private static readonly (Archetype Archetype, Regex Pattern)[] AbilityPatterns =

@@ -21,6 +21,11 @@ public class ArchetypeTests
         Assert.Equal(expected, ArchetypeReader.For(job, weapon: null, abilities: null));
 
     [Theory]
+    [InlineData("Shuriken", Archetype.Scout)]
+    [InlineData("Rifle", Archetype.Scout)]
+    [InlineData("Blitzballs", Archetype.Scout)]
+    [InlineData("Masamune", Archetype.Warrior)]
+    [InlineData("Broadswords", Archetype.Warrior)]
     [InlineData("Staves", Archetype.Mage)]
     [InlineData("Dolls", Archetype.Mage)]
     [InlineData("Knuckles", Archetype.Scout)]

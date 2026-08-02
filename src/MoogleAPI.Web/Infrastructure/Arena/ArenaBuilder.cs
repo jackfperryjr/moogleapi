@@ -82,6 +82,27 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
     private const double SurvivalMargin = 0.12;
 
     /// <summary>
+    /// The health a recommended level is aimed at finishing on: enough to have been a fight,
+    /// enough left to absorb a bad spin.
+    /// </summary>
+    /// <remarks>
+    /// The recommendation used to be the <em>lowest</em> level that cleared, on the reasoning
+    /// that going higher was the player's to choose. Against the real roster that produced
+    /// recommendations of 1 and of 97, and both are useless. A game whose stat distribution is
+    /// narrow — Final Fantasy VI publishes attack values between about 11 and 50 — barely
+    /// changes a character between level 1 and level 50, so the lowest clearing level is level
+    /// 1, and the recommendation invites the player into a run with nothing in it. At the other
+    /// end, a wide distribution puts the first clearing level in the nineties and leaves no
+    /// room above it.
+    /// <para>
+    /// Aiming at a target instead centres the recommendation and keeps room in both directions.
+    /// Ties still resolve downwards, so among levels that play identically the cheapest still
+    /// wins.
+    /// </para>
+    /// </remarks>
+    private const double TargetRemaining = 0.25;
+
+    /// <summary>
     /// The level opponents are ranked against, so a wave's difficulty is a property of the game
     /// rather than of the level the player happens to have picked.
     /// </summary>
@@ -325,7 +346,8 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
     }
 
     /// <summary>
-    /// The lowest level that clears the day's eight waves with health left over.
+    /// The level that clears the day's eight waves finishing closest to
+    /// <see cref="TargetRemaining"/> health.
     /// </summary>
     /// <remarks>
     /// Solved rather than guessed, using the arithmetic the fights actually resolve with — the
@@ -335,8 +357,13 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
     private static int RecommendedLevel(ArenaCharacter character, GameStatScale scale, List<Fighter> waves)
     {
         var moves = new MoveCache();
-        var best = LevelCurve.MaxLevel;
-        var bestRemaining = double.NegativeInfinity;
+
+        var bestClearing = 0;
+        var bestGap = double.PositiveInfinity;
+
+        // Tracked separately so a roster entry can still name a level when no level clears.
+        var furthest = LevelCurve.MaxLevel;
+        var furthestRemaining = double.NegativeInfinity;
 
         for (var level = LevelCurve.MinLevel; level <= LevelCurve.MaxLevel; level++)
         {
@@ -345,16 +372,20 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
 
             var remaining = SimulateRun(champion, waves, moves);
 
-            // The first level that clears wins. The recommendation is the cheapest way through,
-            // not the most comfortable one — going higher is the player's to choose.
-            if (remaining >= SurvivalMargin) return level;
+            if (remaining >= SurvivalMargin)
+            {
+                // Strictly less, so a tie resolves to the lower level: where two levels play
+                // identically — and integer turn counts make that common — the cheaper wins.
+                var gap = Math.Abs(remaining - TargetRemaining);
+                if (gap < bestGap) (bestClearing, bestGap) = (level, gap);
+            }
 
-            if (remaining > bestRemaining) (best, bestRemaining) = (level, remaining);
+            if (remaining > furthestRemaining) (furthest, furthestRemaining) = (level, remaining);
         }
 
         // No level clears it — the game's numbers don't allow it. Offer the one that gets
         // furthest rather than nothing.
-        return best;
+        return bestClearing > 0 ? bestClearing : furthest;
     }
 
     /// <summary>

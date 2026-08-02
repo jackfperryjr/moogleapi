@@ -150,8 +150,8 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
             // character does in a fight, where "occupation" says what they do for a living —
             // Aerith's is "Florist" and Tifa's "Bar hostess", which describes neither of them
             // holding a weapon.
-            job = ParseInfoboxField(wikitext, "job") ?? ParseInfoboxField(wikitext, "class");
-            weapon = ParseInfoboxField(wikitext, "weapon") ?? ParseInfoboxField(wikitext, "weapons");
+            job = ParseCharacterField(wikitext, "job", "class");
+            weapon = ParseCharacterField(wikitext, "weapon", "weapons");
             affiliation = ParseInfoboxField(wikitext, "affiliation");
             race = ParseInfoboxField(wikitext, "race") ?? ParseInfoboxField(wikitext, "species");
             hometown = ParseInfoboxField(wikitext, "home")
@@ -460,6 +460,43 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
 
     internal static string? ParseCharacterFieldList(string wikitext, params string[] fieldNames) =>
         ParseFieldList(wikitext, ReleasePrefix, fieldNames);
+
+    /// <summary>
+    /// A single character infobox value, tolerating the per-release prefix.
+    /// </summary>
+    /// <remarks>
+    /// Games differ on whether the field is prefixed at all: Final Fantasy VI and IX write
+    /// <c>|weapon=</c>, while Final Fantasy VII writes <c>|ffvii weapon=</c> and
+    /// <c>|ffviir weapon=</c> for the remake. Reading only the bare form is why the first pass
+    /// left every Final Fantasy VII character with no weapon, and so no battle role.
+    /// <para>
+    /// The prefix cannot be allowed to swallow a qualifier, though — every one of these
+    /// articles also carries <c>|ultimate weapon=</c>, naming a specific late-game item rather
+    /// than the class of arms the character uses. Matching it would call Cloud's weapon "Ultima
+    /// Weapon" instead of "Broadswords".
+    /// </para>
+    /// </remarks>
+    internal static string? ParseCharacterField(string wikitext, params string[] fieldNames)
+    {
+        foreach (var field in fieldNames)
+        {
+            foreach (Match match in Regex.Matches(wikitext,
+                         $@"^\|\s*((?:[a-z0-9]+\s+){{0,2}}){Regex.Escape(field)}\s*=\s*(.+)$",
+                         RegexOptions.IgnoreCase | RegexOptions.Multiline))
+            {
+                if (QualifiedField.IsMatch(match.Groups[1].Value)) continue;
+
+                var cleaned = CleanFieldValue(match.Groups[2].Value);
+                if (cleaned is not null) return cleaned;
+            }
+        }
+
+        return null;
+    }
+
+    // Words that turn the field into a different question. A release tag is anything else.
+    private static readonly Regex QualifiedField =
+        new(@"\b(ultimate|starting|initial|default|optional|alternate)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static string? ParseFieldList(string wikitext, string prefixPattern, string[] fieldNames)
     {

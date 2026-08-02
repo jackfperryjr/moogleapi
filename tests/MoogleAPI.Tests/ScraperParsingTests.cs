@@ -950,3 +950,73 @@ public class PlayableRosterParsingTests
         Assert.Equal(["Vaan", "Penelo"], WikiClient.ParsePlayableRoster(repeated));
     }
 }
+
+/// <summary>
+/// Fixtures are verbatim excerpts of live character articles, so these fail if the wiki changes
+/// how it names the per-release infobox fields.
+/// </summary>
+public class CharacterFieldParsingTests
+{
+    // Tifa Lockhart — Final Fantasy VII prefixes every field with the release it belongs to,
+    // and carries a second, qualified weapon field alongside the real one.
+    private const string PrefixedInfobox = """
+        |name=Tifa Lockhart
+        |occupation=Bar hostess, [[Avalanche (group)|Avalanche]] member
+        |ffvii weapon=[[Final Fantasy VII weapons#Tifa's knuckles|Knuckles]]
+        |ffvii ultimate weapon=[[Premium Heart (Final Fantasy VII)|Premium Heart]]
+        |ffviir weapon=[[Final Fantasy VII Remake weapons#Tifa's knuckles|Knuckles]]
+        """;
+
+    // Vivi Ornitier — Final Fantasy IX writes the bare field names.
+    private const string BareInfobox = """
+        |name=Vivi Ornitier
+        |job=[[Black Mage (job)|Black Mage]]
+        |weapon=[[Final Fantasy IX weapons#Staves|Staves]]
+        |ultimate weapon=Mace of Zeus
+        """;
+
+    // Cloud Strife — the qualified field sits between two real ones.
+    private const string CloudInfobox = """
+        |ffvii weapon=[[Final Fantasy VII weapons#Cloud's broadswords|Broadswords]]
+        |ffvii ultimate weapon=[[Ultima Weapon (Final Fantasy VII)|Ultima Weapon]]
+        |ffviir2 weapon=[[Final Fantasy VII Rebirth weapons#Cloud's broadswords|Broadswords]]
+        """;
+
+    [Fact]
+    public void ReadsABareField() =>
+        Assert.Equal("Staves", WikiClient.ParseCharacterField(BareInfobox, "weapon", "weapons"));
+
+    [Fact]
+    public void ReadsAJob() =>
+        Assert.Equal("Black Mage", WikiClient.ParseCharacterField(BareInfobox, "job", "class"));
+
+    /// <summary>
+    /// The bug this exists for: reading only the bare form left every Final Fantasy VII
+    /// character with no weapon, and so no battle role — half the roster came out Balanced.
+    /// </summary>
+    [Fact]
+    public void ReadsAFieldPrefixedWithItsRelease() =>
+        Assert.Equal("Knuckles", WikiClient.ParseCharacterField(PrefixedInfobox, "weapon", "weapons"));
+
+    /// <summary>
+    /// "|ultimate weapon=" names one late-game item rather than the class of arms a character
+    /// uses. Letting the release prefix swallow the qualifier calls Cloud's weapon
+    /// "Ultima Weapon" — a proper noun no archetype pattern matches — instead of "Broadswords".
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(CloudInfobox))]
+    public void IgnoresTheUltimateWeaponField(string _)
+    {
+        Assert.Equal("Broadswords", WikiClient.ParseCharacterField(CloudInfobox, "weapon", "weapons"));
+        Assert.Equal("Staves", WikiClient.ParseCharacterField(BareInfobox, "weapon", "weapons"));
+    }
+
+    [Fact]
+    public void ReturnsNullWhenTheFieldIsAbsent() =>
+        Assert.Null(WikiClient.ParseCharacterField("|name=Broom\n|race=Object", "weapon", "weapons"));
+
+    /// <summary>The occupation field is adjacent and must never be mistaken for a weapon.</summary>
+    [Fact]
+    public void DoesNotConfuseANeighbouringField() =>
+        Assert.Null(WikiClient.ParseCharacterField(PrefixedInfobox, "job", "class"));
+}
