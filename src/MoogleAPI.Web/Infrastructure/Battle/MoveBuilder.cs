@@ -133,7 +133,21 @@ public static class MoveBuilder
     private static readonly Regex HealingMove =
         new(@"^(cur(e|a|aga|aja|aja)|heal\w*)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private static bool IsSupport(string name) => SupportMoves.Contains(name) || HealingMove.IsMatch(name);
+    /// <summary>
+    /// The upgraded forms of the support spells above.
+    /// </summary>
+    /// <remarks>
+    /// The series suffixes its spell lines — Haste becomes Hastega, Protect becomes Protectga —
+    /// and the list is of exact names, so only the base form was ever caught. Tidus went into
+    /// the arena swinging Hastega, a party-wide speed buff, as his hardest attack. Same failure
+    /// the Deathmask note above describes, one letter out of reach of the same fix.
+    /// </remarks>
+    private static readonly Regex SupportLine = new(
+        @"^(haste|slow|protect|shell|regen|dispel|esuna|reflect|barrier|float|blink|vanish|aura|shield)(ra|ga|ja)$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static bool IsSupport(string name) =>
+        SupportMoves.Contains(name) || HealingMove.IsMatch(name) || SupportLine.IsMatch(name);
 
     public static IReadOnlyList<Move> Build(string? abilities)
     {

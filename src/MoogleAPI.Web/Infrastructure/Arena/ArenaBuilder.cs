@@ -255,8 +255,21 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
             .OrderBy(x => x.Cost)
             .ToList();
 
-        var regular = ranked.Where(x => !x.Fighter.IsBoss).ToList();
+        // Ordinary waves are capped by health as well as by difficulty, because the two are not
+        // the same thing here and it shows. Damage is a share of the defender's own maximum, so
+        // health cancels out of the cost estimate entirely: Final Fantasy X's Ultima Buster has
+        // five million of it and a published defence of 1, which makes it *cheap* to kill and
+        // saw it dealt out as wave four. Arithmetically fair, and ridiculous to look at — the
+        // game's superboss is not a mid-run encounter whatever the numbers say.
+        var ordinaryCeiling = scale.HitPointsAt(0.5) * MaxOrdinaryWaveHitPoints;
+
+        var regular = ranked.Where(x => !x.Fighter.IsBoss && x.Fighter.HitPoints <= ordinaryCeiling).ToList();
         var bosses = ranked.Where(x => x.Fighter.IsBoss).ToList();
+
+        // The cap can empty a game whose enemies all sit above its median — take the ranking
+        // back rather than drop the run.
+        if (regular.Count < WavesPerRun - 1)
+            regular = ranked.Where(x => !x.Fighter.IsBoss).ToList();
 
         if (regular.Count < WavesPerRun - 1) return [];
 
@@ -320,6 +333,12 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
 
     /// <summary>How far from its target a wave may land and still be that wave.</summary>
     private const double CostBand = 0.05;
+
+    /// <summary>
+    /// How far above its game's median enemy an ordinary wave's health may go. The finale is
+    /// exempt — that one is supposed to be the wall.
+    /// </summary>
+    private const double MaxOrdinaryWaveHitPoints = 25.0;
 
     /// <summary>
     /// Share of the champion's health one wave costs.
