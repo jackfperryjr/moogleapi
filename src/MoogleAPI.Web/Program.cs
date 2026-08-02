@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 using MoogleAPI.Web.Infrastructure.Arena;
 using MoogleAPI.Web.Infrastructure.Battle;
 using MoogleAPI.Web.Infrastructure.Data;
@@ -97,7 +98,35 @@ var app = builder.Build();
 app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseDefaultFiles();
-app.UseStaticFiles();
+
+// Static assets are cached by rule rather than left to whatever sits in front of the app.
+//
+// Nothing here set Cache-Control, so Cloudflare applied its own four-hour default to every
+// script and stylesheet — and the games' JavaScript is not decoration, it is the client half of
+// the combat model. The server picks a run's waves with the same arithmetic the browser resolves
+// them with, so a browser holding yesterday's game.js is not showing a stale page, it is playing
+// a different game: after the damage curve changed in feature set 115, a cached client still
+// needed four hits to kill a seven-HP Final Fantasy III Goblin that the server had balanced
+// around two.
+//
+// So markup, scripts and styles revalidate on every request — an ETag makes that a 304 and a few
+// bytes — while images, which are content-addressed by row id and never change in place, keep a
+// long lifetime.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var name = ctx.File.Name;
+        var mustRevalidate =
+            name.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(".js", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith(".css", StringComparison.OrdinalIgnoreCase);
+
+        ctx.Context.Response.GetTypedHeaders().CacheControl = mustRevalidate
+            ? new CacheControlHeaderValue { NoCache = true }
+            : new CacheControlHeaderValue { Public = true, MaxAge = TimeSpan.FromDays(30) };
+    }
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
