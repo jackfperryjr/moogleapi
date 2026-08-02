@@ -378,30 +378,26 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     }
 
     /// <summary>
-    /// Spells the watermark numeral out character by character, with its length stated up front.
-    /// </summary>
-    /// <remarks>
-    /// Naming the numeral alone is not enough. Asked for "I", the model reliably drew two stems —
-    /// every Final Fantasy monster in the first batch came back reading II, because a lone slab-
-    /// serifed I at watermark scale is one stroke between two bars and the obvious completion of
-    /// that shape is a second stroke. The same failure smears III and VIII into an unreadable
-    /// block. Stating the count and listing the characters gives the instruction something to be
-    /// checked against rather than a name to be interpreted.
-    /// </remarks>
-    private static string Describe(string numeral) =>
-        numeral == "I"
-            ? "one character only — a single capital I, one vertical stroke. Not two strokes, not a pair: one."
-            : $"exactly {numeral.Length} characters, in this order: {string.Join(", ", numeral.AsEnumerable())}.";
-
-    /// <summary>
     /// One fixed instruction block with only the subject interpolated — identical phrasing
     /// across thousands of calls is what makes the results look like one set.
     /// </summary>
+    /// <remarks>
+    /// The prompt asks for no glyph of any kind, and the game's Roman numeral is not to be put
+    /// back into it. It was here for two batches and never worked: a diffusion model draws the
+    /// shape of text rather than spelling it, and Roman numerals are the worst case for that,
+    /// being runs of identical strokes whose serifs merge. Asked for "I" it drew two stems and a
+    /// whole batch came back reading II; III and VIII smeared into a block. Spelling the numeral
+    /// out character by character with its length stated up front — which is what used to live
+    /// here — narrowed the failure without removing it, and it cost part of every prompt and
+    /// part of every picture.
+    /// <para>
+    /// If the numeral is wanted again, draw it after generation rather than asking for it. The
+    /// project already has ImageSharp, so compositing one is deterministic, adjustable without
+    /// paying for a new image, and correct every time.
+    /// </para>
+    /// </remarks>
     private static string BuildPrompt(Candidate c)
     {
-        var numeral = c.Game.Replace("Final Fantasy", "").Trim();
-        if (numeral.Length == 0) numeral = "I";
-
         var setting = string.IsNullOrWhiteSpace(c.Setting) ? "its habitat" : c.Setting;
 
         return $"""
@@ -418,11 +414,9 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
             STYLE: clean modern anime-influenced digital illustration. Crisp confident linework, cel shading with soft gradient falloff, bright even high-key lighting, saturated subject colours. Polished commercial trading-card art.
 
-            COMPOSITION: the entire subject is inside the frame in a three-quarter view — every limb, wing and tail fully visible, nothing running off any edge. It fills most, but not all, of the picture. Behind it a soft low-contrast atmospheric wash suggesting {setting} — never a detailed scene. Set into that background, one very large faint Roman numeral, low contrast and partly hidden behind the subject, as a watermark motif.
+            COMPOSITION: the entire subject is inside the frame in a three-quarter view — every limb, wing and tail fully visible, nothing running off any edge. It fills most, but not all, of the picture. Behind it a soft low-contrast atmospheric wash suggesting {setting} — never a detailed scene, and nothing else set into it.
 
-            THE NUMERAL: {Describe(numeral)} Draw exactly those characters and no others — do not add, drop, repeat or mirror one. Leave a clear gap between adjacent characters so their serifs never merge into a single shape.
-
-            DO NOT INCLUDE: any text, letters, words, logos, signatures, or UI. The Roman numeral is the only permitted glyph.
+            DO NOT INCLUDE: any text, letters, numbers, numerals, words, logos, signatures, watermarks or UI. No glyph of any kind appears anywhere in the picture.
 
             CRITICAL — the artwork is full-bleed: the illustration runs edge to edge with no card frame, no border, no outline, no rounded corners, no inner bevel, no matting and no margin of any kind. Do not draw a card. Draw only the picture that would go inside one.
 
