@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       stages:
-        description: 'Stages to run, comma-separated (games, characters, playable, monsters, cards, images, audit, generate, promote). Empty runs the usual set.'
+        description: 'Stages to run, comma-separated (games, characters, playable, monsters, cards, images, audit, generate, promote, unpromote). Empty runs the usual set.'
         required: false
         default: ''
       force:
