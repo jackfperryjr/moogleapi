@@ -427,3 +427,43 @@ public class ArenaCacheTests
                 p.PropertyType.Namespace == typeof(MoogleAPI.Web.Infrastructure.Models.Character).Namespace);
     }
 }
+
+public class SupportMoveTests
+{
+    /// <summary>
+    /// The series suffixes its spell lines, and the support list is of exact names, so only the
+    /// base form was caught. Tidus went into the arena swinging Hastega — a party-wide speed
+    /// buff — as his hardest attack.
+    /// </summary>
+    [Theory]
+    [InlineData("Hastega")]
+    [InlineData("Protectga")]
+    [InlineData("Shellra")]
+    [InlineData("Slowga")]
+    [InlineData("Reflectga")]
+    public void NeverTurnsAnUpgradedBuffIntoAnAttack(string ability)
+    {
+        var moves = MoveBuilder.Build(ability);
+
+        Assert.DoesNotContain(moves, m => m.Name.Equals(ability, StringComparison.OrdinalIgnoreCase));
+        Assert.Single(moves);
+    }
+
+    /// <summary>
+    /// The suffix rule must not swallow real attacks that happen to end the same way. Firaga
+    /// and Blizzaga are the whole point of the move list.
+    /// </summary>
+    [Theory]
+    [InlineData("Firaga")]
+    [InlineData("Blizzaga")]
+    [InlineData("Thundaga")]
+    [InlineData("Curaga")]
+    public void KeepsTheAttackSpellLines(string ability)
+    {
+        var moves = MoveBuilder.Build(ability);
+
+        // Curaga is restorative and must still go; the others must survive.
+        if (ability == "Curaga") Assert.Single(moves);
+        else Assert.Contains(moves, m => m.Name.Equals(ability, StringComparison.OrdinalIgnoreCase));
+    }
+}
