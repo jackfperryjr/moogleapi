@@ -12,13 +12,110 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/games.css?v=20260802" />
+  <link rel="stylesheet" href="/assets/games.css?v=20260802b" />
   <style>
-    /* Kupo Climb runs through sixteen games' worth of monster art, most of it warm-toned sprite
-    work. A bronze accent sits with that where the site's blue fights it. */
+    /* ── Kupo Climb ──
+       A climb, so the page is lit like one: dark at the foot and warming towards the top, with
+       the background fixed so the gradient stays put while the run scrolls through it. Warm
+       bronze throughout, because the ladder runs on sixteen games of sprite-era monster art and
+       the site's blue fights every one of them. Heavier borders and squarer corners than the
+       rest — this is the one game that is nothing but stone and teeth. */
     body {
-      --accent:   #c98b4b;
-      --accent-2: #f0d5b4;
+      --bg:        #1b1512;
+      --surface:   #2b2119;
+      --surface-2: #221a14;
+      --border:    #4a3728;
+      --accent:    #c98b4b;
+      --accent-2:  #f0d5b4;
+      --gold:      #e9b872;
+      --muted:     #a89079;
+      --nav-bg:    rgba(27, 21, 18, 0.93);
+      --radius:    4px;
+
+      --player:    #b07a3c;
+      --opponent:  #9c4436;
+
+      /* Layered back to front: an optional photograph, then the rungs, then the ridgeline, then
+         the summit light, then the flat colour. The image is listed first so it sits over the
+         gradients — and a missing file simply does not paint, so the page degrades to exactly
+         this without a fallback to write.
+
+         Drop artwork at /assets/backgrounds/kupo-climb.webp — see the note there for the size. */
+      background-image:
+        url('/assets/backgrounds/kupo-climb.webp'),
+        /* Rungs. Bands that tighten as they rise, which is what makes a flat gradient read as
+           something being climbed rather than something being stood in. */
+        repeating-linear-gradient(180deg,
+          rgba(233,184,114,0.05) 0 1px, transparent 1px 34px),
+        /* Ridges receding into the haze at the foot of the climb. */
+        radial-gradient(ellipse 150% 32% at 18% 104%, rgba(74,55,40,0.55) 0%, transparent 70%),
+        radial-gradient(ellipse 130% 28% at 78% 108%, rgba(58,42,30,0.55) 0%, transparent 70%),
+        /* The summit: warm, high, and the only bright thing on the page. */
+        radial-gradient(ellipse 70% 42% at 50% -8%, rgba(233,184,114,0.16) 0%, transparent 68%),
+        linear-gradient(180deg, #2a1f16 0%, #1b1512 45%, #120e0c 100%);
+      background-repeat: no-repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+      background-position: center top;
+      background-size: cover, auto, auto, auto, auto, auto;
+      background-attachment: fixed;
+      background-color: var(--bg);
+    }
+
+    /* Holds a supplied image back so it stays atmosphere rather than picture. The one knob to
+       turn if artwork reads too strong. */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(27,21,18,0.70) 0%, rgba(27,21,18,0.86) 60%, rgba(18,14,12,0.94) 100%);
+    }
+
+    .page-title {
+      color: var(--gold);
+      letter-spacing: 0.08em;
+      text-shadow: 0 2px 14px rgba(233,184,114,0.22);
+    }
+
+    .panel { border-width: 2px; }
+    .btn { border-radius: 4px; letter-spacing: 0.04em; }
+
+    /* ── Battle field ──
+       Borrowed from the shape of a Pokémon battle screen: two combatants facing each other
+       across a field, under a horizon, the far one standing further up it. Drawn in gradients
+       so it tracks two portraits whose size changes with the viewport. */
+    .arena {
+      position: relative;
+      padding: 0.75rem 0.5rem 0.25rem;
+      border-radius: var(--radius);
+      background:
+        /* horizon — one hairline where the ground meets the far distance */
+        linear-gradient(180deg, transparent 0 43%, rgba(233,184,114,0.10) 43% 43.4%, transparent 43.4%),
+        /* ground, rising toward the viewer */
+        radial-gradient(ellipse 130% 55% at 50% 118%, rgba(201,139,75,0.13) 0%, transparent 72%),
+        /* sky */
+        linear-gradient(180deg, rgba(120,80,40,0.10) 0%, transparent 45%);
+    }
+
+    /* No platform under the portraits. One was drawn there while the art was transparent
+       cutouts and the gradient showed through beneath the creature; the regenerated library is
+       opaque 3:4 illustration, which covers it completely. A decoration only some rows can
+       display is worse than none. */
+
+    /* The far combatant stands further up the field. A small offset, but it is what stops the
+       two cards reading as a mirror and starts them reading as depth. */
+    .fighter.opponent { transform: translateY(-0.6rem); }
+
+    .versus {
+      font-weight: 700;
+      color: var(--gold);
+      text-shadow: 0 0 14px rgba(233,184,114,0.35);
+    }
+
+    @media (max-width: 640px) {
+      /* Stacked, the offset and the horizon both stop meaning anything. */
+      .fighter.opponent { transform: none; }
+      .arena { background: none; padding: 0; }
     }
 
     /* ── Starter select ── */
@@ -249,14 +346,9 @@
 </head>
 <body>
   <nav>
-    <a class="nav-brand" href="/">moogleAPI</a>
+    <a class="nav-brand" href="/"><img src="/moogle.png" alt="" /> moogleAPI</a>
     <div class="nav-links">
-      <a href="/games">Games</a>
-      <a href="/kupodle">Kupodle</a>
-      <a href="/triple-triad">Triple Triad</a>
-      <a href="/kupo-climb" aria-current="page">Kupo Climb</a>
-      <a href="/battle-square">Battle Square</a>
-      <a href="/scalar/v1">API Docs</a>
+      <a class="nav-back" href="/games">← Games</a>
     </div>
   </nav>
 
@@ -334,6 +426,6 @@
     </section>
   </main>
 
-  <script src="/kupo-climb/game.js?v=20260802"></script>
+  <script src="/kupo-climb/game.js?v=20260802b"></script>
 </body>
 </html>

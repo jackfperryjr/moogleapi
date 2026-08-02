@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/assets/games.css?v=20260802" />
+  <link rel="stylesheet" href="/assets/games.css?v=20260802b" />
   <style>
     /* ── Gold Saucer ──
        The one page on the site that isn't the site's palette. The Battle Square sits inside a
@@ -28,14 +28,40 @@
       --accent-2:  #e3c2f0;
       --gold:      #ffd76e;
       --muted:     #9a86b0;
+      --nav-bg:    rgba(18, 12, 26, 0.92);
 
       --player:    #7c5cd6;
       --opponent:  #d1568a;
 
-      background:
-        radial-gradient(ellipse 70% 45% at 50% -5%, rgba(176,124,198,0.20) 0%, transparent 70%),
-        var(--bg);
+      /* Layered back to front: an optional photograph, then the carnival light fan, then the
+         house glow, then the flat colour. The image is listed first so it sits on top of the
+         gradients — and because a missing file simply does not paint, the page degrades to
+         exactly what it looked like before one was supplied. Nothing to guard, no fallback to
+         write.
+
+         Drop the artwork at /assets/backgrounds/battle-square.webp — see the note there for the
+         size it wants. */
+      background-image:
+        url('/assets/backgrounds/battle-square.webp'),
+        repeating-conic-gradient(from 200deg at 50% -12%,
+          rgba(255,215,110,0.045) 0deg 3deg, transparent 3deg 11deg),
+        radial-gradient(ellipse 70% 45% at 50% -5%, rgba(176,124,198,0.20) 0%, transparent 70%);
+      background-repeat: no-repeat;
+      background-position: center top;
+      background-size: cover, auto, auto;
       background-attachment: fixed;
+      background-color: var(--bg);
+    }
+
+    /* Keeps the artwork from competing with the fight. Sits under everything, over the
+       background, and is the one knob to turn if a supplied image reads too strong. */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(22,16,31,0.72) 0%, rgba(22,16,31,0.88) 60%, rgba(22,16,31,0.95) 100%);
     }
 
     .page-title {
@@ -155,8 +181,29 @@
     .reel.spun { animation: reel-in 0.4s ease-out; }
 
     /* ── Arena ── */
-    .arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.75rem; align-items: start; }
-    .versus { align-self: center; color: var(--muted); font-size: 0.8rem; letter-spacing: 0.1em; }
+    /* ── The stage ──
+       A lit arena floor, drawn in gradients so it tracks the two portraits at any width: a pool
+       of light under the combatants and the dark of the stands beyond it. */
+    .arena {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+      padding: 0.75rem 0.5rem 0.25rem;
+      border-radius: var(--radius);
+      background:
+        radial-gradient(ellipse 85% 45% at 50% 108%, rgba(255,215,110,0.13) 0%, rgba(176,124,198,0.07) 45%, transparent 74%),
+        linear-gradient(180deg, rgba(0,0,0,0.22) 0%, transparent 40%);
+    }
+    .versus { align-self: center; color: var(--gold); font-size: 0.8rem; letter-spacing: 0.1em; font-weight: 700; }
+
+    /* Each fighter under its own spotlight — the player's gold, the opponent's cold. */
+    .fighter.player img {
+      background: radial-gradient(ellipse 62% 11% at 50% 94%, rgba(255,215,110,0.34) 0%, rgba(255,215,110,0.10) 48%, transparent 74%);
+    }
+    .fighter.opponent img {
+      background: radial-gradient(ellipse 62% 11% at 50% 94%, rgba(209,86,138,0.34) 0%, rgba(209,86,138,0.10) 48%, transparent 74%);
+    }
 
     .fighter {
       background: var(--surface); border: 1px solid var(--border);
@@ -255,19 +302,16 @@
       .versus { justify-self: center; }
       .fighter img { aspect-ratio: auto; height: 150px; }
       .level-value { font-size: 1.6rem; }
+      /* Stacked, the floor is behind one card at a time and stops reading as a stage. */
+      .arena { background: none; padding: 0; }
     }
   </style>
 </head>
 <body>
   <nav>
-    <a class="nav-brand" href="/">moogleAPI</a>
+    <a class="nav-brand" href="/"><img src="/moogle.png" alt="" /> moogleAPI</a>
     <div class="nav-links">
-      <a href="/games">Games</a>
-      <a href="/kupodle">Kupodle</a>
-      <a href="/triple-triad">Triple Triad</a>
-      <a href="/kupo-climb">Kupo Climb</a>
-      <a href="/battle-square" aria-current="page">Battle Square</a>
-      <a href="/scalar/v1">API Docs</a>
+      <a class="nav-back" href="/games">← Games</a>
     </div>
   </nav>
 
@@ -357,6 +401,6 @@
     </section>
   </main>
 
-  <script src="/battle-square/game.js?v=20260802"></script>
+  <script src="/battle-square/game.js?v=20260802b"></script>
 </body>
 </html>
