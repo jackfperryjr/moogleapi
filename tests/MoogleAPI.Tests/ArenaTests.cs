@@ -1,6 +1,5 @@
 using MoogleAPI.Web.Infrastructure.Arena;
 using MoogleAPI.Web.Infrastructure.Battle;
-using MoogleAPI.Web.Infrastructure.Models;
 
 namespace MoogleAPI.Tests;
 
@@ -181,8 +180,8 @@ public class ChampionBuilderTests
                 i * 100, i * 5, i * 5, i * 5, i * 5, i * 5, null, null, null, null))
             .ToList();
 
-    private static Character Character(string? job = null, string? weapon = null, string? abilities = null) =>
-        new() { Id = 1, Name = "Test", GameId = 7, Job = job, Weapon = weapon, Abilities = abilities };
+    private static ArenaCharacter Character(string? job = null, string? weapon = null, string? abilities = null) =>
+        new(1, "Test", 7, "Final Fantasy VII", job, weapon, abilities, null, 90);
 
     [Fact]
     public void EveryStatRisesWithLevel()
@@ -368,4 +367,58 @@ public class ArenaShapeTests
     [Fact]
     public void RecoversLessThanAWaveCosts() =>
         Assert.InRange(ArenaBuilder.WaveRecovery, 0.05, 0.30);
+}
+
+/// <summary>
+/// The roster is cached, and HybridCache serializes whatever it is handed.
+/// </summary>
+/// <remarks>
+/// This is a regression test with a specific failure behind it: the roster originally cached the
+/// EF <c>Character</c> entity, loaded with its <c>Game</c> navigation. Serializing one walks
+/// <c>Character → Game → Characters → Game</c> until <c>System.Text.Json</c> gives up at depth 64,
+/// so <c>GET /api/arena/roster</c> answered 400 on every call — and nothing caught it, because a
+/// cycle only exists once the entity is attached to a real context. Anything the arena caches has
+/// to be plain values.
+/// </remarks>
+public class ArenaCacheTests
+{
+    [Fact]
+    public void ThePlayableCastSerializesWithoutCycling()
+    {
+        var characters = new List<ArenaCharacter>
+        {
+            new(1, "Cloud Strife", 7, "Final Fantasy VII", null, "Swords", "Braver", "https://x/1.webp", 100),
+            new(2, "Vivi Ornitier", 9, "Final Fantasy IX", "Black Mage", "Staves", "Blk Mag, Focus", null, 89),
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(characters);
+        var back = System.Text.Json.JsonSerializer.Deserialize<List<ArenaCharacter>>(json);
+
+        Assert.Equal(characters, back);
+    }
+
+    [Fact]
+    public void TheRosterSerializesWithoutCycling()
+    {
+        var roster = new List<RosterEntry>
+        {
+            new(1, "Cloud Strife", 7, "Final Fantasy VII", Archetype.Warrior, null, "Swords", null, 100, 55),
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(roster);
+
+        Assert.Equal(roster, System.Text.Json.JsonSerializer.Deserialize<List<RosterEntry>>(json));
+    }
+
+    /// <summary>
+    /// The guard that would have caught it: nothing the arena caches may carry an entity, and an
+    /// entity is recognisable by living in the Models namespace.
+    /// </summary>
+    [Fact]
+    public void NothingTheArenaCachesCarriesADatabaseEntity()
+    {
+        foreach (var type in new[] { typeof(ArenaCharacter), typeof(RosterEntry) })
+            Assert.DoesNotContain(type.GetProperties(), p =>
+                p.PropertyType.Namespace == typeof(MoogleAPI.Web.Infrastructure.Models.Character).Namespace);
+    }
 }

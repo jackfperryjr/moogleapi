@@ -137,7 +137,7 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
 
             roster.Add(new RosterEntry(
                 character.Id, character.Name, character.GameId, character.GameName,
-                ChampionBuilder.ArchetypeOf(character.Entity), character.Job, character.Weapon,
+                ChampionBuilder.ArchetypeOf(character), character.Job, character.Weapon,
                 character.ImageUrl, character.Popularity,
                 RecommendedLevel(character, scale, waves)));
         }
@@ -197,14 +197,14 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
     private static int PointsFor(int waveNumber, Handicap handicap) =>
         (int)Math.Round(1000 * WaveCostTargets[waveNumber - 1] * handicap.Multiplier);
 
-    private static Champion BuildChampion(PlayableCharacter character, int level, GameStatScale scale)
+    private static Champion BuildChampion(ArenaCharacter character, int level, GameStatScale scale)
     {
-        var archetype = ChampionBuilder.ArchetypeOf(character.Entity);
-        var fighter = ChampionBuilder.Build(character.Entity, level, scale, character.GameName);
+        var archetype = ChampionBuilder.ArchetypeOf(character);
+        var fighter = ChampionBuilder.Build(character, level, scale, character.GameName);
 
         return new Champion(
             character.Id, character.Name, archetype, character.Job, character.Weapon,
-            level, fighter, ChampionBuilder.MovesFor(character.Entity, archetype));
+            level, fighter, ChampionBuilder.MovesFor(character, archetype));
     }
 
     /// <summary>
@@ -219,7 +219,7 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
     /// maximum HP and a monster's health cancels straight back out of the exchange.
     /// </remarks>
     private static List<Fighter> BuildWaves(
-        PlayableCharacter character, IReadOnlyList<Fighter> gamePool, GameStatScale scale, ulong seed, int referenceLevel)
+        ArenaCharacter character, IReadOnlyList<Fighter> gamePool, GameStatScale scale, ulong seed, int referenceLevel)
     {
         var reference = BuildChampion(character, referenceLevel, scale);
         var moves = new MoveCache();
@@ -332,7 +332,7 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
     /// same principle the climb vets its rungs on. A level table would have to be per-game and
     /// would go stale the moment a scrape changed a stat.
     /// </remarks>
-    private static int RecommendedLevel(PlayableCharacter character, GameStatScale scale, List<Fighter> waves)
+    private static int RecommendedLevel(ArenaCharacter character, GameStatScale scale, List<Fighter> waves)
     {
         var moves = new MoveCache();
         var best = LevelCurve.MaxLevel;
@@ -383,26 +383,22 @@ public class ArenaBuilder(AppDbContext db, BattlePool pool, HybridCache cache, D
         return health;
     }
 
-    /// <summary>A playable character with the fields the arena needs, and the row behind them.</summary>
-    private record PlayableCharacter(
-        int Id, string Name, int GameId, string GameName, string? Job, string? Weapon,
-        string? ImageUrl, int Popularity, Models.Character Entity);
-
-    private async Task<List<PlayableCharacter>> GetPlayableAsync(CancellationToken ct) =>
+    /// <summary>
+    /// The playable cast, as plain values.
+    /// </summary>
+    /// <remarks>
+    /// Projected in the query rather than loaded as entities. <see cref="ArenaCharacter"/>
+    /// explains why that matters for the cache; it also means this reads nine columns instead of
+    /// materializing every character of every game to reach their game's name.
+    /// </remarks>
+    private async Task<List<ArenaCharacter>> GetPlayableAsync(CancellationToken ct) =>
         await cache.GetOrCreateAsync(
-            "arena:roster:v1",
-            async token =>
-            {
-                var characters = await db.Characters
-                    .Include(c => c.Game)
-                    .Where(c => c.IsPlayable && c.ImageUrl != null && BattlePool.GameIds.Contains(c.GameId))
-                    .OrderBy(c => c.GameId).ThenBy(c => c.Name)
-                    .ToListAsync(token);
-
-                return characters
-                    .Select(c => new PlayableCharacter(
-                        c.Id, c.Name, c.GameId, c.Game.Name, c.Job, c.Weapon, c.ImageUrl, c.Popularity, c))
-                    .ToList();
-            },
+            "arena:roster:v2",
+            async token => await db.Characters
+                .Where(c => c.IsPlayable && c.ImageUrl != null && BattlePool.GameIds.Contains(c.GameId))
+                .OrderBy(c => c.GameId).ThenBy(c => c.Name)
+                .Select(c => new ArenaCharacter(
+                    c.Id, c.Name, c.GameId, c.Game.Name, c.Job, c.Weapon, c.Abilities, c.ImageUrl, c.Popularity))
+                .ToListAsync(token),
             cancellationToken: ct) ?? [];
 }
