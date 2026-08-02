@@ -412,6 +412,8 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
             IGNORE from the reference: menus, health bars, damage numbers, spell effects, other characters, and any scenery. Those are artefacts of a screenshot, not the subject.
 
+            RESOLUTION: the reference may be a low-resolution sprite. Its blockiness is a hardware limit of the era it was drawn for, not a design choice — read it as a specification of shape, proportion and colour, never as a rendering style. Draw at full fidelity: smooth confident linework and clean edges, with no visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
+
             STYLE: clean modern anime-influenced digital illustration. Crisp confident linework, cel shading with soft gradient falloff, bright even high-key lighting, saturated subject colours. Polished commercial trading-card art.
 
             COMPOSITION: the entire subject is inside the frame in a three-quarter view — every limb, wing and tail fully visible, nothing running off any edge. It fills most, but not all, of the picture. Behind it a soft low-contrast atmospheric wash suggesting {setting} — never a detailed scene, and nothing else set into it.
