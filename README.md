@@ -30,9 +30,9 @@ A free, open REST API for Final Fantasy data — characters, monsters, and games
 ## 🚀 Quick Start
 
 ```http
-GET https://api.moogleapi.com/api/characters/search?query=Aerith
-GET https://api.moogleapi.com/api/monsters?gameId=7
-GET https://api.moogleapi.com/api/games
+GET https://moogleapi.com/api/characters/search?query=Aerith
+GET https://moogleapi.com/api/monsters?gameId=7
+GET https://moogleapi.com/api/games
 ```
 
 No API key required. Pass `X-Api-Key: your-key` to get 10× the rate limit.
@@ -84,7 +84,7 @@ Powers [Battle Square](https://moogleapi.com/battle-square) — one character ag
 
 Levels are **positions in a game's own stat distribution**, not absolute numbers — the series has no shared scale, so a Final Fantasy Goblin has 8 HP where a Final Fantasy XV Bomb has 5,600. Level 40 places a character above the same share of their game's monsters everywhere. `recommendedLevel` is solved against the day's actual waves rather than looked up.
 
-Full interactive docs at [`/scalar/v1`](https://api.moogleapi.com/scalar/v1).
+Full interactive docs at [`/scalar/v1`](https://moogleapi.com/scalar/v1).
 
 ---
 
