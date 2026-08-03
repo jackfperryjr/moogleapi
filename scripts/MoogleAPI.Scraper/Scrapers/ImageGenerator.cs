@@ -48,6 +48,19 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// <summary>Ceiling on a single wait, so one absurd hint cannot stall a whole batch.</summary>
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromSeconds(120);
 
+    /// <summary>
+    /// Rows written to the database per save, so a batch that dies partway keeps what it earned.
+    /// </summary>
+    /// <remarks>
+    /// The save used to happen once, after the last image. A 400-image batch on 2026-08-03 ran
+    /// for close to the runner's six-hour ceiling, and anything killed at that ceiling lost every
+    /// <c>GeneratedImageUrl</c> for art that had already been generated, paid for and uploaded.
+    /// Nothing was ever bought twice — keys derive from the row id, so the next run adopts the
+    /// objects back for free — but recovering bookkeeping that was already done cost a whole
+    /// extra run. Flushing as it goes caps that loss at the last few images instead.
+    /// </remarks>
+    private const int FlushEvery = 25;
+
     /// <summary>Generated art is the hero image now, so it keeps more resolution than a sprite needs.</summary>
     private const int MaxEdge = 1024;
 
@@ -87,7 +100,14 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         var http = new HttpClient { Timeout = TimeSpan.FromMinutes(4) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; MoogleAPI-Scraper/1.0)");
 
-        var produced = new System.Collections.Concurrent.ConcurrentBag<(string Folder, int Id, string Url)>();
+        // Images made but not yet written to their rows. Drained every FlushEvery, so an
+        // interrupted run leaves at most that many objects in the bucket with a null column.
+        var pending = new System.Collections.Concurrent.ConcurrentQueue<(string Folder, int Id, string Url)>();
+        var recorded = 0;
+        var sinceFlush = 0;
+        // The context is not thread-safe. At a concurrency of one the worker gate already
+        // serialises everything, but the flush must not depend on that staying true.
+        var dbGate = new SemaphoreSlim(1);
         var considered = 0;
         var generated = 0;
         var adopted = 0;
@@ -96,6 +116,40 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         // because a failed row decrements the counter and the batch is nowhere near its ceiling.
         var quotaSpent = 0;
         var sem = new SemaphoreSlim(Concurrency);
+
+        async Task FlushAsync()
+        {
+            await dbGate.WaitAsync(ct);
+            try
+            {
+                var written = 0;
+                while (pending.TryDequeue(out var row))
+                {
+                    if (row.Folder == "monsters")
+                        (await db.Monsters.FirstAsync(m => m.Id == row.Id, ct)).GeneratedImageUrl = row.Url;
+                    else
+                        (await db.Characters.FirstAsync(c => c.Id == row.Id, ct)).GeneratedImageUrl = row.Url;
+                    written++;
+                }
+
+                if (written == 0) return;
+
+                await db.SaveChangesAsync(ct);
+                Interlocked.Add(ref recorded, written);
+            }
+            finally { dbGate.Release(); }
+        }
+
+        // Counting the flush trigger rather than testing the queue length keeps a flush that
+        // races with an enqueue from writing the same row twice: the queue is the only owner.
+        async Task RecordAsync(string folder, int id, string url)
+        {
+            pending.Enqueue((folder, id, url));
+            if (Interlocked.Increment(ref sinceFlush) < FlushEvery) return;
+
+            Interlocked.Exchange(ref sinceFlush, 0);
+            await FlushAsync();
+        }
 
         await Task.WhenAll(candidates.Select(async candidate =>
         {
@@ -116,7 +170,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 // for twice.
                 if (await store.ExistsAsync(objectKey, ct))
                 {
-                    produced.Add((candidate.Folder, candidate.Id, store.PublicUrlFor(objectKey)));
+                    await RecordAsync(candidate.Folder, candidate.Id, store.PublicUrlFor(objectKey));
                     Interlocked.Increment(ref adopted);
                     return;
                 }
@@ -148,7 +202,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 var url = await store.UploadAsync(objectKey, art, MaxEdge, ct);
                 if (url is null) { Interlocked.Decrement(ref generated); return; }
 
-                produced.Add((candidate.Folder, candidate.Id, url));
+                await RecordAsync(candidate.Folder, candidate.Id, url);
                 logger.LogInformation("  + {Name} ({Game}) [{Kind}]", candidate.Name, candidate.Game, candidate.Kind);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or ImageFormatException)
@@ -158,20 +212,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             finally { sem.Release(); }
         }));
 
-        foreach (var (folder, id, url) in produced)
-        {
-            if (folder == "monsters")
-                (await db.Monsters.FirstAsync(m => m.Id == id, ct)).GeneratedImageUrl = url;
-            else
-                (await db.Characters.FirstAsync(c => c.Id == id, ct)).GeneratedImageUrl = url;
-        }
-
-        // Saved even when the quota cut the run short: the images were paid for and uploaded, and
-        // leaving the column null would make the next run buy them again.
-        await db.SaveChangesAsync(ct);
+        // Drains whatever the last partial group left. Runs even when the quota cut the batch
+        // short: those images were paid for and uploaded, and leaving the column null would make
+        // the next run buy them again.
+        await FlushAsync();
         logger.LogInformation(
             "{Made} images recorded from {Considered} examined — {New} newly generated, {Adopted} already in the bucket.",
-            produced.Count, considered, generated, adopted);
+            recorded, considered, generated, adopted);
 
         if (Volatile.Read(ref quotaSpent) == 1)
             logger.LogWarning(
