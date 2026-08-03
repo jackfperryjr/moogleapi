@@ -67,6 +67,9 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     private static readonly string Model =
         Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.1-flash-lite-image";
 
+    /// <summary>Raised once the first unrecognised 429 body has been shown, so it is shown once.</summary>
+    private int _loggedUnknownRefusal;
+
     public async Task GenerateAsync(HashSet<ImageKind> kinds, int max, bool force, CancellationToken ct = default)
     {
         var key = Environment.GetEnvironmentVariable("GEMINI_KEY");
@@ -111,10 +114,14 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         var considered = 0;
         var generated = 0;
         var adopted = 0;
-        // Raised the first time the API refuses on the per-day quota. Everything still in flight
-        // finishes; nothing new starts. Without it the run would keep pulling fresh candidates,
-        // because a failed row decrements the counter and the batch is nowhere near its ceiling.
+        // Raised the first time the API refuses in a way no later row can survive. Everything
+        // still in flight finishes; nothing new starts. Without it the run would keep pulling
+        // fresh candidates, because a failed row decrements the counter and the batch is nowhere
+        // near its ceiling.
         var quotaSpent = 0;
+        // What stopped it, kept so the closing summary can name the cause and the remedy.
+        GenerationHaltedException? halt = null;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         var sem = new SemaphoreSlim(Concurrency);
 
         async Task FlushAsync()
@@ -186,13 +193,18 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 {
                     art = await RequestArtAsync(http, key, candidate, reference, ct);
                 }
-                catch (DailyQuotaSpentException ex)
+                catch (GenerationHaltedException ex)
                 {
                     Interlocked.Decrement(ref generated);
 
                     // Logged once however many tasks trip over the wall at the same moment.
                     if (Interlocked.Exchange(ref quotaSpent, 1) == 0)
-                        logger.LogError("Daily quota for {Model} is spent — stopping. {Detail}", Model, ex.Message);
+                    {
+                        halt = ex;
+                        logger.LogError(
+                            "Stopping {Elapsed:hh\\:mm\\:ss} in, after {Made} images: {Reason} for {Model}. {Detail}",
+                            clock.Elapsed, Volatile.Read(ref recorded) + pending.Count, ex.Reason, Model, ex.Detail);
+                    }
 
                     return;
                 }
@@ -217,14 +229,29 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         // the next run buy them again.
         await FlushAsync();
         logger.LogInformation(
-            "{Made} images recorded from {Considered} examined — {New} newly generated, {Adopted} already in the bucket.",
-            recorded, considered, generated, adopted);
+            "{Made} images recorded from {Considered} examined in {Elapsed:hh\\:mm\\:ss} — " +
+            "{New} newly generated, {Adopted} already in the bucket.",
+            recorded, considered, clock.Elapsed, generated, adopted);
 
-        if (Volatile.Read(ref quotaSpent) == 1)
+        if (halt is not null)
+        {
+            // The remedy differs by cause, and getting it wrong wastes hours: waiting out a
+            // reset that no clock will bring does nothing, and topping up a healthy account
+            // does nothing either.
+            var remedy = halt.Kind switch
+            {
+                RefusalKind.CreditsExhausted =>
+                    "Top up the prepaid balance at https://ai.studio/projects — no amount of waiting clears this.",
+                RefusalKind.DailyQuota =>
+                    "Rerun the same command once the quota resets.",
+                _ => "Rerun the same command.",
+            };
+
             logger.LogWarning(
-                "Stopped on the daily quota with {Untouched} of {Total} candidates never attempted. " +
-                "Rerun the same command once it resets — they have no GeneratedImageUrl, so they are still selected.",
-                candidates.Count - considered, candidates.Count);
+                "Stopped because {Reason}, with {Untouched} of {Total} candidates never attempted. {Remedy} " +
+                "They have no GeneratedImageUrl, so they are still selected.",
+                halt.Reason, candidates.Count - considered, candidates.Count, remedy);
+        }
     }
 
     /// <summary>
@@ -321,6 +348,10 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{Model}:generateContent?key={key}";
 
+        // Carried out of the loop so the give-up line can say what the API actually objected to,
+        // rather than asserting "rate limiting" for every refusal it never inspected.
+        var lastRefusal = "no refusal recorded";
+
         for (var attempt = 0; attempt < MaxAttempts; attempt++)
         {
             using var response = await http.PostAsync(
@@ -339,9 +370,20 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests)
                 {
                     var payload = await response.Content.ReadAsStringAsync(ct);
+                    var kind = ClassifyRefusal(payload, out var detail);
+                    lastRefusal = detail;
 
-                    if (IsDailyQuota(payload, out var detail))
-                        throw new DailyQuotaSpentException(detail);
+                    if (kind is RefusalKind.CreditsExhausted)
+                        throw new GenerationHaltedException(kind, "the account is out of prepaid credit", detail);
+
+                    if (kind is RefusalKind.DailyQuota)
+                        throw new GenerationHaltedException(kind, "the daily request quota is spent", detail);
+
+                    // Anything we could not name gets shown once, in full. Every refusal used to
+                    // be read, classified and thrown away, so a 429 the classifier did not know
+                    // about was indistinguishable in the log from ordinary throttling.
+                    if (Interlocked.Exchange(ref _loggedUnknownRefusal, 1) == 0)
+                        logger.LogWarning("First unrecognised 429 of this run, in full: {Body}", Truncate(payload));
 
                     // The response says how long it wants us gone. It was being read only to
                     // phrase the daily-quota message and thrown away for burst limits, which
@@ -389,9 +431,15 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             return Convert.FromBase64String(part.GetProperty("inlineData").GetProperty("data").GetString()!);
         }
 
-        logger.LogWarning("  ! {Name}: gave up after repeated rate limiting", c.Name);
+        logger.LogWarning(
+            "  ! {Name}: gave up after {Attempts} refusals — last was: {Detail}",
+            c.Name, MaxAttempts, lastRefusal);
         return null;
     }
+
+    /// <summary>Keeps one pathological error body from burying the rest of the log.</summary>
+    private static string Truncate(string body) =>
+        body.Length <= 800 ? body : string.Concat(body.AsSpan(0, 800), " …[truncated]");
 
     /// <summary>How long to wait before attempt <paramref name="attempt"/> + 1, absent a hint.</summary>
     private static TimeSpan FallbackBackoff(int attempt) => TimeSpan.FromSeconds(20 * (attempt + 1));
@@ -429,6 +477,74 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             }
 
             return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Sorts a 429 into the three things it can mean, so the caller knows whether to wait, stop,
+    /// or send someone to the billing page.
+    /// </summary>
+    /// <remarks>
+    /// Order matters. Credit exhaustion is checked first because it is the only one of the three
+    /// that carries no <c>details</c> array — matching it later would mean falling through the
+    /// quota checks that look for one.
+    /// </remarks>
+    internal static RefusalKind ClassifyRefusal(string body, out string detail)
+    {
+        if (IsCreditsExhausted(body))
+        {
+            detail = MessageFrom(body) ?? "the account is out of prepaid credit";
+            return RefusalKind.CreditsExhausted;
+        }
+
+        if (IsDailyQuota(body, out var reset))
+        {
+            detail = reset;
+            return RefusalKind.DailyQuota;
+        }
+
+        detail = MessageFrom(body) ?? "no message given";
+        return RefusalKind.Burst;
+    }
+
+    /// <summary>
+    /// Whether a 429 says the account has run out of prepaid credit.
+    /// </summary>
+    /// <remarks>
+    /// Keyed on the message text, unlike <see cref="IsDailyQuota"/>, because this body has no
+    /// <c>details</c> array at all: no quotaId to match, no retryDelay to honour. Matched against
+    /// the live response on 2026-08-03 — "Your prepayment credits are depleted. Please go to AI
+    /// Studio at https://ai.studio/projects to manage your project and billing."
+    /// <para>
+    /// Prose is free to change, and a miss here is expensive: before this existed, a depleted
+    /// account read as an ordinary burst limit and a batch spent the runner's whole six-hour
+    /// ceiling backing off politely, attempting ~70 images and generating none. That is why an
+    /// unrecognised 429 body is now logged in full rather than silently retried.
+    /// </para>
+    /// </remarks>
+    internal static bool IsCreditsExhausted(string body)
+    {
+        if (MessageFrom(body) is not { } message) return false;
+
+        return message.Contains("prepayment credit", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("credits are depleted", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The human-readable <c>error.message</c>, if the body has one.</summary>
+    private static string? MessageFrom(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+
+            return doc.RootElement.TryGetProperty("error", out var error)
+                && error.TryGetProperty("message", out var message)
+                    ? message.GetString()
+                    : null;
         }
         catch (JsonException)
         {
@@ -549,7 +665,39 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 }
 
 /// <summary>
-/// The per-day generation quota is gone. Distinct from an ordinary failed row because it ends the
-/// whole run: no later row can succeed either, and every attempt still costs a request.
+/// What a 429 actually means. One status code covers three unrelated situations, and only the
+/// response body separates them.
 /// </summary>
-public class DailyQuotaSpentException(string detail) : Exception(detail);
+public enum RefusalKind
+{
+    /// <summary>A per-minute limit. It clears while we wait, so retrying is the right answer.</summary>
+    Burst,
+
+    /// <summary>
+    /// The per-day request allowance. It resets in hours, so no later row in this run can
+    /// succeed either and every further attempt spends a request to learn the same thing.
+    /// </summary>
+    DailyQuota,
+
+    /// <summary>
+    /// The account has no prepaid credit left. Nothing but a payment clears it, so a run that
+    /// keeps trying will never produce an image however long it is given.
+    /// </summary>
+    CreditsExhausted,
+}
+
+/// <summary>
+/// Generation cannot continue. Distinct from an ordinary failed row because it ends the whole
+/// run: no later row can succeed either, and every attempt still costs a request.
+/// </summary>
+public class GenerationHaltedException(RefusalKind kind, string reason, string detail)
+    : Exception($"{reason} — {detail}")
+{
+    public RefusalKind Kind { get; } = kind;
+
+    /// <summary>Why the run stopped, as a phrase that completes "Stopping: …".</summary>
+    public string Reason { get; } = reason;
+
+    /// <summary>What the API said, or when the allowance returns.</summary>
+    public string Detail { get; } = detail;
+}
