@@ -101,6 +101,80 @@ public class ImageQuotaTests
 }
 
 /// <summary>
+/// A depleted prepaid balance arrives as 429 RESOURCE_EXHAUSTED, exactly like throttling, but
+/// no amount of backing off will ever clear it.
+/// </summary>
+/// <remarks>
+/// The fixture is a verbatim capture from <c>gemini-3.1-flash-lite-image</c> on 2026-08-03,
+/// taken while a 400-image batch was failing every row. Read as an ordinary burst limit, it cost
+/// the whole six-hour job timeout and produced no images and no diagnosis — the account had
+/// simply run out of money. Note it carries no <c>details</c> array at all, which is why it
+/// cannot be matched the way the per-day quota is.
+/// </remarks>
+public class CreditExhaustionTests
+{
+    private const string DepletedCreditsBody = """
+        {
+          "error": {
+            "code": 429,
+            "message": "Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. ",
+            "status": "RESOURCE_EXHAUSTED"
+          }
+        }
+        """;
+
+    private const string PerMinuteBody = """
+        {
+          "error": {
+            "code": 429,
+            "message": "Resource has been exhausted (e.g. check quota).",
+            "status": "RESOURCE_EXHAUSTED",
+            "details": [
+              {
+                "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                "violations": [ { "quotaId": "GenerateRequestsPerMinutePerProjectPerModel" } ]
+              }
+            ]
+          }
+        }
+        """;
+
+    [Fact]
+    public void RecognisesADepletedPrepaidBalance()
+    {
+        Assert.True(ImageGenerator.IsCreditsExhausted(DepletedCreditsBody));
+    }
+
+    [Fact]
+    public void ClassifiesDepletedCreditsAsFatalRatherThanThrottling()
+    {
+        var kind = ImageGenerator.ClassifyRefusal(DepletedCreditsBody, out var detail);
+
+        Assert.Equal(RefusalKind.CreditsExhausted, kind);
+        Assert.Contains("prepayment credits are depleted", detail);
+    }
+
+    [Fact]
+    public void DoesNotMistakeABurstLimitForDepletedCredits()
+    {
+        // The expensive direction is the other one, but this way round would abandon a run that
+        // only needed to wait twenty seconds.
+        Assert.False(ImageGenerator.IsCreditsExhausted(PerMinuteBody));
+        Assert.Equal(RefusalKind.Burst, ImageGenerator.ClassifyRefusal(PerMinuteBody, out _));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("<html>502 Bad Gateway</html>")]
+    [InlineData("{\"error\":{\"code\":429}}")]
+    public void TreatsAnUnreadableBodyAsRetryable(string body)
+    {
+        Assert.False(ImageGenerator.IsCreditsExhausted(body));
+        Assert.Equal(RefusalKind.Burst, ImageGenerator.ClassifyRefusal(body, out _));
+    }
+}
+
+/// <summary>
 /// Bodies are verbatim shapes of Gemini 429 responses, so these fail if the error envelope
 /// changes the field the backoff now depends on.
 /// </summary>
