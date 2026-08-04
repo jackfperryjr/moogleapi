@@ -18,9 +18,9 @@ namespace MoogleAPI.Scraper.Scrapers;
 /// for the thousands of obscure enemies nobody can picture, plausible-but-wrong is worse than
 /// a low-resolution sprite that is right.
 /// <para>
-/// Results land in <c>GeneratedImageUrl</c> and a separate <c>gen/</c> prefix. Nothing
-/// overwrites <c>ImageUrl</c>, so the library can be reviewed, compared, and reverted by
-/// clearing one column.
+/// Results land in <c>GeneratedImageUrl</c> and a separate <c>gen/</c> prefix, then go live
+/// immediately: <c>generate</c> promotes what it produced. The original is still kept in its
+/// own column, which is what lets <c>unpromote</c> put it back and delete the replacement.
 /// </para>
 /// </remarks>
 public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGenerator> logger)
@@ -255,9 +255,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     }
 
     /// <summary>
-    /// Copies generated art over the served URL. Separate from generation on purpose: the point
-    /// of keeping both columns is that a batch can be looked at before it goes live.
+    /// Copies generated art over the served URL. Runs automatically after <c>generate</c>, and
+    /// can still be asked for by name to pick up art from an earlier run. Both columns are kept
+    /// even so — <c>ImageReverter</c> needs the original to put back.
     /// </summary>
+    /// <remarks>
+    /// Promotes every row holding generated art, not just the current batch.
+    /// </remarks>
     public async Task PromoteAsync(CancellationToken ct = default)
     {
         var monsters = await db.Monsters.Where(m => m.GeneratedImageUrl != null).ToListAsync(ct);

@@ -22,9 +22,9 @@ public class Monster
     public string? ImageSourceUrl { get; set; }
 
     /// <summary>
-    /// Replacement artwork generated in the catalogue's house style, stored alongside the
-    /// original rather than over it so a batch can be compared before it goes live — and
-    /// undone by clearing this column.
+    /// Replacement artwork generated in the catalogue's house style. Generating promotes it
+    /// straight to <see cref="ImageUrl"/>, so this column is not a staging area — it is the
+    /// record of which rows are serving generated art, and what the revert would remove.
     /// </summary>
     public string? GeneratedImageUrl { get; set; }
 

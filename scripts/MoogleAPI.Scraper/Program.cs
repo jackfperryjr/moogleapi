@@ -102,8 +102,14 @@ if (stages is not null && stages.Contains("generate"))
     await scope.ServiceProvider.GetRequiredService<ImageGenerator>()
         .GenerateAsync(ImageClassifier.ParseKinds(kindsArg), maxImages, force);
 
-// Copies generated art over the served URL, once it has been looked at.
-if (stages is not null && stages.Contains("promote"))
+// Copies generated art over the served URL. Generating now implies promoting: art that was
+// paid for and left sitting in GeneratedImageUrl helps nobody, and the review-before-live step
+// this used to require was never the thing standing between a bad image and the catalogue —
+// `unpromote` is, and it still puts the originals back and deletes the generated art.
+//
+// Worth knowing: this promotes *every* row holding generated art, not only the rows this run
+// produced. Anything deliberately generated and left unpromoted earlier goes live too.
+if (stages is not null && (stages.Contains("promote") || stages.Contains("generate")))
     await scope.ServiceProvider.GetRequiredService<ImageGenerator>().PromoteAsync();
 
 // Puts the served URLs back on the copied originals and deletes the generated art. Destructive
