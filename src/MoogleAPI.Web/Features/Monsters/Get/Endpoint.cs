@@ -31,6 +31,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetMonsterR
                     m.Weaknesses, m.Absorbs, m.Abilities, m.Drops, m.Steals, m.ImageUrl,
                     m.Game.Name, m.Game.ReleaseYear, m.Popularity))
                 .FirstOrDefaultAsync(token),
+            tags: CatalogCache.Tags,
             cancellationToken: ct
         );
 

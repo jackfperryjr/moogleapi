@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace MoogleAPI.Scraper.Models;
+namespace MoogleAPI.Web.Infrastructure.Wiki;
 
 public record WikiCategoryResponse(
     [property: JsonPropertyName("query")] WikiCategoryQuery? Query,

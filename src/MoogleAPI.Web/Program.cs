@@ -8,9 +8,11 @@ using Microsoft.Net.Http.Headers;
 using MoogleAPI.Web.Infrastructure.Arena;
 using MoogleAPI.Web.Infrastructure.Battle;
 using MoogleAPI.Web.Infrastructure.Data;
+using MoogleAPI.Web.Infrastructure.Images;
 using MoogleAPI.Web.Infrastructure.Middleware;
 using MoogleAPI.Web.Infrastructure.Puzzles;
 using MoogleAPI.Web.Infrastructure.RateLimiting;
+using MoogleAPI.Web.Infrastructure.Wiki;
 using Scalar.AspNetCore;
 using System.Security.Claims;
 
@@ -59,6 +61,23 @@ builder.Services.AddScoped<BattlePool>();
 builder.Services.AddScoped<ClimbBuilder>();
 builder.Services.AddScoped<ArenaBuilder>();
 
+// ── Dashboard support ─────────────────────────────────────────────────────────
+// Final Fantasy Wiki, now reachable one page at a time through the dashboard's import. The
+// scraper that drove it in bulk is gone; these are the same parsers, asked for one article.
+builder.Services.AddHttpClient<WikiClient>(c =>
+{
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("MoogleAPI/1.0 (dashboard import)");
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// Image uploads. Optional by design: with no R2 credentials the upload endpoint answers 503 and
+// every other part of the site — including the rest of the dashboard — runs. The options are
+// captured here rather than registered, because "not configured" is a legitimate state and a
+// null service registration is not.
+var imageUploadOptions = ImageUploadOptions.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(sp =>
+    new ImageUploadStore(imageUploadOptions, sp.GetRequiredService<ILogger<ImageUploadStore>>()));
+
 // Google OAuth — credentials from user-secrets (dev) or env vars (prod):
 //   Authentication__Google__ClientId / Authentication__Google__ClientSecret
 builder.Services.AddAuthentication(options =>
@@ -72,21 +91,32 @@ builder.Services.AddAuthentication(options =>
     options.AccessDeniedPath = "/denied";
     options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.SlidingExpiration = true;
-    // Return 401 for AJAX dashboard API calls instead of redirecting
-    options.Events.OnRedirectToLogin = ctx =>
-    {
-        if (ctx.Request.Path.StartsWithSegments("/dashboard/api"))
-            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        else
-            ctx.Response.Redirect(ctx.RedirectUri);
-        return Task.CompletedTask;
-    };
+    // Signed in, but not as the owner: /denied is a page, so an API caller gets the status code.
+    options.Events.OnRedirectToAccessDenied = ctx => ApiAware(ctx, StatusCodes.Status403Forbidden);
 })
 .AddGoogle(options =>
 {
     options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
     options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
+
+    // Google is the default challenge scheme, so an unauthenticated request to a protected
+    // endpoint bounces off Google's consent screen rather than the cookie handler's login path —
+    // which means this, not CookieAuthenticationEvents.OnRedirectToLogin, is where the dashboard's
+    // fetch calls have to be answered. They cannot follow a cross-origin 302: it lands as an
+    // opaque network error instead of "your session ended". Give them the status code.
+    options.Events.OnRedirectToAuthorizationEndpoint = ctx => ApiAware(ctx, StatusCodes.Status401Unauthorized);
 });
+
+// Browsers navigating get the redirect; anything under /api gets the bare status.
+static Task ApiAware<TOptions>(RedirectContext<TOptions> ctx, int apiStatusCode)
+    where TOptions : AuthenticationSchemeOptions
+{
+    if (ctx.Request.Path.StartsWithSegments("/api"))
+        ctx.Response.StatusCode = apiStatusCode;
+    else
+        ctx.Response.Redirect(ctx.RedirectUri);
+    return Task.CompletedTask;
+}
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("Dashboard", policy =>
@@ -185,27 +215,42 @@ app.MapMethods("/health", [HttpMethods.Get, HttpMethods.Head],
 app.MapGet("/the-gauntlet", () => Results.Redirect("/kupo-climb", permanent: true))
    .ExcludeFromDescription();
 
-// ── Dashboard routes ──────────────────────────────────────────────────────────
-// Served through a protected endpoint rather than static files so auth is enforced.
+// ── Private pages ─────────────────────────────────────────────────────────────
+// Served through protected endpoints rather than static files so auth is enforced, and all
+// excluded from the OpenAPI document: they are HTML for one signed-in person, and listing them
+// in the public reference only invites 403s from people who thought they had found an endpoint.
+//
+// /dashboard browses the catalogue itself — characters, monsters and games in tabbed tables,
+// so the data can be checked after a scrape without opening a database client.
+// /stats is the request-log analytics that used to live at /dashboard.
 app.MapGet("/dashboard", (IWebHostEnvironment env) =>
     Results.File(Path.Combine(env.ContentRootPath, "Dashboard", "index.html"), "text/html"))
-    .RequireAuthorization("Dashboard");
+    .RequireAuthorization("Dashboard")
+    .ExcludeFromDescription();
+
+app.MapGet("/stats", (IWebHostEnvironment env) =>
+    Results.File(Path.Combine(env.ContentRootPath, "Stats", "index.html"), "text/html"))
+    .RequireAuthorization("Dashboard")
+    .ExcludeFromDescription();
 
 // Trigger Google sign-in and redirect back to dashboard on success
 app.MapGet("/signin", () =>
     Results.Challenge(
         new AuthenticationProperties { RedirectUri = "/dashboard" },
-        [GoogleDefaults.AuthenticationScheme]));
+        [GoogleDefaults.AuthenticationScheme]))
+    .ExcludeFromDescription();
 
 // Sign out and return to landing page
 app.MapPost("/signout", async (HttpContext ctx) =>
 {
     await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Redirect("/");
-}).RequireAuthorization();
+}).RequireAuthorization()
+  .ExcludeFromDescription();
 
 app.MapGet("/denied", () =>
-    Results.Text("Access denied — this dashboard is private.", "text/plain", statusCode: 403));
+    Results.Text("Access denied — this dashboard is private.", "text/plain", statusCode: 403))
+    .ExcludeFromDescription();
 
 // Apply pending EF Core migrations on startup
 using (var scope = app.Services.CreateScope())

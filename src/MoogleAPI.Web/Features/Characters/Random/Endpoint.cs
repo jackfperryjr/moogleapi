@@ -27,7 +27,8 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<RandomChara
             ? await cache.GetOrCreateAsync(
                 $"characters:random:seed={seed}:game={req.GameId}:pop={req.MinPopularity}:img={req.RequireImage}",
                 async token => await PickAsync(req, seed, token),
-                cancellationToken: ct)
+                tags: CatalogCache.Tags,
+            cancellationToken: ct)
             : await PickAsync(req, null, ct);
 
         if (response is null)

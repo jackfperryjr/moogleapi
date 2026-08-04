@@ -48,6 +48,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetAllCards
 
                 return new GetAllCardsResponse(items, total, req.Page, req.PageSize);
             },
+            tags: CatalogCache.Tags,
             cancellationToken: ct
         );
 

@@ -149,7 +149,15 @@ public class ImageStore(ImageStoreOptions options, HttpClient http, ILogger<Imag
 
             return key;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or ImageFormatException or AmazonS3Exception)
+        // A missing image is never fatal to a run — including when the source is not a URL at
+        // all. Not every row's provenance comes from the wiki now: the dashboard records a
+        // hand-upload by writing what it did into ImageSourceUrl, and a forced re-copy hands
+        // that straight to HttpClient, which rejects a non-absolute address before any request
+        // leaves the process. Uncaught, one such row would take the whole image stage down with
+        // it; caught, it skips the row and leaves the curated art alone, which is the point.
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException
+                                      or ImageFormatException or AmazonS3Exception
+                                      or InvalidOperationException or UriFormatException or NotSupportedException)
         {
             logger.LogWarning("  ! {Type} on {Url}: {Message}", ex.GetType().Name, sourceUrl, ex.Message);
             return null;

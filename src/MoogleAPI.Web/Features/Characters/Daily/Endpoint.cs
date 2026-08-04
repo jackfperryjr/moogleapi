@@ -1,5 +1,6 @@
 using FastEndpoints;
 using Microsoft.Extensions.Caching.Hybrid;
+using MoogleAPI.Web.Infrastructure.Data;
 using MoogleAPI.Web.Infrastructure.Puzzles;
 
 namespace MoogleAPI.Web.Features.Characters.Daily;
@@ -34,6 +35,7 @@ public class Endpoint(DailyCharacterSelector selector, HybridCache cache)
                         date, c.Id, c.Name, c.Description, c.Role, c.Affiliation, c.Race,
                         c.Hometown, c.ImageUrl, c.Game.Name, c.Game.ReleaseYear, c.Popularity);
             },
+            tags: CatalogCache.Tags,
             cancellationToken: ct);
 
         if (response is null)

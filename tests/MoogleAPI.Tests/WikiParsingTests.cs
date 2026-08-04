@@ -1,11 +1,10 @@
-using MoogleAPI.Scraper;
-using MoogleAPI.Scraper.Scrapers;
+using MoogleAPI.Web.Infrastructure.Wiki;
 
 namespace MoogleAPI.Tests;
 
 /// <summary>
 /// Fixtures are verbatim excerpts of live Final Fantasy Wiki articles, so these tests fail
-/// if the wiki's infobox layout drifts away from what the scraper expects.
+/// if the wiki's infobox layout drifts away from what the parsers expect.
 /// </summary>
 public class CardParsingTests
 {
@@ -549,7 +548,7 @@ public class MetaArticleTests
     [InlineData("List of Final Fantasy XII enemies")]
     public void ExcludesCollectiveReferencePages(string title)
     {
-        Assert.True(MonsterScraper.IsMetaArticle(title));
+        Assert.True(WikiScoring.IsMetaArticle(title));
     }
 
     [Theory]
@@ -561,7 +560,7 @@ public class MetaArticleTests
     [InlineData("Ahriman (Final Fantasy VI)")]
     public void KeepsRealMonsters(string title)
     {
-        Assert.False(MonsterScraper.IsMetaArticle(title));
+        Assert.False(WikiScoring.IsMetaArticle(title));
     }
 }
 
@@ -599,8 +598,8 @@ public class PopularityScoringTests
     [Fact]
     public void SeriesLeadScoresFarAboveWalkOnNpc()
     {
-        var cloud = CharacterScraper.ScorePopularity(new PageSignals(118_566, 500));
-        var npc = CharacterScraper.ScorePopularity(new PageSignals(41, 0));
+        var cloud = WikiScoring.ScorePopularity(new PageSignals(118_566, 500));
+        var npc = WikiScoring.ScorePopularity(new PageSignals(41, 0));
 
         Assert.True(cloud > 90, $"expected a lead to score above 90, got {cloud}");
         Assert.True(npc < 10, $"expected a walk-on to score below 10, got {npc}");
@@ -609,22 +608,22 @@ public class PopularityScoringTests
     [Fact]
     public void ScoreStaysWithinBounds()
     {
-        Assert.InRange(CharacterScraper.ScorePopularity(new PageSignals(0, 0)), 0, 100);
-        Assert.InRange(CharacterScraper.ScorePopularity(new PageSignals(int.MaxValue, 100_000)), 0, 100);
+        Assert.InRange(WikiScoring.ScorePopularity(new PageSignals(0, 0)), 0, 100);
+        Assert.InRange(WikiScoring.ScorePopularity(new PageSignals(int.MaxValue, 100_000)), 0, 100);
     }
 
     [Fact]
     public void MissingSignalsScoreZero()
     {
-        Assert.Equal(0, CharacterScraper.ScorePopularity(null));
+        Assert.Equal(0, WikiScoring.ScorePopularity(null));
     }
 
     [Fact]
     public void ScoreIncreasesMonotonicallyWithBothSignals()
     {
-        var small = CharacterScraper.ScorePopularity(new PageSignals(1_000, 5));
-        var medium = CharacterScraper.ScorePopularity(new PageSignals(10_000, 50));
-        var large = CharacterScraper.ScorePopularity(new PageSignals(100_000, 400));
+        var small = WikiScoring.ScorePopularity(new PageSignals(1_000, 5));
+        var medium = WikiScoring.ScorePopularity(new PageSignals(10_000, 50));
+        var large = WikiScoring.ScorePopularity(new PageSignals(100_000, 400));
 
         Assert.True(small < medium && medium < large, $"{small} < {medium} < {large}");
     }
@@ -640,7 +639,7 @@ public class DataRepairTests
     [InlineData("Butch  VII", "Butch")]
     public void StripsLegacyGameNumeralSuffix(string damaged, string expected)
     {
-        Assert.Equal(expected, DataRepair.RepairName(damaged));
+        Assert.Equal(expected, WikiText.RepairName(damaged));
     }
 
     [Theory]
@@ -649,14 +648,14 @@ public class DataRepairTests
     [InlineData("Vivi Ornitier")]
     public void LeavesCleanNamesUntouched(string name)
     {
-        Assert.Equal(name, DataRepair.RepairName(name));
+        Assert.Equal(name, WikiText.RepairName(name));
     }
 
     [Fact]
     public void IsIdempotent()
     {
-        var once = DataRepair.RepairName("Noctis  XV party member");
-        var twice = DataRepair.RepairName(once);
+        var once = WikiText.RepairName("Noctis  XV party member");
+        var twice = WikiText.RepairName(once);
 
         Assert.Equal(once, twice);
     }
@@ -674,7 +673,7 @@ public class DataRepairTests
     [InlineData("   ")]
     public void NullsOutUnparsedInfoboxFragments(string junk)
     {
-        Assert.Null(DataRepair.Clean(junk));
+        Assert.Null(WikiText.Clean(junk));
     }
 
     [Theory]
@@ -683,7 +682,7 @@ public class DataRepairTests
     [InlineData("Garlean Empire", "Garlean Empire")]
     public void KeepsCleanValues(string value, string expected)
     {
-        Assert.Equal(expected, DataRepair.Clean(value));
+        Assert.Equal(expected, WikiText.Clean(value));
     }
 }
 
@@ -704,7 +703,7 @@ public class MonsterRepairTests
     [InlineData("Emperor (final boss", "Emperor")]
     public void RestoresTheNameTheWikiActuallyUses(string damaged, string expected)
     {
-        Assert.Equal(expected, DataRepair.RepairMonsterName(damaged));
+        Assert.Equal(expected, WikiText.RepairMonsterName(damaged));
     }
 
     [Theory]
@@ -714,16 +713,41 @@ public class MonsterRepairTests
     [InlineData("Magic Pot")]
     public void LeavesCleanNamesUntouched(string name)
     {
-        Assert.Equal(name, DataRepair.RepairMonsterName(name));
+        Assert.Equal(name, WikiText.RepairMonsterName(name));
     }
 
     [Fact]
     public void IsIdempotent()
     {
-        var once = DataRepair.RepairMonsterName("Lamia  IV");
-        var twice = DataRepair.RepairMonsterName(once);
+        var once = WikiText.RepairMonsterName("Lamia  IV");
+        var twice = WikiText.RepairMonsterName(once);
 
         Assert.Equal(once, twice);
+    }
+
+    /// <summary>
+    /// An intact wiki title carries its disambiguator in brackets, and the catalogue stores
+    /// none of them: the game is a column, so "Bomb (Final Fantasy II)" is filed as "Bomb".
+    /// Importing a page has to make the same reduction or every import arrives as a stranger
+    /// to the row it duplicates.
+    /// </summary>
+    [Theory]
+    [InlineData("Bomb (Final Fantasy II)", "Bomb")]
+    [InlineData("Auron (Final Fantasy X party member)", "Auron")]
+    [InlineData("Cid (Final Fantasy VII)", "Cid")]
+    [InlineData("Gilgamesh", "Gilgamesh")]
+    [InlineData("Magic Pot", "Magic Pot")]
+    public void DropsTheWikiDisambiguator(string title, string expected)
+    {
+        Assert.Equal(expected, WikiText.NormalizeName(title));
+    }
+
+    [Fact]
+    public void NormalizingIsIdempotent()
+    {
+        var once = WikiText.NormalizeName("Bomb (Final Fantasy II)");
+
+        Assert.Equal(once, WikiText.NormalizeName(once));
     }
 
     [Theory]
@@ -740,7 +764,7 @@ public class MonsterRepairTests
     [InlineData("enemies")]
     public void IdentifiesRowsThatWereNeverMonsters(string name)
     {
-        Assert.True(DataRepair.IsNotAMonster(name));
+        Assert.True(WikiText.IsNotAMonster(name));
     }
 
     /// <summary>A monster whose name merely starts with "enemy" wording must survive.</summary>
@@ -749,7 +773,7 @@ public class MonsterRepairTests
     [InlineData("Enemy Skill Materia Keeper")]
     public void KeepsMonstersWhoseNamesBeginWithThatWording(string name)
     {
-        Assert.False(DataRepair.IsNotAMonster(name));
+        Assert.False(WikiText.IsNotAMonster(name));
     }
 
     [Theory]
@@ -760,7 +784,7 @@ public class MonsterRepairTests
     [InlineData("Bomb")]
     public void DoesNotMistakeADamagedMonsterForAReferencePage(string name)
     {
-        Assert.False(DataRepair.IsNotAMonster(name));
+        Assert.False(WikiText.IsNotAMonster(name));
     }
 }
 

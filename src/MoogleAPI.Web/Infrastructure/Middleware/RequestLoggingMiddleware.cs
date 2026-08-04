@@ -11,8 +11,18 @@ public class RequestLoggingMiddleware(RequestDelegate next, IServiceScopeFactory
     {
         var path = context.Request.Path.Value ?? "";
 
-        // Only log API calls — skip static files, dashboard, docs
+        // Only log API calls — skip static files, pages, docs
         if (!path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
+        // ...and skip the owner's own tooling. The dashboard polls its tables and the stats page
+        // refreshes every two minutes, so logging them would leave /api/stats sitting at the top
+        // of "Top Endpoints" — the analytics measuring the act of reading the analytics.
+        if (path.StartsWith("/api/dashboard", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/stats", StringComparison.OrdinalIgnoreCase))
         {
             await next(context);
             return;

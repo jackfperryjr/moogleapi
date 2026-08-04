@@ -1,4 +1,4 @@
-namespace MoogleAPI.Web.Features.Dashboard.GetStats;
+namespace MoogleAPI.Web.Features.Stats.GetStats;
 
 public record DashboardStats(
     SummaryStats Summary,
