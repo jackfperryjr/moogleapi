@@ -2,10 +2,14 @@ using System.Security.Cryptography;
 using System.Text;
 using MoogleAPI.Web.Infrastructure.Data;
 using MoogleAPI.Web.Infrastructure.Models;
+using MoogleAPI.Web.Infrastructure.RateLimiting;
 
 namespace MoogleAPI.Web.Infrastructure.Middleware;
 
-public class RequestLoggingMiddleware(RequestDelegate next, IServiceScopeFactory scopeFactory)
+public class RequestLoggingMiddleware(
+    RequestDelegate next,
+    IServiceScopeFactory scopeFactory,
+    ApiKeyValidator apiKeys)
 {
     public async Task InvokeAsync(HttpContext context)
     {
@@ -32,11 +36,15 @@ public class RequestLoggingMiddleware(RequestDelegate next, IServiceScopeFactory
         await next(context);
         var durationMs = (int)(Environment.TickCount64 - start);
 
+        // Read off the request before handing to the background write — by the time that runs
+        // the response is done and the context is no longer ours to read.
+        var isPremium = apiKeys.ResolveKey(context.Request) is not null;
+
         // Fire-and-forget: never slow down the response for logging
-        _ = WriteLogAsync(context, path, durationMs);
+        _ = WriteLogAsync(context, path, durationMs, isPremium);
     }
 
-    private async Task WriteLogAsync(HttpContext context, string path, int durationMs)
+    private async Task WriteLogAsync(HttpContext context, string path, int durationMs, bool isPremium)
     {
         try
         {
@@ -52,7 +60,9 @@ public class RequestLoggingMiddleware(RequestDelegate next, IServiceScopeFactory
                 DurationMs = durationMs,
                 ResourceType = ExtractResourceType(path),
                 SearchTerm = context.Request.Query["query"].FirstOrDefault(),
-                IsPremium = context.Request.Headers.ContainsKey("X-Api-Key"),
+                // Recognized key, not merely a present header — otherwise the premium share in
+                // /api/stats counts anyone who sent the header, valid or not.
+                IsPremium = isPremium,
                 IpHash = HashIp(context.Connection.RemoteIpAddress?.ToString()),
             });
 

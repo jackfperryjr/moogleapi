@@ -35,7 +35,7 @@ GET https://moogleapi.com/api/monsters?gameId=7
 GET https://moogleapi.com/api/games
 ```
 
-No API key required. Pass `X-Api-Key: your-key` to get 10× the rate limit.
+No API key required. Pass an issued `X-Api-Key: your-key` to get 10× the rate limit.
 
 ---
 
@@ -153,9 +153,13 @@ Stages can be run individually with `--only=`: `games`, `characters`, `playable`
 | Tier | Limit | How |
 |------|-------|-----|
 | Anonymous | 60 req / min | Per IP, no setup needed |
-| Premium | 600 req / min | Pass `X-Api-Key: your-key` header |
+| Premium | 600 req / min | Pass an issued `X-Api-Key: your-key` header |
 
 Responses over the limit return `429 Too Many Requests`.
+
+Premium keys have to be issued — an unrecognized key isn't rejected, it just falls back to the
+anonymous limit, so the API stays usable if you send a stale one. Self-hosting? Set the
+allowlist with `ApiKeys__Keys__0`, `ApiKeys__Keys__1`, … With none set, everything is anonymous.
 
 ---
 

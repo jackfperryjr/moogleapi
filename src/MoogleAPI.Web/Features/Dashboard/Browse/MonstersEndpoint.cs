@@ -22,8 +22,16 @@ public class MonstersEndpoint(AppDbContext db) : Endpoint<BrowseRequest, BrowseR
         if (req.GameId.HasValue)
             query = query.Where(m => m.GameId == req.GameId.Value);
 
+        // Name *or* description, matching what /api/monsters/search already does. Curation
+        // needs the description: what marks a row as not-a-monster — "#REDIRECT ... enemy
+        // abilities", "may refer to", "is a genus of" — is only ever in the prose the scrape
+        // kept, never in the name. Searching names alone left those rows unreachable here.
         if (!string.IsNullOrWhiteSpace(req.Search))
-            query = query.Where(m => EF.Functions.ILike(m.Name, $"%{req.Search.Trim()}%"));
+        {
+            var search = req.Search.Trim();
+            query = query.Where(m => EF.Functions.ILike(m.Name, $"%{search}%") ||
+                                     (m.Description != null && EF.Functions.ILike(m.Description, $"%{search}%")));
+        }
 
         var total = await query.CountAsync(ct);
         var items = await query

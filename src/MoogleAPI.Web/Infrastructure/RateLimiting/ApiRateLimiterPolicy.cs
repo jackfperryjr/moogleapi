@@ -1,12 +1,11 @@
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace MoogleAPI.Web.Infrastructure.RateLimiting;
 
 public static class ApiRateLimiterPolicy
 {
-    public const string Anonymous = "anonymous";
-    public const string Premium = "premium";
+    public const int AnonymousPermitLimit = 60;
+    public const int PremiumPermitLimit = 600;
 
     public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
     {
@@ -14,45 +13,33 @@ public static class ApiRateLimiterPolicy
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-            options.AddPolicy(Anonymous, context =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 60,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                        QueueLimit = 0
-                    }));
-
-            // Premium users identified by X-Api-Key header get 10x the limit
-            options.AddPolicy(Premium, context =>
+            // One global limiter rather than named policies. There were two named policies here
+            // that no endpoint ever attached with RequireRateLimiting, so they enforced nothing
+            // while appearing to — and the premium one carried the same unchecked-key flaw as
+            // this limiter did. Anything that needs a per-endpoint limit should be added back
+            // deliberately, and wired up.
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
             {
-                var apiKey = context.Request.Headers["X-Api-Key"].ToString();
-                return RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: string.IsNullOrEmpty(apiKey) ? $"ip:{context.Connection.RemoteIpAddress}" : $"key:{apiKey}",
-                    factory: _ => new FixedWindowRateLimiterOptions
+                // The key is validated against the configured allowlist, so the partition is
+                // only ever keyed on a credential we issued. Partitioning on the raw header
+                // would otherwise let a caller mint unlimited fresh windows just by varying it.
+                var validator = context.RequestServices.GetRequiredService<ApiKeyValidator>();
+                var apiKey = validator.ResolveKey(context.Request);
+
+                var partitionKey = apiKey is null
+                    ? $"ip:{context.Connection.RemoteIpAddress}"
+                    : $"key:{apiKey}";
+
+                var permitLimit = apiKey is null ? AnonymousPermitLimit : PremiumPermitLimit;
+
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
+                    new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = string.IsNullOrEmpty(apiKey) ? 60 : 600,
+                        PermitLimit = permitLimit,
                         Window = TimeSpan.FromMinutes(1),
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                         QueueLimit = 0
                     });
-            });
-
-            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-            {
-                var apiKey = context.Request.Headers["X-Api-Key"].ToString();
-                var limit = string.IsNullOrEmpty(apiKey) ? 60 : 600;
-                var key = string.IsNullOrEmpty(apiKey)
-                    ? $"ip:{context.Connection.RemoteIpAddress}"
-                    : $"key:{apiKey}";
-
-                return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = limit,
-                    Window = TimeSpan.FromMinutes(1)
-                });
             });
         });
 
