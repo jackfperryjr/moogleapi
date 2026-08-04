@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       stages:
-        description: 'Stages to run, comma-separated (images, audit, generate, promote, unpromote). Empty runs images.'
+        description: 'Stages to run, comma-separated (images, audit, generate, promote, unpromote). Empty runs images. generate now promotes what it makes, so promote is only needed on its own to pick up art from an older run.'
         required: false
         default: ''
       force:
