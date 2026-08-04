@@ -44,7 +44,11 @@ builder.Services.AddHybridCache(options =>
     };
 });
 
-// Partitioned rate limiting: 60 req/min anonymous, 600 req/min with X-Api-Key
+// Partitioned rate limiting: 60 req/min anonymous, 600 req/min with a recognized X-Api-Key.
+// The allowlist is what makes the premium tier mean anything — without it the header was
+// self-service. No startup validation: an empty list legitimately means nobody has premium.
+builder.Services.Configure<PremiumKeyOptions>(builder.Configuration.GetSection(PremiumKeyOptions.SectionName));
+builder.Services.AddSingleton<ApiKeyValidator>();
 builder.Services.AddApiRateLimiting();
 
 // Daily puzzle seeding. Validated at startup rather than on first request: an empty secret
