@@ -27,6 +27,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetGameRequ
                     g.Id, g.Name, g.ReleaseYear, g.Platform, g.Description,
                     g.Characters.Count, g.Monsters.Count))
                 .FirstOrDefaultAsync(token),
+            tags: CatalogCache.Tags,
             cancellationToken: ct
         );
 

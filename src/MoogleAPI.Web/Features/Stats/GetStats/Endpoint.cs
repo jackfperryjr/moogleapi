@@ -2,15 +2,17 @@ using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
 using MoogleAPI.Web.Infrastructure.Data;
 
-namespace MoogleAPI.Web.Features.Dashboard.GetStats;
+namespace MoogleAPI.Web.Features.Stats.GetStats;
 
 public class Endpoint(AppDbContext db) : EndpointWithoutRequest<DashboardStats>
 {
     public override void Configure()
     {
-        // Global RoutePrefix "api" is prepended, so the final URL is /api/dashboard/stats
-        Get("/dashboard/stats");
+        // Global RoutePrefix "api" is prepended, so the final URL is /api/stats
+        Get("/stats");
         Policies("Dashboard");
+        // Owner-only, so it has no business in the public reference
+        Description(b => b.ExcludeFromDescription());
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,9 +1,8 @@
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using MoogleAPI.Scraper.Models;
 
-namespace MoogleAPI.Scraper;
+namespace MoogleAPI.Web.Infrastructure.Wiki;
 
 public record CharacterDetails(
     string? ImageUrl,

@@ -28,6 +28,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetCardRequ
                     c.Id, c.Name, c.Top, c.Left, c.Right, c.Bottom,
                     c.Element, c.Level, c.CardClass, c.ImageUrl, c.Game.Name))
                 .FirstOrDefaultAsync(token),
+            tags: CatalogCache.Tags,
             cancellationToken: ct
         );
 

@@ -1,0 +1,89 @@
+name: Artwork
+
+# This was "Scrape Final Fantasy Data", on a Sunday-night cron. Both the name and the schedule
+# are gone with the wiki stages: the catalogue is curated by hand now, rows are added through the
+# dashboard, and an unattended weekly job that rewrites data nobody asked it to touch is exactly
+# what was retired.
+#
+# What is left runs on request only. This is also the only place the R2 and Gemini credentials
+# exist, which is why the file survives at all — `generate` spends real money per image, so it
+# wants a deliberate press of a button and a ceiling, not a timer.
+#
+# Worth knowing about `images`: a row imported from the wiki through the dashboard still points
+# at the wiki's own CDN. That stage copies the art into our bucket and repoints the row, so it is
+# the natural thing to run after a batch of imports. It skips anything already hosted by us,
+# including hand-uploaded art, so it costs nothing when there is nothing to do.
+on:
+  workflow_dispatch:
+    inputs:
+      stages:
+        description: 'Stages to run, comma-separated (images, audit, generate, promote, unpromote). Empty runs images.'
+        required: false
+        default: ''
+      force:
+        description: 'Re-copy or re-classify rows already done. For generate, also replaces art that already has a generated version.'
+        type: boolean
+        required: false
+        default: false
+      kinds:
+        description: 'For the generate stage only: which classes of artwork to replace (cutout, flat, line-art, screenshot, busy-background). Empty targets screenshot and busy-background.'
+        required: false
+        default: ''
+      max:
+        description: 'For the generate stage only: hard ceiling on images generated in one run. Generation costs money per image, so this is never unbounded. Defaults to 25.'
+        required: false
+        default: ''
+
+jobs:
+  artwork:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    # A large generate batch is thousands of sequential API calls and runs for hours. Naming the
+    # ceiling keeps a hung request from holding a runner for the default six before anyone notices.
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore
+        run: dotnet restore scripts/MoogleAPI.Scraper/MoogleAPI.Scraper.csproj
+
+      # Arguments are assembled in the shell rather than interpolated into the command line, so a
+      # dispatch that leaves every input empty passes no flags at all and just runs the copy stage.
+      - name: Run artwork tool
+        env:
+          CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
+
+          # Every stage here writes to the bucket, so unlike the old scrape these are required
+          # rather than optional — the tool exits with an error when they are missing.
+          # The account id is the same value under both names — the secret predates the R2
+          # naming the tool reads it by.
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          # Public, so it is written here rather than held as a secret. It is what the stored
+          # URLs are built from, and getting it wrong writes bad URLs into the database.
+          R2_PUBLIC_BASE_URL: https://images.moogleapi.com
+
+          STAGES: ${{ inputs.stages }}
+          FORCE: ${{ inputs.force }}
+          KINDS: ${{ inputs.kinds }}
+          MAX: ${{ inputs.max }}
+        # Written as if-blocks rather than `[ -n "$X" ] && args+=(...)`: this step runs under
+        # `bash -e`, where a one-liner whose test is false returns non-zero and takes the whole
+        # step down with it.
+        run: |
+          args=()
+          if [ -n "$STAGES" ]; then args+=("--only=$STAGES"); fi
+          if [ "$FORCE" = "true" ]; then args+=("--force"); fi
+          if [ -n "$KINDS" ]; then args+=("--kinds=$KINDS"); fi
+          if [ -n "$MAX" ]; then args+=("--max=$MAX"); fi
+
+          echo "Running artwork tool with: ${args[*]:-(no arguments)}"
+          dotnet run --project scripts/MoogleAPI.Scraper --configuration Release --no-restore -- "${args[@]}"
