@@ -130,5 +130,7 @@ public class UpdateGameValidator : Validator<UpdateGameRequest>
             .WithMessage("Release year looks wrong.");
 
         RuleFor(x => x.Fields.Description).MaximumLength(EditRules.MaxLongText);
+        RuleFor(x => x.Fields.ImageUrl).OptionalUrl();
+        RuleFor(x => x.Fields.ThumbnailUrl).OptionalUrl();
     }
 }

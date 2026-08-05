@@ -73,6 +73,10 @@ GET /api/monsters?gameId=4                     # every Final Fantasy IV monster 
 | `GET` | `/api/games` | List all games (`page`, `pageSize`) |
 | `GET` | `/api/games/{id}` | Get a game by ID (includes character + monster counts) |
 
+Both return two pictures: `imageUrl` is the full logo — the wide lockup with the title text —
+and `thumbnailUrl` is the square emblem, the artwork alone. They are separate crops rather than
+two sizes of one image, so pick by shape, not by resolution.
+
 ### Arena
 
 Powers [Battle Square](https://moogleapi.com/battle-square) — one character against eight consecutive waves of their own game's monsters.
