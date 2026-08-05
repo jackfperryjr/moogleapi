@@ -26,6 +26,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddFastEndpoints()
     .SwaggerDocument(o =>
     {
+        // Every operation was listed twice in Scalar. FastEndpoints tags each operation with the
+        // first route segment, title-cased — "/characters" becomes "Characters" — which is exactly
+        // the tag the endpoints already declare with WithTags("Characters"). Two identical tags on
+        // one operation, and Scalar's sidebar renders a group per tag, so every endpoint appeared
+        // under its heading twice. The explicit tags stay (they are the ones that name "Cards" for
+        // /cards and survive a route rename); the automatic pass is what goes.
+        o.AutoTagPathSegmentIndex = 0;
+
         o.DocumentSettings = s =>
         {
             s.Title = "MoogleAPI";
@@ -188,9 +196,22 @@ app.UseSwaggerGen();
 app.MapScalarApiReference(options =>
 {
     options.Title = "moogleAPI";
-    options.Theme = ScalarTheme.DeepSpace;
     options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
     options.WithFavicon("/favicon.ico");
+
+    // DeepSpace was close to the site's palette but never actually it. The reference is now
+    // themed from wwwroot/assets/scalar.css against the same tokens games.css uses — see that
+    // file for why no preset is loaded underneath it, and why the site is dark-only here.
+    options.Theme = ScalarTheme.None;
+    options.ForceThemeMode = ThemeMode.Dark;
+    options.HideDarkModeToggle = true;
+    options.AddHeadContent(
+        """
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="/assets/scalar.css" />
+        """);
     // FastEndpoints.Swagger (NSwag) serves the spec here, not the ASP.NET Core default
     options.WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
 });
