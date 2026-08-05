@@ -700,8 +700,16 @@
       endpoint: '/api/dashboard/games',
       singular: 'game',
       paged: false,
-      hasArt: false,
+      hasArt: true,
+      // A square emblem and the wide logo — two crops, not two sizes. No generated slot:
+      // generation never selects games, so it would upload into a column nothing promotes
+      // and nothing serves. The API refuses that combination too.
+      artSlots: [
+        { key: 'thumbnailUrl', label: 'Thumbnail', slot: 'thumbnail', preview: true },
+        { key: 'imageUrl', label: 'Full logo', slot: 'original' },
+      ],
       columns: [
+        { label: '',            cls: 'thumb', art: true,                     px: 64, prio: 1 },
         { label: 'ID',          cls: 'id',   get: r => r.id,                 px: 54, prio: 2 },
         { label: 'Name',        cls: 'name', get: r => r.fields.name,        flex: 2, prio: 1 },
         { label: 'Year',        cls: 'num',  get: r => r.fields.releaseYear, px: 58, prio: 1 },
@@ -720,11 +728,23 @@
     },
   };
 
-  // Both artwork columns, and which R2 slot an upload to each one targets.
+  // Both artwork columns, and which R2 slot an upload to each one targets. A tab can narrow
+  // this with its own `artSlots` — games carry a logo and nothing else.
   const ART_SLOTS = [
     { key: 'imageUrl', label: 'Original', slot: 'original' },
-    { key: 'generatedImageUrl', label: 'Generated', slot: 'generated' },
+    // `preview` picks which picture the table cell shows when a row has more than one.
+    { key: 'generatedImageUrl', label: 'Generated', slot: 'generated', preview: true },
   ];
+
+  const artSlotsFor = cfg => cfg.artSlots ?? ART_SLOTS;
+
+  // The marked slot if it has a picture, otherwise whichever slot does.
+  function previewUrl(row, cfg) {
+    const slots = artSlotsFor(cfg);
+    const chosen = slots.find(s => s.preview && row.fields[s.key])
+                ?? slots.find(s => row.fields[s.key]);
+    return chosen ? row.fields[chosen.key] : null;
+  }
 
   // ── State ───────────────────────────────────────────────────────────────────
   const state = { tab: 'characters', search: '', gameId: '', page: 1, pageSize: 50, total: 0 };
@@ -832,7 +852,7 @@
   function artCell(row) {
     const td = document.createElement('td');
     td.className = 'thumb';
-    const src = row.fields.generatedImageUrl || row.fields.imageUrl;
+    const src = previewUrl(row, TABS[state.tab]);
 
     if (!src) {
       const none = document.createElement('div');
@@ -934,7 +954,7 @@
   // A row can carry two pictures — the original scraped art and its generated replacement — so
   // the modal offers both rather than picking one: comparing them is usually the reason to look.
   function openZoom(row) {
-    const sources = ART_SLOTS
+    const sources = artSlotsFor(TABS[state.tab])
       .filter(s => row.fields[s.key])
       .map(s => ({ label: s.label, url: row.fields[s.key] }))
       .reverse();
@@ -1140,6 +1160,10 @@
     } else {
       fields.releaseYear = new Date().getFullYear();
       fields.platform = '';
+      // Games carry two pictures and no generated slot.
+      fields.imageUrl = null;
+      fields.thumbnailUrl = null;
+      fields.imageSourceUrl = null;
     }
     return { id: null, gameName: '', releaseYear: 0, fields };
   }
@@ -1168,7 +1192,7 @@
 
     $('editor-art-wrap').hidden = !cfg.hasArt || creating;
     if (cfg.hasArt && !creating) {
-      $('editor-art').replaceChildren(...ART_SLOTS.map(slot => buildArtSlot(slot, row)));
+      $('editor-art').replaceChildren(...artSlotsFor(cfg).map(slot => buildArtSlot(slot, row)));
 
       // Provenance is not something to hand-type, but it decides whether the image tool will
       // overwrite this row's art, so it is shown and editable rather than hidden.
@@ -1178,7 +1202,9 @@
     } else if (cfg.hasArt && creating) {
       // The draft may already carry a URL the import found; keep it rather than dropping it on
       // the floor just because the upload panel is not shown yet.
-      for (const key of ['imageUrl', 'generatedImageUrl', 'imageSourceUrl']) {
+      // Only the keys this tab actually has — posting a generatedImageUrl back for a game
+      // would be a field its edit record does not carry.
+      for (const key of [...artSlotsFor(cfg).map(s => s.key), 'imageSourceUrl']) {
         const hidden = document.createElement('input');
         hidden.type = 'hidden';
         hidden.value = row.fields[key] ?? '';
@@ -1402,7 +1428,7 @@
     name.textContent = row.fields.name;
     body.append(name, ` (#${row.id})? This cannot be undone.`);
 
-    if (cfg.hasArt && (row.fields.imageUrl || row.fields.generatedImageUrl)) {
+    if (cfg.hasArt && artSlotsFor(cfg).some(s => row.fields[s.key])) {
       body.append(document.createElement('br'));
       const note = document.createElement('small');
       note.style.color = 'var(--muted)';

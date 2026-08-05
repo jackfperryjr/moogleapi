@@ -8,7 +8,7 @@ namespace MoogleAPI.Web.Features.Dashboard.UploadImage;
 
 public class UploadImageRequest
 {
-    /// <summary>"characters" or "monsters" — the same words the bucket uses for its folders.</summary>
+    /// <summary>"characters", "monsters" or "games" — the same words the bucket uses for its folders.</summary>
     public string Resource { get; set; } = string.Empty;
 
     public int Id { get; set; }
@@ -53,8 +53,17 @@ public class Endpoint(AppDbContext db, HybridCache cache, ImageUploadStore store
     /// <summary>Comfortably above any source art, far below anything that would stall the server.</summary>
     private const long MaxBytes = 15 * 1024 * 1024;
 
-    private static readonly string[] Resources = ["characters", "monsters"];
-    private static readonly string[] Slots = ["original", "generated"];
+    /// <summary>
+    /// Which slots each resource actually has. A flat list would let a caller upload a game's
+    /// "generated" art — generation never selects games, so that file would be promoted by
+    /// nothing and served by nothing.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> SlotsByResource = new()
+    {
+        ["characters"] = ["original", "generated"],
+        ["monsters"] = ["original", "generated"],
+        ["games"] = ["original", "thumbnail"],
+    };
 
     public override void Configure()
     {
@@ -78,9 +87,16 @@ public class Endpoint(AppDbContext db, HybridCache cache, ImageUploadStore store
         var resource = req.Resource.ToLowerInvariant();
         var slot = req.Slot.ToLowerInvariant();
 
-        if (!Resources.Contains(resource) || !Slots.Contains(slot))
+        if (!SlotsByResource.TryGetValue(resource, out var allowedSlots))
         {
-            AddError($"Resource must be one of {string.Join(", ", Resources)} and slot one of {string.Join(", ", Slots)}.");
+            AddError($"Resource must be one of {string.Join(", ", SlotsByResource.Keys)}.");
+            await Send.ErrorsAsync(cancellation: ct);
+            return;
+        }
+
+        if (!allowedSlots.Contains(slot))
+        {
+            AddError($"{resource} take slot {string.Join(" or ", allowedSlots)}, not \"{slot}\".");
             await Send.ErrorsAsync(cancellation: ct);
             return;
         }
@@ -92,9 +108,12 @@ public class Endpoint(AppDbContext db, HybridCache cache, ImageUploadStore store
             return;
         }
 
-        var exists = resource == "characters"
-            ? await db.Characters.AnyAsync(c => c.Id == req.Id, ct)
-            : await db.Monsters.AnyAsync(m => m.Id == req.Id, ct);
+        var exists = resource switch
+        {
+            "characters" => await db.Characters.AnyAsync(c => c.Id == req.Id, ct),
+            "monsters" => await db.Monsters.AnyAsync(m => m.Id == req.Id, ct),
+            _ => await db.Games.AnyAsync(g => g.Id == req.Id, ct),
+        };
 
         if (!exists)
         {
@@ -102,7 +121,14 @@ public class Endpoint(AppDbContext db, HybridCache cache, ImageUploadStore store
             return;
         }
 
-        var key = slot == "generated" ? $"gen/{resource}/{req.Id}.webp" : $"{resource}/{req.Id}.webp";
+        // Prefix per slot, mirroring the bucket layout the image tool already writes:
+        // gen/monsters/12.webp, thumb/games/7.webp, monsters/12.webp.
+        var key = slot switch
+        {
+            "generated" => $"gen/{resource}/{req.Id}.webp",
+            "thumbnail" => $"thumb/{resource}/{req.Id}.webp",
+            _ => $"{resource}/{req.Id}.webp",
+        };
 
         string url;
         try
@@ -125,10 +151,16 @@ public class Endpoint(AppDbContext db, HybridCache cache, ImageUploadStore store
             if (slot == "generated") row.GeneratedImageUrl = url;
             else { row.ImageUrl = url; row.ImageSourceUrl = provenance; }
         }
-        else
+        else if (resource == "monsters")
         {
             var row = await db.Monsters.FirstAsync(m => m.Id == req.Id, ct);
             if (slot == "generated") row.GeneratedImageUrl = url;
+            else { row.ImageUrl = url; row.ImageSourceUrl = provenance; }
+        }
+        else
+        {
+            var row = await db.Games.FirstAsync(g => g.Id == req.Id, ct);
+            if (slot == "thumbnail") row.ThumbnailUrl = url;
             else { row.ImageUrl = url; row.ImageSourceUrl = provenance; }
         }
 

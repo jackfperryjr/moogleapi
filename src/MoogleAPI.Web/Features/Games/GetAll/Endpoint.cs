@@ -30,7 +30,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetAllGames
                     .OrderBy(g => g.ReleaseYear)
                     .Skip((req.Page - 1) * req.PageSize)
                     .Take(req.PageSize)
-                    .Select(g => new GameSummary(g.Id, g.Name, g.ReleaseYear, g.Platform))
+                    .Select(g => new GameSummary(g.Id, g.Name, g.ReleaseYear, g.Platform, g.ImageUrl, g.ThumbnailUrl))
                     .ToListAsync(token);
 
                 return new GetAllGamesResponse(items, total, req.Page, req.PageSize);

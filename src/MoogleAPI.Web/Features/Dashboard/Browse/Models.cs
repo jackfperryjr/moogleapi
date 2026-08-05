@@ -79,11 +79,19 @@ public record MonsterEdit(
     int GameId
 );
 
+/// <remarks>
+/// Two images, and no <c>GeneratedImageUrl</c>. The full logo and the square emblem are separate
+/// crops rather than two sizes of one picture, so both are stored. Generation, meanwhile, selects
+/// monsters and characters only — a generated slot here would be one nothing can ever fill.
+/// </remarks>
 public record GameEdit(
     string Name,
     int ReleaseYear,
     string Platform,
-    string? Description
+    string? Description,
+    string? ImageUrl,
+    string? ThumbnailUrl,
+    string? ImageSourceUrl
 );
 
 // ── Rows ──────────────────────────────────────────────────────────────────────

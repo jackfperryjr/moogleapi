@@ -8,6 +8,10 @@ public record GetGameResponse(
     int ReleaseYear,
     string Platform,
     string? Description,
+    /// <summary>The full logo — the wide lockup with the title text.</summary>
+    string? ImageUrl,
+    /// <summary>The square emblem — artwork only, no title text.</summary>
+    string? ThumbnailUrl,
     int CharacterCount,
     int MonsterCount
 );
