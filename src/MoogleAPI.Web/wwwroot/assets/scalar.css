@@ -1,0 +1,97 @@
+/* Scalar API reference, wearing the moogleAPI palette.
+ *
+ * Scalar is styled entirely through CSS custom properties, so this file sets tokens rather than
+ * restyling components — the same approach games.css takes, and for the same reason: the upgrade
+ * path stays open. Scalar's own stylesheet keeps moving, and a rule written against one of its
+ * class names is a rule that breaks on the next package bump.
+ *
+ * The palette is games.css's, deliberately not re-derived here. Two values differ, and only where
+ * the site's usage doesn't transfer:
+ *
+ *   --accent #4285f4 is a button background on the marketing page, always under white text. Scalar
+ *   spends its accent on links and the active sidebar row — small text directly on --bg — where
+ *   #4285f4 lands at about 3.6:1 and fails AA. #8ab4f8 is the same hue lifted to ~7:1. The solid
+ *   blue is still here, as the button fill it already was.
+ *
+ *   The gold picks out the brand: the document title and the active sidebar item, matching the
+ *   .nav-brand treatment on the landing page.
+ *
+ * Loaded via a <link> from Program.cs's Scalar head content rather than inlined into the page,
+ * which keeps it a real stylesheet — editable, and covered by the no-cache rule UseStaticFiles
+ * applies to .css.
+ *
+ * The theme is set to ScalarTheme.None on purpose. A preset would layer its own gradient headings
+ * and background flares under these tokens, and the result reads as neither theme. */
+
+.dark-mode,
+.light-mode {
+  --scalar-color-1: #ffffff;
+  --scalar-color-2: #90a4ae;
+  --scalar-color-3: rgba(144, 164, 174, 0.62);
+  --scalar-color-accent: #8ab4f8;
+
+  --scalar-background-1: #25282c;
+  --scalar-background-2: #2f3d45;
+  --scalar-background-3: #37474f;
+  --scalar-background-accent: rgba(66, 133, 244, 0.14);
+
+  --scalar-border-color: #455a64;
+  --scalar-code-language-color-supersede: var(--scalar-color-2);
+
+  /* HTTP methods, response codes and syntax highlighting. Pulled toward the games' feedback
+     colours — the greens and reds already used for hit/miss — so the docs and the boards read as
+     one site, then lightened where they had to sit on #25282c as text. */
+  --scalar-color-green: #7fd6a8;
+  --scalar-color-red: #e8a1ad;
+  --scalar-color-yellow: #ffecb3;
+  --scalar-color-blue: #8ab4f8;
+  --scalar-color-orange: #f0a35e;
+  --scalar-color-purple: #c5b3f2;
+
+  --scalar-button-1: #4285f4;
+  --scalar-button-1-hover: #5b95f6;
+  --scalar-button-1-color: #ffffff;
+
+  /* Raleway for prose and Josefin Sans for headings, as everywhere else. JetBrains Mono is the
+     one the API actually needs: it is what the sample requests and JSON responses are set in. */
+  --scalar-font: 'Raleway', system-ui, -apple-system, sans-serif;
+  --scalar-font-code: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* games.css rounds to 10px. Scalar scales everything off this base: 4px carries the small
+     controls, and the panels land at 16px, near enough that the two don't look unrelated. */
+  --scalar-radius: 4px;
+}
+
+.dark-mode .t-doc__sidebar,
+.light-mode .t-doc__sidebar {
+  --scalar-sidebar-background-1: #25282c;
+  --scalar-sidebar-color-1: var(--scalar-color-1);
+  --scalar-sidebar-color-2: var(--scalar-color-2);
+  --scalar-sidebar-border-color: var(--scalar-border-color);
+
+  --scalar-sidebar-item-hover-color: var(--scalar-color-1);
+  --scalar-sidebar-item-hover-background: #2f3d45;
+
+  --scalar-sidebar-item-active-background: #37474f;
+  --scalar-sidebar-color-active: #ffecb3;
+
+  --scalar-sidebar-search-background: #2f3d45;
+  --scalar-sidebar-search-border-color: var(--scalar-border-color);
+  --scalar-sidebar-search-color: var(--scalar-color-2);
+}
+
+/* The two places tokens can't reach. Headings are a font swap Scalar has no variable for, and the
+   document title is the brand — the gold it is set in on every other page. */
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.section-header,
+.t-editor__page-title h1 {
+  font-family: 'Josefin Sans', var(--scalar-font);
+  letter-spacing: 0.04em;
+}
+
+.t-editor__page-title h1 {
+  color: #ffecb3;
+  letter-spacing: 0.1em;
+}
