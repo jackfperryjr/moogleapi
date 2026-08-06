@@ -1,7 +1,7 @@
 name: Checks
 
-# The gate on every PR to main. Before this the only CI here was the weekly scraper,
-# so a PR could only be verified by reading it.
+# The gate on every PR to main. Before this there was no CI that ran on a PR at all,
+# so a change could only be verified by reading it.
 #
 # Format, build, test. Deliberately NOT path-filtered: this is the required status
 # check for main, and a required check that never runs leaves a docs-only PR pending

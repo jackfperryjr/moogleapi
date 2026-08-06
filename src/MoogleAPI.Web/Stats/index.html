@@ -125,6 +125,56 @@
     .card-value.red   { color: var(--red); }
     .card-value.blue  { color: var(--accent2); }
 
+    /* ── Range picker ── */
+    .range-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .range-presets { display: flex; gap: 0.35rem; }
+    .range-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 0.4rem 0.8rem;
+      font-family: 'Raleway', sans-serif;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .range-btn:hover { border-color: var(--accent); color: var(--text); }
+    .range-btn[aria-pressed="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .range-custom {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .range-custom input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'Raleway', sans-serif;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.5rem;
+      color-scheme: dark;
+    }
+    .range-note {
+      width: 100%;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
     /* ── Chart grid ── */
     .chart-row {
       display: grid;
@@ -152,6 +202,44 @@
     }
     .chart-wrap { position: relative; }
     .chart-wrap canvas { max-height: 220px; }
+
+    /* ── Tabular panels (errors, slowest, clients) ── */
+    .stat-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .stat-table th {
+      text-align: left;
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-table td {
+      padding: 0.45rem 0;
+      border-bottom: 1px solid rgba(69,90,100,0.35);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+    }
+    .stat-table td.num { text-align: right; color: var(--accent2); }
+    .stat-table tr:last-child td { border-bottom: none; }
+    .stat-table .empty { color: var(--muted); font-family: 'Raleway', sans-serif; font-style: italic; }
+    .pill {
+      font-family: 'Raleway', sans-serif;
+      font-size: 0.62rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .pill.gold { color: var(--gold); border-color: var(--gold); }
+    .panel-note {
+      margin-top: 0.9rem;
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
 
     /* ── Latency panel ── */
     .latency-grid {
@@ -214,6 +302,25 @@
 <main>
   <div id="error-banner"></div>
 
+  <!-- Range picker. Presets are relative and recomputed on every refresh, so "Last 7 days"
+       keeps meaning that as the page sits open; custom dates are absolute and don't move. -->
+  <div class="range-bar">
+    <div class="range-presets" id="range-presets">
+      <button class="range-btn" type="button" data-hours="24"   aria-pressed="true">24h</button>
+      <button class="range-btn" type="button" data-hours="168"  aria-pressed="false">7d</button>
+      <button class="range-btn" type="button" data-hours="720"  aria-pressed="false">30d</button>
+      <button class="range-btn" type="button" data-hours="all"  aria-pressed="false">All</button>
+    </div>
+    <div class="range-custom">
+      <label for="range-from">From</label>
+      <input type="date" id="range-from">
+      <label for="range-to">To</label>
+      <input type="date" id="range-to">
+      <button class="range-btn" type="button" id="range-apply">Apply</button>
+    </div>
+    <div class="range-note" id="range-note"></div>
+  </div>
+
   <!-- Summary cards -->
   <div class="cards">
     <div class="card">
@@ -221,19 +328,19 @@
       <div class="card-value" id="c-total">—</div>
     </div>
     <div class="card">
-      <div class="card-label">Today</div>
-      <div class="card-value blue" id="c-today">—</div>
+      <div class="card-label" id="c-range-label">In Range</div>
+      <div class="card-value blue" id="c-range">—</div>
     </div>
     <div class="card">
-      <div class="card-label">Errors Today</div>
+      <div class="card-label">Errors</div>
       <div class="card-value red" id="c-errors">—</div>
     </div>
     <div class="card">
-      <div class="card-label">Rate-Limited Today</div>
+      <div class="card-label">Rate-Limited</div>
       <div class="card-value yellow" id="c-ratelimited" style="color:var(--yellow)">—</div>
     </div>
     <div class="card">
-      <div class="card-label">Unique IPs Today</div>
+      <div class="card-label">Unique Clients</div>
       <div class="card-value green" id="c-ips">—</div>
     </div>
   </div>
@@ -241,7 +348,7 @@
   <!-- Requests over time -->
   <div class="chart-row chart-row-1">
     <div class="chart-panel">
-      <h2>Requests / Hour — Last 24h</h2>
+      <h2 id="h-timeline">Requests</h2>
       <div class="chart-wrap"><canvas id="chart-timeline"></canvas></div>
     </div>
   </div>
@@ -249,25 +356,66 @@
   <!-- Status codes + Latency -->
   <div class="chart-row chart-row-3">
     <div class="chart-panel">
-      <h2>Top Endpoints — Last 24h</h2>
+      <h2>Top Endpoints</h2>
       <div class="chart-wrap"><canvas id="chart-endpoints"></canvas></div>
     </div>
     <div class="chart-panel">
-      <h2>Status Codes — Last 24h</h2>
+      <h2>Status Codes</h2>
       <div class="chart-wrap" style="display:flex;align-items:center;justify-content:center">
         <canvas id="chart-status" style="max-height:200px;max-width:200px"></canvas>
       </div>
     </div>
   </div>
 
+  <!-- Failures and slow paths: the two lists worth acting on -->
+  <div class="chart-row chart-row-2">
+    <div class="chart-panel">
+      <h2>Top Failing Paths</h2>
+      <table class="stat-table">
+        <thead><tr><th>Path</th><th>Status</th><th style="text-align:right">Count</th></tr></thead>
+        <tbody id="t-errors"></tbody>
+      </table>
+    </div>
+    <div class="chart-panel">
+      <h2>Slowest Endpoints (p95)</h2>
+      <table class="stat-table">
+        <thead><tr><th>Path</th><th style="text-align:right">p95</th><th style="text-align:right">Reqs</th></tr></thead>
+        <tbody id="t-slowest"></tbody>
+      </table>
+      <p class="panel-note">Endpoints with fewer than five requests in range are omitted — a p95 over two samples isn't one.</p>
+    </div>
+  </div>
+
+  <!-- Who is calling: the split that matters if keys are ever sold, and the busiest callers -->
+  <div class="chart-row chart-row-2">
+    <div class="chart-panel">
+      <h2>Keyed vs Anonymous</h2>
+      <div class="chart-wrap" style="display:flex;align-items:center;justify-content:center">
+        <canvas id="chart-traffic" style="max-height:190px;max-width:190px"></canvas>
+      </div>
+    </div>
+    <div class="chart-panel">
+      <h2>Busiest Clients</h2>
+      <table class="stat-table">
+        <thead><tr><th>Client</th><th>Tier</th><th style="text-align:right">Requests</th></tr></thead>
+        <tbody id="t-clients"></tbody>
+      </table>
+      <p class="panel-note">
+        Hashed addresses, real only from 2026-08-05 onward. Before that the app recorded the peer
+        address, which behind Railway's load balancer is a pool of about twenty internal addresses —
+        so earlier rows count infrastructure, not callers.
+      </p>
+    </div>
+  </div>
+
   <!-- Search terms + Latency -->
   <div class="chart-row chart-row-2">
     <div class="chart-panel">
-      <h2>Top Search Terms — Last 24h</h2>
+      <h2>Top Search Terms</h2>
       <div class="chart-wrap"><canvas id="chart-searches"></canvas></div>
     </div>
     <div class="chart-panel">
-      <h2>Latency — Last 24h</h2>
+      <h2>Latency</h2>
       <div class="latency-grid">
         <div class="latency-item">
           <div class="latency-label">Avg</div>
@@ -322,21 +470,34 @@
     destroyCharts();
 
     // Cards
-    document.getElementById('c-total').textContent      = fmt(data.summary.totalRequests);
-    document.getElementById('c-today').textContent      = fmt(data.summary.requestsToday);
-    document.getElementById('c-errors').textContent     = fmt(data.summary.errorsToday);
-    document.getElementById('c-ratelimited').textContent = fmt(data.summary.rateLimitedToday);
-    document.getElementById('c-ips').textContent        = fmt(data.summary.uniqueIpsToday);
+    document.getElementById('c-total').textContent       = fmt(data.summary.totalRequests);
+    document.getElementById('c-range').textContent       = fmt(data.summary.requestsInRange);
+    document.getElementById('c-errors').textContent      = fmt(data.summary.errorsInRange);
+    document.getElementById('c-ratelimited').textContent = fmt(data.summary.rateLimitedInRange);
+    document.getElementById('c-ips').textContent         = fmt(data.summary.uniqueClientsInRange);
+    document.getElementById('c-range-label').textContent = rangeLabel();
+
+    // What was actually measured, which is not always what was asked for: the server trims very
+    // large ranges to their most recent slice and says so.
+    const r = data.range;
+    const span = `${new Date(r.from).toLocaleString()} → ${new Date(r.to).toLocaleString()}`;
+    document.getElementById('range-note').textContent =
+      r.truncated ? `${span} · trimmed to the most recent rows` : span;
+    document.getElementById('h-timeline').textContent =
+      r.granularity === 'hour' ? 'Requests / Hour' : 'Requests / Day';
 
     // Latency
     document.getElementById('l-avg').innerHTML = `${data.latency.avgMs}<span class="latency-unit">ms</span>`;
     document.getElementById('l-p50').innerHTML = `${data.latency.p50Ms}<span class="latency-unit">ms</span>`;
     document.getElementById('l-p95').innerHTML = `${data.latency.p95Ms}<span class="latency-unit">ms</span>`;
 
-    // Timeline
-    const tlLabels = data.requestsOverTime.map(h => {
-      const d = new Date(h.hour);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Timeline. Labels follow the granularity the server picked — a daily series labelled with
+    // clock times reads as a series of midnights.
+    const tlLabels = data.requestsOverTime.map(b => {
+      const d = new Date(b.bucket);
+      return data.range.granularity === 'hour'
+        ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     });
     charts.timeline = new Chart(document.getElementById('chart-timeline'), {
       type: 'line',
@@ -344,7 +505,7 @@
         labels: tlLabels,
         datasets: [{
           label: 'Requests',
-          data: data.requestsOverTime.map(h => h.count),
+          data: data.requestsOverTime.map(b => b.count),
           borderColor: BLUE_B,
           backgroundColor: 'rgba(66,133,244,0.12)',
           tension: 0.35,
@@ -440,14 +601,143 @@
       },
     });
 
+    // Keyed vs anonymous
+    charts.traffic = new Chart(document.getElementById('chart-traffic'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Keyed', 'Anonymous'],
+        datasets: [{
+          data: [data.traffic.premiumRequests, data.traffic.anonymousRequests],
+          backgroundColor: [GOLD, BLUE],
+          borderColor: '#37474f',
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        cutout: '65%',
+        plugins: { legend: { position: 'bottom', labels: { padding: 12, boxWidth: 12 } } },
+      },
+    });
+
+    // Tables
+    fillTable('t-errors', data.topErrorPaths, 'No failed requests in range.', e => [
+      cell(e.path), cell(String(e.statusCode)), cell(fmt(e.count), 'num'),
+    ]);
+
+    fillTable('t-slowest', data.slowestEndpoints, 'Not enough requests in range to rank.', e => [
+      cell(e.path), cell(`${fmt(e.p95Ms)}ms`, 'num'), cell(fmt(e.count), 'num'),
+    ]);
+
+    fillTable('t-clients', data.topClients, 'No traffic in range.', c => [
+      cell(c.ipHash),
+      cellHtml(c.isPremium ? '<span class="pill gold">keyed</span>' : '<span class="pill">anon</span>'),
+      cell(fmt(c.count), 'num'),
+    ]);
+
     document.getElementById('last-updated').textContent =
       'Updated ' + new Date().toLocaleTimeString();
   }
 
+  // Built as DOM rather than innerHTML: paths and hashes come from request data, and one
+  // crafted path would otherwise be markup on a page that is logged into.
+  function cell(text, cls) {
+    const td = document.createElement('td');
+    td.textContent = text;
+    if (cls) td.className = cls;
+    return td;
+  }
+
+  function cellHtml(html) {
+    const td = document.createElement('td');
+    td.innerHTML = html;   // literals only — never request data
+    return td;
+  }
+
+  function fillTable(id, rows, emptyText, toCells) {
+    const body = document.getElementById(id);
+    body.replaceChildren();
+
+    if (!rows || rows.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.className = 'empty';
+      td.textContent = emptyText;
+      tr.append(td);
+      body.append(tr);
+      return;
+    }
+
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      tr.append(...toCells(row));
+      body.append(tr);
+    }
+  }
+
+  // ── Range selection ────────────────────────────────────────────────────────
+  // Relative presets stay relative: the page refreshes every two minutes, and "Last 24h" that
+  // silently froze at the hour it was clicked would drift out of date while being watched.
+  const ALL_TIME_FROM = '2000-01-01T00:00:00Z';
+  let range = { hours: 24, from: null, to: null };
+
+  function rangeLabel() {
+    if (range.from || range.to) return 'In Range';
+    if (range.hours === 'all')  return 'All Time';
+    if (range.hours === 24)     return 'Last 24h';
+    return `Last ${range.hours / 24}d`;
+  }
+
+  function rangeQuery() {
+    if (range.from || range.to) {
+      const params = new URLSearchParams();
+      if (range.from) params.set('from', range.from);
+      if (range.to)   params.set('to', range.to);
+      return `?${params}`;
+    }
+    if (range.hours === 'all') return `?from=${encodeURIComponent(ALL_TIME_FROM)}`;
+    const from = new Date(Date.now() - range.hours * 3600 * 1000).toISOString();
+    return `?from=${encodeURIComponent(from)}`;
+  }
+
+  function selectPreset(hours) {
+    range = { hours: hours === 'all' ? 'all' : Number(hours), from: null, to: null };
+    document.getElementById('range-from').value = '';
+    document.getElementById('range-to').value = '';
+    for (const btn of document.querySelectorAll('#range-presets .range-btn')) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.hours === String(hours)));
+    }
+    loadStats();
+  }
+
+  document.getElementById('range-presets').addEventListener('click', e => {
+    const btn = e.target.closest('.range-btn');
+    if (btn) selectPreset(btn.dataset.hours);
+  });
+
+  document.getElementById('range-apply').addEventListener('click', () => {
+    const from = document.getElementById('range-from').value;
+    const to   = document.getElementById('range-to').value;
+    if (!from && !to) return;
+
+    // The date inputs give a bare day. "To" covers the whole of that day rather than stopping at
+    // its first instant, which would otherwise return nothing for a same-day from/to.
+    range = {
+      hours: null,
+      from: from ? `${from}T00:00:00Z` : null,
+      to:   to   ? `${to}T23:59:59Z`   : null,
+    };
+    for (const btn of document.querySelectorAll('#range-presets .range-btn')) {
+      btn.setAttribute('aria-pressed', 'false');
+    }
+    loadStats();
+  });
+
   async function loadStats() {
     const banner = document.getElementById('error-banner');
     try {
-      const res  = await fetch('/api/stats');
+      const res  = await fetch(`/api/stats${rangeQuery()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       banner.style.display = 'none';

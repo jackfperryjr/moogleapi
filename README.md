@@ -23,7 +23,7 @@ A free, open REST API for Final Fantasy data — characters, monsters, and games
 - **HybridCache** — stampede-proof L1/L2 caching out of the box
 - **Rate limiting** — 60 req/min anonymous, 600 req/min with an API key
 - **Interactive docs** at `/scalar/v1` (far nicer than Swagger UI)
-- **Auto-updating** — a GitHub Action scrapes the Final Fantasy Wiki every Sunday
+- **Hand-curated** — every row reviewed and edited through the dashboard, not bulk-imported
 
 ---
 
@@ -103,7 +103,7 @@ Full interactive docs at [`/scalar/v1`](https://moogleapi.com/scalar/v1).
 | Caching | `HybridCache` — L1 in-process + optional L2 Redis |
 | Docs | [Scalar](https://scalar.com) — replaces Swagger UI |
 | Rate Limiting | `PartitionedRateLimiter` (native .NET 10) |
-| Data pipeline | GitHub Actions scraper → Final Fantasy Wiki |
+| Artwork pipeline | GitHub Actions → Gemini → Cloudflare R2 |
 
 ### Project Structure
 
@@ -138,17 +138,26 @@ MoogleApi.sln
 │       ├── wwwroot/              ← Landing page + /games hub + four games
 │       └── Program.cs
 ├── scripts/
-│   └── MoogleAPI.Scraper/        ← Console app, runs in GitHub Actions
+│   └── MoogleAPI.Scraper/        ← Artwork tool, runs in GitHub Actions
 └── tests/
     └── MoogleAPI.Tests/
 ```
 ---
 
-## 🤖 Data Pipeline
+## 🤖 Data & Artwork
 
-A GitHub Action runs every Sunday at 2 AM UTC and scrapes the [Final Fantasy Wiki](https://finalfantasy.fandom.com) via the MediaWiki API. It upserts characters and monsters per game — no duplicates, no full reloads.
+The catalogue is curated by hand. Rows are added and edited through the private dashboard, one at
+a time, with a person deciding what belongs — there is no unattended job that rewrites the data on
+a timer, and no bulk import behind the current contents.
 
-Stages can be run individually with `--only=`: `games`, `characters`, `playable`, `monsters`, `cards`, `images`, `audit`, `generate`, `promote`. The `playable` stage reads each game's character navbox to mark which characters the player actually controls — the only source scoped to a single game, since the wiki has no playable-character category and the prose test answers for the whole compilation.
+What still runs on request is the artwork tool, dispatched manually from the **Artwork** workflow.
+Its stages are `images` (copy artwork into our own bucket and repoint the row), `audit` (classify
+what each image actually is), `generate` (replace it with an illustration in one house style) and
+`unpromote` (withdraw generated art and restore the original). `generate` costs money per image, so
+it takes an explicit ceiling with `--max` and never runs as part of an unnamed "all stages" pass.
+
+Artwork is served from Cloudflare R2 at `images.moogleapi.com`. Keys derive from the row id, which
+is what makes a move between domains a database pass rather than a re-upload.
 
 ---
 
@@ -169,7 +178,9 @@ allowlist with `ApiKeys__Keys__0`, `ApiKeys__Keys__1`, … With none set, everyt
 
 ## 📜 Disclaimer
 
-MoogleAPI is a fan project and is not affiliated with or endorsed by Square Enix. All Final Fantasy names, characters, and related marks are trademarks of Square Enix Co., Ltd. Data is sourced from the community-maintained [Final Fantasy Wiki](https://finalfantasy.fandom.com).
+MoogleAPI is a fan project and is not affiliated with or endorsed by Square Enix. All Final Fantasy names, characters, and related marks are trademarks of Square Enix Co., Ltd.
+
+The catalogue was originally seeded from the community-maintained [Final Fantasy Wiki](https://finalfantasy.fandom.com) and is maintained by hand from there on. That attribution stays while any of it remains: the wiki's text is CC BY-SA, which requires credit regardless of how much editing has happened since.
 
 ---
 

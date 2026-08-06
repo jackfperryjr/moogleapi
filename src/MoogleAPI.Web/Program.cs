@@ -57,6 +57,13 @@ builder.Services.AddHybridCache(options =>
 // self-service. No startup validation: an empty list legitimately means nobody has premium.
 builder.Services.Configure<PremiumKeyOptions>(builder.Configuration.GetSection(PremiumKeyOptions.SectionName));
 builder.Services.AddSingleton<ApiKeyValidator>();
+
+// Who the caller is, which the peer address only appears to answer. Unset in development, where
+// the resolver then falls back to the peer address and nothing forwarded is believed.
+builder.Services.Configure<EdgeOptions>(builder.Configuration.GetSection(EdgeOptions.SectionName));
+builder.Services.AddSingleton<ClientIpResolver>();
+builder.Services.AddSingleton<RequestLogWriter>();
+
 builder.Services.AddApiRateLimiting();
 
 // Daily puzzle seeding. Validated at startup rather than on first request: an empty secret

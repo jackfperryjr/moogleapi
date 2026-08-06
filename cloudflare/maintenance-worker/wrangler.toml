@@ -17,3 +17,13 @@ zone_name = "moogleapi.com"
 
 # No observability, KV, or bindings on purpose — this Worker is pure pass-through
 # and adding state would put something else in the critical path of every request.
+#
+# One secret, deliberately not a var and so not written here:
+#
+#   wrangler secret put EDGE_SECRET
+#
+# It is stamped onto every proxied request as X-Moogle-Edge, and it is what lets the origin
+# believe CF-Connecting-IP — see withEdgeSecret in worker.js. The same value goes to Railway
+# as Edge__Secret. If the two ever disagree the app simply stops trusting forwarded addresses
+# and rate-limits on the load balancer again: degraded, not broken, and silent, so treat
+# rotating it as a two-sided change.

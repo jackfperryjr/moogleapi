@@ -1,17 +1,16 @@
 name: Artwork
 
-# This was "Scrape Final Fantasy Data", on a Sunday-night cron. Both the name and the schedule
-# are gone with the wiki stages: the catalogue is curated by hand now, rows are added through the
-# dashboard, and an unattended weekly job that rewrites data nobody asked it to touch is exactly
-# what was retired.
+# Artwork only, and manual only. The catalogue itself is curated by hand through the dashboard —
+# no job here writes data on a timer, because an unattended job that rewrites rows nobody asked it
+# to touch is exactly what was retired.
 #
-# What is left runs on request only. This is also the only place the R2 and Gemini credentials
-# exist, which is why the file survives at all — `generate` spends real money per image, so it
-# wants a deliberate press of a button and a ceiling, not a timer.
+# This is also the only place the R2 and Gemini credentials exist, which is why the file survives
+# at all — `generate` spends real money per image, so it wants a deliberate press of a button and
+# a ceiling, not a schedule.
 #
-# Worth knowing about `images`: a row imported from the wiki through the dashboard still points
-# at the wiki's own CDN. That stage copies the art into our bucket and repoints the row, so it is
-# the natural thing to run after a batch of imports. It skips anything already hosted by us,
+# Worth knowing about `images`: a row added through the dashboard can still point at artwork hosted
+# somewhere else. That stage copies the art into our bucket and repoints the row, so it is the
+# natural thing to run after a batch of additions. It skips anything already hosted by us,
 # including hand-uploaded art, so it costs nothing when there is nothing to do.
 on:
   workflow_dispatch:
@@ -59,8 +58,8 @@ jobs:
         env:
           CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
 
-          # Every stage here writes to the bucket, so unlike the old scrape these are required
-          # rather than optional — the tool exits with an error when they are missing.
+          # Every stage here writes to the bucket, so these are required rather than optional —
+          # the tool exits with an error when they are missing.
           # The account id is the same value under both names — the secret predates the R2
           # naming the tool reads it by.
           R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
