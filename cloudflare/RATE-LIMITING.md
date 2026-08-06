@@ -32,20 +32,30 @@ so three months of logs contain zero 429s — which was never evidence the limit
 
 ### Setup — both sides, or it silently degrades
 
+**The Worker code has to be deployed too, not just the secret.** The header is injected by
+`withEdgeSecret` in `worker.js`; a secret set against an old deployment does nothing at all.
+
 ```bash
 # 1. Generate a secret
 openssl rand -hex 32
 
-# 2. Cloudflare Worker
+# 2. Cloudflare Worker — no global install needed, npx fetches wrangler on demand
 cd cloudflare/maintenance-worker
-wrangler secret put EDGE_SECRET     # paste it
+npx wrangler deploy                  # ships the header injection
+npx wrangler secret put EDGE_SECRET  # paste it
 
 # 3. Railway → Variables (same value)
 Edge__Secret = <the same value>
 ```
 
-If the two disagree the app stops trusting forwarded addresses and quietly goes back to limiting on
-the load balancer. Nothing breaks and nothing warns, so treat rotation as a two-sided change.
+Without any CLI at all, both halves are reachable from the Cloudflare dashboard: Workers & Pages →
+`moogleapi-maintenance` → Settings → Variables and Secrets → Add → type **Secret**, name
+`EDGE_SECRET`; and the same page's code editor for `worker.js`. Pasting the file by hand is the
+worse path, but it works when there is no terminal to hand.
+
+If the two values disagree the app stops trusting forwarded addresses and quietly goes back to
+limiting on the load balancer. Nothing breaks and nothing warns, so treat rotation as a two-sided
+change.
 
 **Verifying it took**, once both are deployed: hit the site through Cloudflare a few times, then
 check that `/stats` shows a "Busiest Clients" list that grows with real traffic rather than sitting
