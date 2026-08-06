@@ -22,8 +22,10 @@ const FAILURE_STATUSES = new Set([502, 503, 504, 521, 522, 523, 524, 525, 526]);
 const RETRY_DELAY_MS = 1500;
 
 export default {
-  async fetch(request) {
-    let response = await tryOrigin(request);
+  async fetch(request, env) {
+    const proxied = withEdgeSecret(request, env);
+
+    let response = await tryOrigin(proxied);
 
     // Only replay methods that are safe to run twice. A retried POST could double
     // a daily-guess submission, which is worse than showing the maintenance page.
@@ -32,7 +34,7 @@ export default {
     if (response === null || FAILURE_STATUSES.has(response.status)) {
       if (isReplayable) {
         await sleep(RETRY_DELAY_MS);
-        const second = await tryOrigin(request);
+        const second = await tryOrigin(proxied);
         if (second !== null && !FAILURE_STATUSES.has(second.status)) return second;
         response = second;
       }
@@ -42,6 +44,33 @@ export default {
     return response;
   },
 };
+
+/**
+ * Stamps the request with the shared secret that tells the origin this call really came
+ * through Cloudflare, so it can believe CF-Connecting-IP and rate-limit the actual caller.
+ *
+ * Without this the origin has no usable identity for a request: Railway terminates at its
+ * own load balancer, so the peer address the app sees is one of about twenty internal
+ * 100.64.x addresses shared by everybody. X-Forwarded-For can't fill the gap either —
+ * Cloudflare appends to whatever the caller sends, so its first entry is caller-controlled.
+ *
+ * The header is always set or deleted, never passed through: Railway answers on its own
+ * *.up.railway.app hostname too, and a caller who could forge this on that path would be
+ * choosing their own rate-limit bucket. Overwriting here means anything inbound is discarded.
+ */
+function withEdgeSecret(request, env) {
+  const proxied = new Request(request);
+
+  if (env && env.EDGE_SECRET) {
+    proxied.headers.set('X-Moogle-Edge', env.EDGE_SECRET);
+  } else {
+    // No secret configured: strip it rather than forward a caller's own value. The origin
+    // then falls back to the peer address, which is imprecise but not attacker-chosen.
+    proxied.headers.delete('X-Moogle-Edge');
+  }
+
+  return proxied;
+}
 
 async function tryOrigin(request) {
   try {

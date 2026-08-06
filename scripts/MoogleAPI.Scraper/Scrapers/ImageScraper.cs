@@ -8,7 +8,7 @@ namespace MoogleAPI.Scraper.Scrapers;
 /// Copies every piece of artwork the API points at into our own bucket.
 /// </summary>
 /// <remarks>
-/// Until this runs, the API serves URLs on the wiki's CDN — which hotlink-blocks any request
+/// Until this runs, the API serves URLs on somebody else's CDN — which hotlink-blocks any request
 /// carrying a Referer, meaning every consumer has to remember to suppress it, and any change
 /// on their side breaks every image at once. Once copied, the URLs are ours and stable.
 /// <para>

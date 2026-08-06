@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using MoogleAPI.Web.Infrastructure.Data;
 using MoogleAPI.Web.Infrastructure.Models;
 using MoogleAPI.Web.Infrastructure.RateLimiting;
 
@@ -8,8 +5,9 @@ namespace MoogleAPI.Web.Infrastructure.Middleware;
 
 public class RequestLoggingMiddleware(
     RequestDelegate next,
-    IServiceScopeFactory scopeFactory,
-    ApiKeyValidator apiKeys)
+    RequestLogWriter writer,
+    ApiKeyValidator apiKeys,
+    ClientIpResolver clientIps)
 {
     public async Task InvokeAsync(HttpContext context)
     {
@@ -40,38 +38,23 @@ public class RequestLoggingMiddleware(
         // the response is done and the context is no longer ours to read.
         var isPremium = apiKeys.ResolveKey(context.Request) is not null;
 
-        // Fire-and-forget: never slow down the response for logging
-        _ = WriteLogAsync(context, path, durationMs, isPremium);
-    }
-
-    private async Task WriteLogAsync(HttpContext context, string path, int durationMs, bool isPremium)
-    {
-        try
+        writer.Write(new RequestLog
         {
-            using var scope = scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            db.RequestLogs.Add(new RequestLog
-            {
-                Timestamp = DateTime.UtcNow,
-                Path = path,
-                Method = context.Request.Method,
-                StatusCode = context.Response.StatusCode,
-                DurationMs = durationMs,
-                ResourceType = ExtractResourceType(path),
-                SearchTerm = context.Request.Query["query"].FirstOrDefault(),
-                // Recognized key, not merely a present header — otherwise the premium share in
-                // /api/stats counts anyone who sent the header, valid or not.
-                IsPremium = isPremium,
-                IpHash = HashIp(context.Connection.RemoteIpAddress?.ToString()),
-            });
-
-            await db.SaveChangesAsync();
-        }
-        catch
-        {
-            // Logging must never surface errors to the caller
-        }
+            Timestamp = DateTime.UtcNow,
+            Path = path,
+            Method = context.Request.Method,
+            StatusCode = context.Response.StatusCode,
+            DurationMs = durationMs,
+            ResourceType = ExtractResourceType(path),
+            SearchTerm = context.Request.Query["query"].FirstOrDefault(),
+            // Recognized key, not merely a present header — otherwise the premium share in
+            // /api/stats counts anyone who sent the header, valid or not.
+            IsPremium = isPremium,
+            // The caller, not the load balancer — see ClientIpResolver for why the peer address
+            // was neither. Rows written before that fix hash Railway's internal pool instead, so
+            // per-client figures are only meaningful from the deploy onward.
+            IpHash = RequestLogWriter.HashIp(clientIps.Resolve(context.Request)),
+        });
     }
 
     private static string? ExtractResourceType(string path)
@@ -79,12 +62,5 @@ public class RequestLoggingMiddleware(
         // "/api/characters/search" → "characters"
         var parts = path.TrimStart('/').Split('/');
         return parts.Length >= 2 ? parts[1] : null;
-    }
-
-    private static string HashIp(string? ip)
-    {
-        if (ip is null) return "unknown";
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(ip));
-        return Convert.ToHexString(bytes)[..16];
     }
 }

@@ -50,7 +50,7 @@ public record ImageStoreOptions(
 /// Copies artwork into Cloudflare R2, re-encoded on the way in.
 /// </summary>
 /// <remarks>
-/// Storing the wiki's originals verbatim would be roughly 4.6 GB across the library and would
+/// Storing the source originals verbatim would be roughly 4.6 GB across the library and would
 /// serve megabyte PNGs to phones. Resizing to a sane bound and re-encoding as WebP lands the
 /// whole set near 0.5 GB while still being sharper than the 400px thumbnails half the rows
 /// currently point at.
@@ -120,7 +120,7 @@ public class ImageStore(ImageStoreOptions options, HttpClient http, ILogger<Imag
     {
         try
         {
-            // No Referer: the wiki's CDN rejects any request that carries one.
+            // No Referer: the source CDN rejects any request that carries one.
             using var response = await http.GetAsync(OriginalOf(sourceUrl), ct);
             if (!response.IsSuccessStatusCode)
             {
@@ -150,7 +150,7 @@ public class ImageStore(ImageStoreOptions options, HttpClient http, ILogger<Imag
             return key;
         }
         // A missing image is never fatal to a run — including when the source is not a URL at
-        // all. Not every row's provenance comes from the wiki now: the dashboard records a
+        // all. Not every row's provenance is a remote URL: the dashboard records a
         // hand-upload by writing what it did into ImageSourceUrl, and a forced re-copy hands
         // that straight to HttpClient, which rejects a non-absolute address before any request
         // leaves the process. Uncaught, one such row would take the whole image stage down with

@@ -81,8 +81,8 @@ public class ImageReverter(AppDbContext db, ImageStore store, ILogger<ImageRever
     /// Where a row's artwork should point once the generated version is withdrawn.
     /// </summary>
     /// <remarks>
-    /// The copy the image stage made of the wiki's original, which promotion never touched — it
-    /// only re-pointed the column, so the file is still at its own address. The scraped wiki URL
+    /// The copy the image stage made of the original, which promotion never touched — it only
+    /// re-pointed the column, so the file is still at its own address. The recorded source URL
     /// is the fallback, and it is a poor one: that CDN blocks any request carrying a Referer,
     /// which is the whole reason the images were copied here. Better than a row with no picture.
     /// Null means neither exists, and the caller must leave the row alone.

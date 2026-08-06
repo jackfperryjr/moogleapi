@@ -6,16 +6,14 @@ using MoogleAPI.Scraper;
 using MoogleAPI.Scraper.Scrapers;
 using MoogleAPI.Web.Infrastructure.Data;
 
-// This was a wiki scraper. It is now an artwork tool, and it keeps the name only because
-// renaming a project is noisier than the clarity would be worth.
+// The artwork tool. It keeps the project name only because renaming one is noisier than the
+// clarity would be worth.
 //
-// The stages that built the catalogue out of Final Fantasy Wiki — games, characters, playable,
-// monsters, cards, repair — are gone. They finished. What they produced has since been corrected
-// and curated by hand, and every one of them matched rows by wiki page name rather than by id,
-// so a re-run could only undo that work: deleted rows returned, renamed rows arrived a second
-// time, and hand-scored popularity was overwritten on sight. New rows are added through the
-// dashboard now, one at a time, with the wiki available as something to import from rather than
-// as the authority.
+// The stages that first populated the catalogue are gone. They were a seeder: they ran, they
+// finished, and what they produced has since been corrected and curated by hand. They also
+// matched rows by page name rather than by id, so a re-run could only undo that work — deleted
+// rows returned, renamed rows arrived a second time, and hand-scored popularity was overwritten
+// on sight. Rows are added through the dashboard now, one at a time, by a person.
 //
 // What remains is the part that has not finished, because it is about pixels rather than facts:
 // copying art into R2, classifying what each picture actually is, and paying Gemini to replace
