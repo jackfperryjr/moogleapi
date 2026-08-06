@@ -636,6 +636,18 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// project already has ImageSharp, so compositing one is deterministic, adjustable without
     /// paying for a new image, and correct every time.
     /// </para>
+    /// <para>
+    /// The RESOLUTION and GEOMETRY clauses are aimed at a failure the earlier wording caused
+    /// rather than prevented. Sprite-sourced art came back with smooth linework and clean cel
+    /// shading — the anti-pixel instruction worked — but with the forms themselves still made of
+    /// squares: bones as chains of boxes, ribcages as stacked rectangles, a sword blade stepping
+    /// down in right angles. Two lines were asking for it. <c>PRESERVE</c> led with "silhouette",
+    /// and RESOLUTION called the reference "a specification of shape" — so the most compliant
+    /// thing the model could do with a 48-pixel Bloodbones was to trace its grid at high
+    /// resolution. Shape fidelity is now stated as identity and proportion rather than contour,
+    /// and the blockiness is named as geometry to discard, not merely as texture to smooth.
+    /// Verified against gen/monsters/15.webp, which is what prompted the change.
+    /// </para>
     /// </remarks>
     private static string BuildPrompt(Candidate c)
     {
@@ -649,11 +661,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
             Use the attached image as the definitive visual reference for what the subject looks like.
 
-            PRESERVE: silhouette, proportions, colour palette, and every distinguishing feature — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features absent from the reference.
+            PRESERVE: proportions, colour palette, and every distinguishing feature — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features absent from the reference.
 
             IGNORE from the reference: menus, health bars, damage numbers, spell effects, other characters, and any scenery. Those are artefacts of a screenshot, not the subject.
 
-            RESOLUTION: the reference may be a low-resolution sprite. Its blockiness is a hardware limit of the era it was drawn for, not a design choice — read it as a specification of shape, proportion and colour, never as a rendering style. Draw at full fidelity: smooth confident linework and clean edges, with no visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
+            RESOLUTION: the reference may be a low-resolution sprite. Its blockiness is a hardware limit of the era it was drawn for, not a design choice. At that size every edge was forced onto a square grid, so its outline is an artefact of that grid and not the subject's true shape — read the reference for which parts exist, their colours and their proportions, never for its contour and never as a rendering style. Draw at full fidelity: smooth confident linework and clean edges, with no visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
+
+            GEOMETRY: nothing in the picture is built from squares, rectangles, bars or stacked boxes, and no organic form carries a right angle or a stepped, notched or staircase edge. Every diagonal is a true diagonal and every curve a true curve. Bones taper and have rounded ends and real joints, limbs vary in thickness along their length, and blades have a continuous straight edge and a point. Where the reference shows a form as a rectangle, that is the grid approximating something rounded, tapered or angled — draw the real thing.
 
             STYLE: clean modern anime-influenced digital illustration. Crisp confident linework, cel shading with soft gradient falloff, bright even high-key lighting, saturated subject colours. Polished commercial trading-card art.
 
