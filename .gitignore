@@ -15,6 +15,11 @@ appsettings.Local.json
 appsettings.*.Local.json
 appsettings.Production.json
 
+## Cloudflare
+# Wrangler's local cache. It records which account the last deploy ran against, which is
+# machine-specific and belongs to whoever ran it, not to the project.
+.wrangler/
+
 ## OS
 .DS_Store
 Thumbs.db
