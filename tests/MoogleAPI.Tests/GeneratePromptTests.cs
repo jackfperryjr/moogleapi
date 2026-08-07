@@ -9,6 +9,11 @@ namespace MoogleAPI.Tests;
 /// </summary>
 public class GeneratePromptTests
 {
+    private static ImageGenerator.Brief Brief(string text = "A rounded violet slime.",
+                                              bool standing = true, int figures = 1,
+                                              bool dark = false) =>
+        new(text, standing, figures, dark);
+
     private static ImageGenerator.Candidate Subject(string? setting = "a sunken grotto") =>
         new("monsters", 1510, "Blood Slime", "Final Fantasy IV", "monster",
             "Cutout", "A gelatinous mass.", setting, "https://example.test/1510.webp");
@@ -16,28 +21,44 @@ public class GeneratePromptTests
     // ---- the style the library is supposed to be in -------------------------------------------
 
     /// <summary>
-    /// The clause used to ask for "clean modern anime-influenced digital illustration ... cel
-    /// shading ... bright even high-key lighting". That is the look Jack rejected by name in Refia,
-    /// Dio and Cloud, and the painterly images in the library happened in spite of it.
+    /// The target is Jack's 22-image sample of 2026-08-07 (mostly FF1-FF6 characters): clean anime
+    /// linework with soft blended shading, a light pastel low-contrast palette, and a soft-focus
+    /// background. It sits between two wordings that were both tried and both wrong — the original
+    /// "cel shading ... bright even high-key lighting ... polished commercial trading-card art",
+    /// which produced the glossy look he rejected, and set 138's "soft painterly ... visible
+    /// brushwork", which overshot into loose painting.
     /// </summary>
     [Theory]
-    [InlineData("anime-influenced")]
     [InlineData("cel shading")]
     [InlineData("high-key")]
     [InlineData("saturated subject colours")]
-    public void Does_not_ask_for_the_rejected_glossy_style(string banned)
+    [InlineData("polished commercial")]
+    [InlineData("visible brushwork")]
+    public void Does_not_ask_for_either_wording_that_missed(string banned)
     {
         Assert.DoesNotContain(banned, ImageGenerator.BuildPrompt(Subject()),
                               StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
-    [InlineData("soft painterly")]
-    [InlineData("visible brushwork")]
-    [InlineData("muted")]
-    public void Asks_for_the_painterly_house_style(string wanted)
+    [InlineData("blended")]
+    [InlineData("pastel")]
+    [InlineData("low contrast")]
+    public void Asks_for_the_target_style(string wanted)
     {
         Assert.Contains(wanted, ImageGenerator.BuildPrompt(Subject()),
+                        StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The four drifts the scorer measures are each ruled out by name.</summary>
+    [Theory]
+    [InlineData("not loose watercolour")]
+    [InlineData("not an unfinished sketch")]
+    [InlineData("not flat cartoon cel")]
+    [InlineData("not photorealistic")]
+    public void Rules_out_each_measured_drift(string clause)
+    {
+        Assert.Contains(clause, ImageGenerator.BuildPrompt(Subject()),
                         StringComparison.OrdinalIgnoreCase);
     }
 
@@ -52,9 +73,12 @@ public class GeneratePromptTests
     {
         var prompt = ImageGenerator.BuildPrompt(Subject());
 
-        Assert.Contains("fully painted environment", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("painted environment", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("never a blank, white or empty backdrop", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("atmospheric wash", prompt, StringComparison.OrdinalIgnoreCase);
+
+        // …but subordinate to the figure. "background" was the drift on 84 characters.
+        Assert.Contains("never compete with it", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -76,7 +100,7 @@ public class GeneratePromptTests
     [InlineData("IGNORE from the reference")]
     public void A_brief_removes_every_clause_that_needs_the_picture(string clause)
     {
-        var prompt = ImageGenerator.BuildPrompt(Subject(), brief: "A rounded violet slime.");
+        var prompt = ImageGenerator.BuildPrompt(Subject(), Brief());
 
         Assert.DoesNotContain(clause, prompt, StringComparison.OrdinalIgnoreCase);
     }
@@ -84,10 +108,10 @@ public class GeneratePromptTests
     [Fact]
     public void A_brief_carries_the_identity_instead()
     {
-        var brief = "A rounded violet slime with two orange eyes and a wide grin.";
-        var prompt = ImageGenerator.BuildPrompt(Subject(), brief);
+        var text = "A rounded violet slime with two orange eyes and a wide grin.";
+        var prompt = ImageGenerator.BuildPrompt(Subject(), Brief(text));
 
-        Assert.Contains(brief, prompt);
+        Assert.Contains(text, prompt);
         Assert.Contains("named in the brief", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -102,15 +126,110 @@ public class GeneratePromptTests
 
     /// <summary>Both modes still have to forbid the artefact and the watermark.</summary>
     [Theory]
-    [InlineData(null)]
-    [InlineData("A rounded violet slime.")]
-    public void Both_modes_forbid_blockiness_and_glyphs(string? brief)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Both_modes_forbid_blockiness_and_glyphs(bool withBrief)
     {
-        var prompt = ImageGenerator.BuildPrompt(Subject(), brief);
+        var prompt = ImageGenerator.BuildPrompt(Subject(), withBrief ? Brief() : null);
 
         Assert.Contains("no visible pixels", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("No glyph of any kind", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("portrait, 3:4", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ---- what the brief reports about the subject ------------------------------------------------
+
+    /// <summary>
+    /// The mid-thigh crop only means anything for one upright figure. Asking for it on an airship
+    /// produced exactly that — a ship cut off at the thigh — on Phoenix and Nyunkrepf.
+    /// </summary>
+    [Fact]
+    public void A_subject_that_is_not_a_standing_figure_is_not_cropped()
+    {
+        var character = new ImageGenerator.Candidate(
+            "characters", 2530, "Phoenix", "Final Fantasy XIV", "character",
+            "Flat", "An airship.", "the sky", "https://example.test/2530.webp");
+
+        var ship = ImageGenerator.BuildPrompt(character, Brief(standing: false));
+        var person = ImageGenerator.BuildPrompt(character, Brief(standing: true));
+
+        Assert.DoesNotContain("cut at mid-thigh", ship, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("fully visible, nothing running off any edge", ship, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cut at mid-thigh", person, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// "Kings of Lucis" — a crowd — came back from its brief as one swordsman and scored 85 on
+    /// style, because style scoring cannot see a subject going missing. The count is stated as a
+    /// requirement rather than left to the prose.
+    /// </summary>
+    [Fact]
+    public void A_group_carries_its_figure_count_as_an_instruction()
+    {
+        var many = ImageGenerator.BuildPrompt(Subject(), Brief(figures: 7));
+
+        Assert.Contains("exactly 7 figures", many);
+        Assert.Contains("Do not reduce them to one", many);
+    }
+
+    [Fact]
+    public void A_single_subject_gets_no_count_clause()
+    {
+        Assert.DoesNotContain("COUNT:", ImageGenerator.BuildPrompt(Subject(), Brief(figures: 1)));
+    }
+
+    /// <summary>
+    /// Jack, 2026-08-07: "Villains and demons can be dark, but keeping the style constraints." So
+    /// the palette moves and nothing else does.
+    /// </summary>
+    [Fact]
+    public void A_dark_subject_keeps_the_style_but_loses_the_pastel_palette()
+    {
+        var villain = ImageGenerator.BuildPrompt(Subject(), Brief(dark: true));
+
+        Assert.Contains("low-key and sombre", villain, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("slightly pastel", villain, StringComparison.OrdinalIgnoreCase);
+
+        // Dark is not grey. Left implicit, "low-key and sombre" produced a monochrome Chaos.
+        Assert.Contains("FULLY COLOURED", villain, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("never a grey, monochrome or desaturated picture", villain,
+                        StringComparison.OrdinalIgnoreCase);
+
+        // The rest of the house style is untouched.
+        Assert.Contains("blended", villain, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no harsh cel bands", villain, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not photorealistic", villain, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void An_ordinary_subject_keeps_the_light_palette()
+    {
+        Assert.Contains("slightly pastel", ImageGenerator.BuildPrompt(Subject(), Brief(dark: false)),
+                        StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Promathia came back as a model sheet — one figure, several studies and annotations on bare
+    /// paper. A catalogue needs one finished picture, in every mode.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Never_a_character_sheet_or_turnaround(bool withBrief)
+    {
+        var prompt = ImageGenerator.BuildPrompt(Subject(), withBrief ? Brief() : null);
+
+        Assert.Contains("Never a character sheet, turnaround", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no repeated views of the subject", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("figures")]
+    [InlineData("single_standing_figure")]
+    [InlineData("dark_subject")]
+    public void The_brief_request_asks_for_each_signal(string field)
+    {
+        Assert.Contains(field, ImageGenerator.BuildBriefPrompt(Subject()));
     }
 
     // ---- the brief request ----------------------------------------------------------------------
