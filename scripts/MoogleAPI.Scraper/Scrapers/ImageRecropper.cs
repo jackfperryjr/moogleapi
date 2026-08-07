@@ -169,13 +169,34 @@ public class ImageRecropper(AppDbContext db, ImageStore store, ILogger<ImageRecr
 
         var restored = 0;
         var missing = 0;
+        var superseded = 0;
 
         foreach (var row in rows)
         {
             ct.ThrowIfCancellationRequested();
 
             var backupKey = $"{BackupPrefix}/characters/{row.Id}.webp";
-            if (!await store.ExistsAsync(backupKey, ct)) { missing++; continue; }
+            var liveKey = $"gen/characters/{row.Id}.webp";
+
+            var backupAt = await store.LastModifiedAsync(backupKey, ct);
+            if (backupAt is null) { missing++; continue; }
+
+            // A live image newer than its backup was not put there by the crop — someone replaced
+            // it deliberately afterwards. Restoring would throw that away, which is the opposite
+            // of what an undo is for. Elena is the case that produced this: her character row was
+            // repointed at the enemy artwork three hours after the crop ran, so the "original"
+            // held here is a picture nobody wants back. Drop the backup instead and leave the
+            // live image alone.
+            var liveAt = await store.LastModifiedAsync(liveKey, ct);
+            if (liveAt is not null && liveAt > backupAt.Value.AddMinutes(1))
+            {
+                await store.DeleteAsync(backupKey, ct);
+                superseded++;
+                logger.LogInformation(
+                    "  c{Id} {Name} — live image is newer than the backup; kept it and dropped the backup.",
+                    row.Id, row.Name);
+                continue;
+            }
 
             var bust = $"?cb={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
             if (await store.CopyAsync(store.PublicUrlFor(backupKey) + bust,
@@ -191,8 +212,9 @@ public class ImageRecropper(AppDbContext db, ImageStore store, ILogger<ImageRecr
         }
 
         logger.LogInformation(
-            "Uncrop complete — {Restored} restored, {Missing} had no backup (never cropped).",
-            restored, missing);
+            "Uncrop complete — {Restored} restored, {Superseded} left alone because the live image "
+            + "is newer than the backup, {Missing} had no backup (never cropped).",
+            restored, superseded, missing);
     }
 
     private sealed record Framing(bool IsFullBody, double CutAt);
