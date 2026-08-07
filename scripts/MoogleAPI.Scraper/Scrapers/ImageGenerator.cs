@@ -132,10 +132,24 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 var written = 0;
                 while (pending.TryDequeue(out var row))
                 {
+                    // FirstOrDefault, not First. The candidate list is read once at startup and a
+                    // batch runs for hours, so a row can be deleted through the dashboard while
+                    // its image is being made. First throws "Sequence contains no elements" on
+                    // that, and the throw escapes the whole run — which on 2026-08-07 abandoned
+                    // 1,676 images that were already generated and paid for, because promotion
+                    // happens after generation returns. One missing row is not worth a batch.
                     if (row.Folder == "monsters")
-                        (await db.Monsters.FirstAsync(m => m.Id == row.Id, ct)).GeneratedImageUrl = row.Url;
+                    {
+                        var monster = await db.Monsters.FirstOrDefaultAsync(m => m.Id == row.Id, ct);
+                        if (monster is null) { WarnVanished(row); continue; }
+                        monster.GeneratedImageUrl = row.Url;
+                    }
                     else
-                        (await db.Characters.FirstAsync(c => c.Id == row.Id, ct)).GeneratedImageUrl = row.Url;
+                    {
+                        var character = await db.Characters.FirstOrDefaultAsync(c => c.Id == row.Id, ct);
+                        if (character is null) { WarnVanished(row); continue; }
+                        character.GeneratedImageUrl = row.Url;
+                    }
                     written++;
                 }
 
@@ -146,6 +160,14 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             }
             finally { dbGate.Release(); }
         }
+
+        // The object is in the bucket and is still at its final address, so a later run adopts it
+        // for free rather than paying again. Only the column is lost, and only for a row that no
+        // longer exists to carry it.
+        void WarnVanished((string Folder, int Id, string Url) row) =>
+            logger.LogWarning(
+                "  ! {Folder}/{Id} no longer exists — image kept in the bucket, column not written.",
+                row.Folder, row.Id);
 
         // Counting the flush trigger rather than testing the queue length keeps a flush that
         // races with an enqueue from writing the same row twice: the queue is the only owner.

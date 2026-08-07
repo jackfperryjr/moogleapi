@@ -96,18 +96,47 @@ if (stages is not null && stages.Contains("audit"))
 
 // Replaces artwork that is wrong for a catalogue. Costs money per image, so it is capped and
 // never runs by default — it has to be asked for by name.
-if (stages is not null && stages.Contains("generate"))
-    await scope.ServiceProvider.GetRequiredService<ImageGenerator>()
-        .GenerateAsync(ImageClassifier.ParseKinds(kindsArg), maxImages, force);
-
-// Copies generated art over the served URL. Generating now implies promoting: art that was
-// paid for and left sitting in GeneratedImageUrl helps nobody, and the review-before-live step
-// this used to require was never the thing standing between a bad image and the catalogue —
-// `unpromote` is, and it still puts the originals back and deletes the generated art.
 //
-// Worth knowing: this promotes *every* row holding generated art, not only the rows this run
+// Generating implies promoting: art that was paid for and left sitting in GeneratedImageUrl
+// helps nobody, and the review-before-live step this used to require was never the thing
+// standing between a bad image and the catalogue — `unpromote` is, and it still puts the
+// originals back and deletes the generated art.
+//
+// The promote is in a finally rather than on the next line, because "next line" is exactly what
+// failed. Set 131 made generating imply promoting as two sequential statements, so anything that
+// threw inside generation skipped it — and on 2026-08-07 one deleted row did precisely that,
+// stranding 1,676 generated images at roughly $62 until promote was run by hand. Whatever a run
+// managed to buy before it died still goes live.
+var generating = stages is not null && stages.Contains("generate");
+
+if (generating)
+{
+    var generator = scope.ServiceProvider.GetRequiredService<ImageGenerator>();
+    try
+    {
+        await generator.GenerateAsync(ImageClassifier.ParseKinds(kindsArg), maxImages, force);
+    }
+    finally
+    {
+        // Best effort, and never allowed to replace the failure that got us here: a promote
+        // that throws inside a finally would swallow the original exception and report the
+        // wrong cause.
+        try
+        {
+            await generator.PromoteAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Promote failed after generation. Rerun with --only=promote — it is free and idempotent.");
+        }
+    }
+}
+
+// Promotion on its own, for art from a run that predates the automatic promote above.
+//
+// Worth knowing: this promotes *every* row holding generated art, not only the rows a run
 // produced. Anything deliberately generated and left unpromoted earlier goes live too.
-if (stages is not null && (stages.Contains("promote") || stages.Contains("generate")))
+else if (stages is not null && stages.Contains("promote"))
     await scope.ServiceProvider.GetRequiredService<ImageGenerator>().PromoteAsync();
 
 // Puts the served URLs back on the copied originals and deletes the generated art. Destructive
