@@ -132,10 +132,24 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 var written = 0;
                 while (pending.TryDequeue(out var row))
                 {
+                    // FirstOrDefault, not First. The candidate list is read once at startup and a
+                    // batch runs for hours, so a row can be deleted through the dashboard while
+                    // its image is being made. First throws "Sequence contains no elements" on
+                    // that, and the throw escapes the whole run — which on 2026-08-07 abandoned
+                    // 1,676 images that were already generated and paid for, because promotion
+                    // happens after generation returns. One missing row is not worth a batch.
                     if (row.Folder == "monsters")
-                        (await db.Monsters.FirstAsync(m => m.Id == row.Id, ct)).GeneratedImageUrl = row.Url;
+                    {
+                        var monster = await db.Monsters.FirstOrDefaultAsync(m => m.Id == row.Id, ct);
+                        if (monster is null) { WarnVanished(row); continue; }
+                        monster.GeneratedImageUrl = row.Url;
+                    }
                     else
-                        (await db.Characters.FirstAsync(c => c.Id == row.Id, ct)).GeneratedImageUrl = row.Url;
+                    {
+                        var character = await db.Characters.FirstOrDefaultAsync(c => c.Id == row.Id, ct);
+                        if (character is null) { WarnVanished(row); continue; }
+                        character.GeneratedImageUrl = row.Url;
+                    }
                     written++;
                 }
 
@@ -146,6 +160,14 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             }
             finally { dbGate.Release(); }
         }
+
+        // The object is in the bucket and is still at its final address, so a later run adopts it
+        // for free rather than paying again. Only the column is lost, and only for a row that no
+        // longer exists to carry it.
+        void WarnVanished((string Folder, int Id, string Url) row) =>
+            logger.LogWarning(
+                "  ! {Folder}/{Id} no longer exists — image kept in the bucket, column not written.",
+                row.Folder, row.Id);
 
         // Counting the flush trigger rather than testing the queue length keeps a flush that
         // races with an enqueue from writing the same row twice: the queue is the only owner.
@@ -636,6 +658,18 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// project already has ImageSharp, so compositing one is deterministic, adjustable without
     /// paying for a new image, and correct every time.
     /// </para>
+    /// <para>
+    /// The RESOLUTION and GEOMETRY clauses are aimed at a failure the earlier wording caused
+    /// rather than prevented. Sprite-sourced art came back with smooth linework and clean cel
+    /// shading — the anti-pixel instruction worked — but with the forms themselves still made of
+    /// squares: bones as chains of boxes, ribcages as stacked rectangles, a sword blade stepping
+    /// down in right angles. Two lines were asking for it. <c>PRESERVE</c> led with "silhouette",
+    /// and RESOLUTION called the reference "a specification of shape" — so the most compliant
+    /// thing the model could do with a 48-pixel Bloodbones was to trace its grid at high
+    /// resolution. Shape fidelity is now stated as identity and proportion rather than contour,
+    /// and the blockiness is named as geometry to discard, not merely as texture to smooth.
+    /// Verified against gen/monsters/15.webp, which is what prompted the change.
+    /// </para>
     /// </remarks>
     private static string BuildPrompt(Candidate c)
     {
@@ -649,11 +683,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
             Use the attached image as the definitive visual reference for what the subject looks like.
 
-            PRESERVE: silhouette, proportions, colour palette, and every distinguishing feature — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features absent from the reference.
+            PRESERVE: proportions, colour palette, and every distinguishing feature — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features absent from the reference.
 
             IGNORE from the reference: menus, health bars, damage numbers, spell effects, other characters, and any scenery. Those are artefacts of a screenshot, not the subject.
 
-            RESOLUTION: the reference may be a low-resolution sprite. Its blockiness is a hardware limit of the era it was drawn for, not a design choice — read it as a specification of shape, proportion and colour, never as a rendering style. Draw at full fidelity: smooth confident linework and clean edges, with no visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
+            RESOLUTION: the reference may be a low-resolution sprite. Its blockiness is a hardware limit of the era it was drawn for, not a design choice. At that size every edge was forced onto a square grid, so its outline is an artefact of that grid and not the subject's true shape — read the reference for which parts exist, their colours and their proportions, never for its contour and never as a rendering style. Draw at full fidelity: smooth confident linework and clean edges, with no visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
+
+            GEOMETRY: nothing in the picture is built from squares, rectangles, bars or stacked boxes, and no organic form carries a right angle or a stepped, notched or staircase edge. Every diagonal is a true diagonal and every curve a true curve. Bones taper and have rounded ends and real joints, limbs vary in thickness along their length, and blades have a continuous straight edge and a point. Where the reference shows a form as a rectangle, that is the grid approximating something rounded, tapered or angled — draw the real thing.
 
             STYLE: clean modern anime-influenced digital illustration. Crisp confident linework, cel shading with soft gradient falloff, bright even high-key lighting, saturated subject colours. Polished commercial trading-card art.
 
