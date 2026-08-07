@@ -77,17 +77,6 @@ Both return two pictures: `imageUrl` is the full logo — the wide lockup with t
 and `thumbnailUrl` is the square emblem, the artwork alone. They are separate crops rather than
 two sizes of one image, so pick by shape, not by resolution.
 
-### Arena
-
-Powers [Battle Square](https://moogleapi.com/battle-square) — one character against eight consecutive waves of their own game's monsters.
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| `GET` | `/api/arena/roster` | Playable characters that can enter (`gameId`) |
-| `GET` | `/api/arena/run` | A day's eight waves (`characterId`, `level`, `date`) |
-
-Levels are **positions in a game's own stat distribution**, not absolute numbers — the series has no shared scale, so a Final Fantasy Goblin has 8 HP where a Final Fantasy XV Bomb has 5,600. Level 40 places a character above the same share of their game's monsters everywhere. `recommendedLevel` is solved against the day's actual waves rather than looked up.
-
 Full interactive docs at [`/scalar/v1`](https://moogleapi.com/scalar/v1).
 
 ---
@@ -144,27 +133,6 @@ MoogleApi.sln
 ```
 ---
 
-## 🤖 Data & Artwork
-
-The catalogue is curated by hand. Rows are added and edited through the private dashboard, one at
-a time, with a person deciding what belongs — there is no unattended job that rewrites the data on
-a timer, and no bulk import behind the current contents.
-
-What still runs on request is the artwork tool, dispatched manually from the **Artwork** workflow.
-Its stages are `images` (copy artwork into our own bucket and repoint the row), `audit` (classify
-what each image actually is), `generate` (replace it with an illustration in one house style) and
-`unpromote` (withdraw generated art and restore the original). `generate` costs money per image, so
-it takes an explicit ceiling with `--max` and never runs as part of an unnamed "all stages" pass.
-
-The two stages that spend money or throw it away can be aimed at named rows with
-`--ids=m31,c471` — `m` for a monster, `c` for a character, or `--ids=@file` for a long list.
-Without it `unpromote` withdraws *every* generated image, which is rarely what a run wants.
-
-Artwork is served from Cloudflare R2 at `images.moogleapi.com`. Keys derive from the row id, which
-is what makes a move between domains a database pass rather than a re-upload.
-
----
-
 ## ⚖️ Rate Limits
 
 | Tier | Limit | How |
@@ -175,16 +143,13 @@ is what makes a move between domains a database pass rather than a re-upload.
 Responses over the limit return `429 Too Many Requests`.
 
 Premium keys have to be issued — an unrecognized key isn't rejected, it just falls back to the
-anonymous limit, so the API stays usable if you send a stale one. Self-hosting? Set the
-allowlist with `ApiKeys__Keys__0`, `ApiKeys__Keys__1`, … With none set, everything is anonymous.
+anonymous limit, so the API stays usable if you send a stale one.
 
 ---
 
 ## 📜 Disclaimer
 
 MoogleAPI is a fan project and is not affiliated with or endorsed by Square Enix. All Final Fantasy names, characters, and related marks are trademarks of Square Enix Co., Ltd.
-
-The catalogue was originally seeded from the community-maintained [Final Fantasy Wiki](https://finalfantasy.fandom.com) and is maintained by hand from there on. That attribution stays while any of it remains: the wiki's text is CC BY-SA, which requires credit regardless of how much editing has happened since.
 
 ---
 
