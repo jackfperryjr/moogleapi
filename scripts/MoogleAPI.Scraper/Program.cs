@@ -60,7 +60,9 @@ if (imageOptions is null)
 // --kinds=x,y  which classes of bad image the generate stage replaces
 // --max=N      hard ceiling on images generated in one run, so a mistake cannot empty a budget
 // --ids=m1,c2  confine generate and unpromote to named rows; --ids=@file reads a long list
+// --describe   write a brief from the reference and draw from that, without the picture
 var force = args.Contains("--force", StringComparer.OrdinalIgnoreCase);
+var describe = args.Contains("--describe", StringComparer.OrdinalIgnoreCase);
 
 var onlyArg = args.FirstOrDefault(a => a.StartsWith("--only=", StringComparison.OrdinalIgnoreCase));
 var stages = onlyArg is null
@@ -132,7 +134,7 @@ if (generating)
     var generator = scope.ServiceProvider.GetRequiredService<ImageGenerator>();
     try
     {
-        await generator.GenerateAsync(ImageClassifier.ParseKinds(kindsArg), maxImages, force, ids);
+        await generator.GenerateAsync(ImageClassifier.ParseKinds(kindsArg), maxImages, force, ids, describe);
     }
     finally
     {

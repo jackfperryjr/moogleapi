@@ -67,6 +67,10 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     private static readonly string Model =
         Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.1-flash-lite-image";
 
+    /// <summary>Writes the brief in <c>--describe</c> runs. A text model, so it costs almost nothing.</summary>
+    private static readonly string DescribeModel =
+        Environment.GetEnvironmentVariable("GEMINI_TEXT_MODEL") ?? "gemini-3.5-flash-lite";
+
     /// <summary>Raised once the first unrecognised 429 body has been shown, so it is shown once.</summary>
     private int _loggedUnknownRefusal;
 
@@ -78,9 +82,15 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// narrowing it: naming rows outright is the more specific instruction, and combining the two
     /// silently drops any named row whose kind was not also listed.
     /// </param>
+    /// <param name="describe">
+    /// Draw from a written brief instead of from the reference picture. See
+    /// <see cref="DescribeAsync"/> for why a sprite reference has to be taken away rather than
+    /// argued with.
+    /// </param>
     /// <param name="ct">Cancellation token.</param>
     public async Task GenerateAsync(HashSet<ImageKind> kinds, int max, bool force,
-                                    IdSelection? only = null, CancellationToken ct = default)
+                                    IdSelection? only = null, bool describe = false,
+                                    CancellationToken ct = default)
     {
         var key = Environment.GetEnvironmentVariable("GEMINI_KEY");
         if (string.IsNullOrWhiteSpace(key))
@@ -96,8 +106,9 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         }
 
         logger.LogInformation(
-            "Generating for {Selection} via {Model}, at most {Max} images.",
-            only is null ? string.Join(", ", kinds) : $"{only} named by --ids", Model, max);
+            "Generating for {Selection} via {Model}, at most {Max} images{Described}.",
+            only is null ? string.Join(", ", kinds) : $"{only} named by --ids", Model, max,
+            describe ? $", drawn from briefs written by {DescribeModel}" : "");
 
         var candidates = await LoadCandidatesAsync(kinds, force, only, ct);
         logger.LogInformation("{Count} rows match this batch and have no generated replacement.", candidates.Count);
@@ -223,7 +234,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 byte[]? art;
                 try
                 {
-                    art = await RequestArtAsync(http, key, candidate, reference, ct);
+                    // The brief is written first and the picture then drawn without the reference.
+                    // A failed brief falls back to the reference rather than losing the row: worse
+                    // odds on the blockiness, but an image either way.
+                    var brief = describe ? await DescribeAsync(http, key, candidate, reference, ct) : null;
+
+                    art = await RequestArtAsync(
+                        http, key, candidate, brief is null ? reference : null, brief, ct);
                 }
                 catch (GenerationHaltedException ex)
                 {
@@ -308,7 +325,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             monsters.Count, characters.Count);
     }
 
-    private record Candidate(string Folder, int Id, string Name, string Game, string Subject,
+    internal record Candidate(string Folder, int Id, string Name, string Game, string Subject,
                              string? Kind, string? Description, string? Setting, string ImageUrl);
 
     private async Task<List<Candidate>> LoadCandidatesAsync(
@@ -363,7 +380,30 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         return null;
     }
 
-    private async Task<byte[]?> RequestArtAsync(
+    /// <summary>
+    /// Turns the reference picture into a written brief, so the illustration can be drawn without
+    /// ever showing the model the reference.
+    /// </summary>
+    /// <remarks>
+    /// Sprite blockiness survived every attempt to prohibit it in words — sets 122 and 136 both
+    /// tried, and set 136's GEOMETRY clause was verified on one image and then failed on the
+    /// population: of 250 blocky monsters regenerated under it on 2026-08-07, 110 came out clean
+    /// and 118 were still built from squares. The reason is that the reference is the strongest
+    /// signal in the request, and a 48px sprite gives the model a lattice to trace. Prohibiting
+    /// the lattice while still showing it is asking the model to ignore its best evidence.
+    /// <para>
+    /// Describing it first breaks the anchor: the identity survives as language and there is no
+    /// grid left to copy. Measured on the six worst cases, mean style fit went from 8 to 67, and
+    /// the blockiness vanished entirely — where the reference was left attached alongside the
+    /// brief it came straight back.
+    /// </para>
+    /// <para>
+    /// The prompt forbids the vocabulary of pixels rather than trusting the model to omit it. Left
+    /// to itself it writes "a blocky, pixelated creature", which puts the artefact back into the
+    /// illustration through the words instead of through the picture.
+    /// </para>
+    /// </remarks>
+    private async Task<string?> DescribeAsync(
         HttpClient http, string key, Candidate c, byte[] reference, CancellationToken ct)
     {
         var body = new
@@ -374,11 +414,71 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 {
                     parts = new object[]
                     {
-                        new { text = BuildPrompt(c) },
                         new { inline_data = new { mime_type = "image/webp", data = Convert.ToBase64String(reference) } },
+                        new { text = BuildBriefPrompt(c) },
                     },
                 },
             },
+            generationConfig = new { temperature = 0.2, maxOutputTokens = 2048 },
+        };
+
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{DescribeModel}:generateContent?key={key}";
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                using var response = await http.PostAsync(
+                    url, new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), ct);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    if ((int)response.StatusCode is 429 or >= 500)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5 * (attempt + 1)), ct);
+                        continue;
+                    }
+
+                    break;
+                }
+
+                using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+                var text = doc.RootElement
+                    .GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")
+                    .EnumerateArray()
+                    .Select(p => p.TryGetProperty("text", out var t) ? t.GetString() : null)
+                    .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+
+                if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
+                break;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                if (attempt == 2) break;
+                await Task.Delay(TimeSpan.FromSeconds(5 * (attempt + 1)), ct);
+            }
+        }
+
+        logger.LogWarning(
+            "  ! {Folder}/{Id} — could not write a brief; falling back to the reference picture.",
+            c.Folder, c.Id);
+
+        return null;
+    }
+
+    private async Task<byte[]?> RequestArtAsync(
+        HttpClient http, string key, Candidate c, byte[]? reference, string? brief, CancellationToken ct)
+    {
+        var promptParts = new List<object> { new { text = BuildPrompt(c, brief) } };
+
+        if (reference is not null)
+        {
+            promptParts.Add(new { inline_data = new { mime_type = "image/webp", data = Convert.ToBase64String(reference) } });
+        }
+
+        var body = new
+        {
+            contents = new[] { new { parts = promptParts.ToArray() } },
             generationConfig = new
             {
                 responseModalities = new[] { "IMAGE" },
@@ -685,9 +785,57 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// Verified against gen/monsters/15.webp, which is what prompted the change.
     /// </para>
     /// </remarks>
-    private static string BuildPrompt(Candidate c)
+    /// <summary>Asks for the creature in words, with the vocabulary of the artefact forbidden.</summary>
+    internal static string BuildBriefPrompt(Candidate c) => $"""
+        You are looking at reference art for "{c.Name}", a {c.Kind} from {c.Game}.
+
+        It is very likely a low-resolution sprite. Describe THE SUBJECT ITSELF, as though you had
+        seen it in the flesh, and brief an illustrator who will never see this image. They must be
+        able to draw it accurately from your words alone.
+
+        Describe, in this order and in plain prose:
+        - the overall body plan and silhouette: what kind of thing it is, how its mass is distributed, its posture and stance
+        - every distinguishing part: head, eyes, mouth, horns, limbs, wings, tail, shell, armour, weapons, markings — how many, where, what shape, how big relative to the body
+        - the exact colours and where each one sits, and the materials: chitin, fur, scale, metal, cloth, stone, slime, bone
+        - what it is doing in the pose, and how it moves
+
+        CRITICAL: the blockiness is an artefact of the display hardware, not the subject. Do not use
+        the words pixel, sprite, block, square, stair-step, dither, resolution, retro, 8-bit or
+        16-bit. Translate every jagged edge into the smooth organic form it was approximating — a
+        stepped diagonal is a smooth taper, a rectangular blob is a rounded mass, a notched outline
+        is a curve. Describe real anatomy with real curves.
+
+        IGNORE menus, health bars, damage numbers, spell effects, other characters and scenery.
+        Those are artefacts of a screenshot, not the subject.
+
+        200 words at most. Prose only, no headings and no lists.
+        """;
+
+    /// <param name="brief">
+    /// A written description standing in for the reference picture. When present the reference is
+    /// not attached at all, and the prompt has to lean on the brief for identity instead.
+    /// </param>
+    internal static string BuildPrompt(Candidate c, string? brief = null)
     {
         var setting = string.IsNullOrWhiteSpace(c.Setting) ? "its habitat" : c.Setting;
+
+        // What identity comes from, and the clauses that only make sense next to a picture.
+        var source = brief is null
+            ? $"""
+                Use the attached image as the definitive visual reference for what the subject looks like.
+
+                PRESERVE: proportions, colour palette, and every distinguishing feature — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features absent from the reference.
+
+                IGNORE from the reference: menus, health bars, damage numbers, spell effects, other characters, and any scenery. Those are artefacts of a screenshot, not the subject.
+
+                RESOLUTION: the reference may be a low-resolution sprite. Its blockiness is a hardware limit of the era it was drawn for, not a design choice. At that size every edge was forced onto a square grid, so its outline is an artefact of that grid and not the subject's true shape — read the reference for which parts exist, their colours and their proportions, never for its contour and never as a rendering style. Draw at full fidelity: smooth confident linework and clean edges, with no visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
+                """
+            : $"""
+                The illustrator's brief, written from the original reference:
+                {brief}
+
+                PRESERVE: the proportions, colour palette and every distinguishing feature named in the brief — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features the brief does not mention.
+                """;
 
         return $"""
             Illustrate a single Final Fantasy subject as trading-card art.
@@ -695,19 +843,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             SUBJECT: "{c.Name}" — a {c.Kind} from {c.Game}.
             {c.Description}
 
-            Use the attached image as the definitive visual reference for what the subject looks like.
+            {source}
 
-            PRESERVE: proportions, colour palette, and every distinguishing feature — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features absent from the reference.
+            GEOMETRY: nothing in the picture is built from squares, rectangles, bars or stacked boxes, and no organic form carries a right angle or a stepped, notched or staircase edge. Every diagonal is a true diagonal and every curve a true curve. Bones taper and have rounded ends and real joints, limbs vary in thickness along their length, and blades have a continuous straight edge and a point. No visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
 
-            IGNORE from the reference: menus, health bars, damage numbers, spell effects, other characters, and any scenery. Those are artefacts of a screenshot, not the subject.
+            STYLE: soft painterly digital illustration with visible brushwork and painted texture, in the manner of a fantasy storybook plate. Muted, gently warm, slightly desaturated palette. Even diffuse light and low contrast — no dramatic rim lighting, no deep black shadows, no glow, nothing neon or candy-bright. Light and airy rather than dark, grim or gritty. Describe form with soft brushstrokes rather than fine photographic surface detail: suggest scale, fur and metal instead of rendering every pore and scratch. Edges blend into the paint rather than sitting on top of it as inked contour. Not an anime cel, not a glossy promotional render, and not photorealistic.
 
-            RESOLUTION: the reference may be a low-resolution sprite. Its blockiness is a hardware limit of the era it was drawn for, not a design choice. At that size every edge was forced onto a square grid, so its outline is an artefact of that grid and not the subject's true shape — read the reference for which parts exist, their colours and their proportions, never for its contour and never as a rendering style. Draw at full fidelity: smooth confident linework and clean edges, with no visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
-
-            GEOMETRY: nothing in the picture is built from squares, rectangles, bars or stacked boxes, and no organic form carries a right angle or a stepped, notched or staircase edge. Every diagonal is a true diagonal and every curve a true curve. Bones taper and have rounded ends and real joints, limbs vary in thickness along their length, and blades have a continuous straight edge and a point. Where the reference shows a form as a rectangle, that is the grid approximating something rounded, tapered or angled — draw the real thing.
-
-            STYLE: clean modern anime-influenced digital illustration. Crisp confident linework, cel shading with soft gradient falloff, bright even high-key lighting, saturated subject colours. Polished commercial trading-card art.
-
-            COMPOSITION: the entire subject is inside the frame in a three-quarter view — every limb, wing and tail fully visible, nothing running off any edge. It fills most, but not all, of the picture. Behind it a soft low-contrast atmospheric wash suggesting {setting} — never a detailed scene, and nothing else set into it.
+            COMPOSITION: the entire subject is inside the frame in a three-quarter view — every limb, wing and tail fully visible, nothing running off any edge — and it is large in frame, filling most of the picture. Behind it a fully painted environment suggesting {setting}, with real depth and real forms, softly out of focus, in the same muted warm palette as the subject. The subject must sit inside a place: never a blank, white or empty backdrop, and never a plain flat gradient.
 
             DO NOT INCLUDE: any text, letters, numbers, numerals, words, logos, signatures, watermarks or UI. No glyph of any kind appears anywhere in the picture.
 
