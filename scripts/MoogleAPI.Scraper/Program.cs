@@ -41,6 +41,7 @@ if (imageOptions is not null)
     host.Services.AddScoped<ImageGenerator>();
     host.Services.AddScoped<ImageAuditor>();
     host.Services.AddScoped<ImageReverter>();
+    host.Services.AddScoped<ImageRecropper>();
 }
 
 var app = host.Build();
@@ -55,7 +56,8 @@ if (imageOptions is null)
     return 1;
 }
 
-// --only=x,y   restrict the run to named stages (images, audit, generate, promote, unpromote)
+// --only=x,y   restrict the run to named stages (images, audit, generate, promote, unpromote,
+//              recrop, uncrop)
 // --force      re-copy or re-classify rows that have already been done
 // --kinds=x,y  which classes of bad image the generate stage replaces
 // --max=N      hard ceiling on images generated in one run, so a mistake cannot empty a budget
@@ -165,6 +167,16 @@ else if (stages is not null && stages.Contains("promote"))
 // batch to adopt the very images that were just rejected.
 if (stages is not null && stages.Contains("unpromote"))
     await scope.ServiceProvider.GetRequiredService<ImageReverter>().RevertAsync(ids);
+
+// Re-frames full-body character art to the three-quarter crop. Free — it cuts pictures that are
+// already paid for — and reversible, because the uncropped original is copied to gen-uncropped/
+// before anything overwrites it. --max applies to crops made, not rows examined.
+if (stages is not null && stages.Contains("recrop"))
+    await scope.ServiceProvider.GetRequiredService<ImageRecropper>().RecropAsync(ids, force, maxImages);
+
+// The undo. Restores the uncropped originals and drops the backups.
+if (stages is not null && stages.Contains("uncrop"))
+    await scope.ServiceProvider.GetRequiredService<ImageRecropper>().UncropAsync(ids);
 
 logger.LogInformation("Image run complete — {Time}", DateTimeOffset.UtcNow);
 return 0;

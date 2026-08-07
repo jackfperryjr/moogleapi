@@ -819,6 +819,20 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     {
         var setting = string.IsNullOrWhiteSpace(c.Setting) ? "its habitat" : c.Setting;
 
+        // Characters are cropped, monsters are not. Asking for a whole figure produced head-to-toe
+        // portraits standing small in the middle of the canvas — Refia, Cloud, Dio and Elena — when
+        // what Jack picked out was Arc and Luneth, cut at mid-thigh and filling the frame. The same
+        // instruction is right for a monster, though: a bestiary picture that crops off the tail
+        // has lost the thing it is for.
+        var composition = c.Folder == "characters"
+            ? "COMPOSITION: a three-quarter crop — the figure is cut at mid-thigh, above the knees, "
+              + "and FILLS the frame from top to bottom, head near the upper edge with only a little "
+              + "headroom. Do not draw the whole body; do not leave empty space above the head or "
+              + "below the figure. Turned three-quarters towards the viewer."
+            : "COMPOSITION: the entire subject is inside the frame in a three-quarter view — every "
+              + "limb, wing and tail fully visible, nothing running off any edge — and it is large "
+              + "in frame, filling most of the picture.";
+
         // What identity comes from, and the clauses that only make sense next to a picture.
         var source = brief is null
             ? $"""
@@ -849,7 +863,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
             STYLE: soft painterly digital illustration with visible brushwork and painted texture, in the manner of a fantasy storybook plate. Muted, gently warm, slightly desaturated palette. Even diffuse light and low contrast — no dramatic rim lighting, no deep black shadows, no glow, nothing neon or candy-bright. Light and airy rather than dark, grim or gritty. Describe form with soft brushstrokes rather than fine photographic surface detail: suggest scale, fur and metal instead of rendering every pore and scratch. Edges blend into the paint rather than sitting on top of it as inked contour. Not an anime cel, not a glossy promotional render, and not photorealistic.
 
-            COMPOSITION: the entire subject is inside the frame in a three-quarter view — every limb, wing and tail fully visible, nothing running off any edge — and it is large in frame, filling most of the picture. Behind it a fully painted environment suggesting {setting}, with real depth and real forms, softly out of focus, in the same muted warm palette as the subject. The subject must sit inside a place: never a blank, white or empty backdrop, and never a plain flat gradient.
+            {composition} Behind it a fully painted environment suggesting {setting}, with real depth and real forms, softly out of focus, in the same muted warm palette as the subject. The subject must sit inside a place: never a blank, white or empty backdrop, and never a plain flat gradient.
 
             DO NOT INCLUDE: any text, letters, numbers, numerals, words, logos, signatures, watermarks or UI. No glyph of any kind appears anywhere in the picture.
 
