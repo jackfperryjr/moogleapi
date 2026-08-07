@@ -59,6 +59,7 @@ if (imageOptions is null)
 // --force      re-copy or re-classify rows that have already been done
 // --kinds=x,y  which classes of bad image the generate stage replaces
 // --max=N      hard ceiling on images generated in one run, so a mistake cannot empty a budget
+// --ids=m1,c2  confine generate and unpromote to named rows; --ids=@file reads a long list
 var force = args.Contains("--force", StringComparer.OrdinalIgnoreCase);
 
 var onlyArg = args.FirstOrDefault(a => a.StartsWith("--only=", StringComparison.OrdinalIgnoreCase));
@@ -74,6 +75,23 @@ var kindsArg = args.FirstOrDefault(a => a.StartsWith("--kinds=", StringCompariso
 var maxImages = int.TryParse(
     args.FirstOrDefault(a => a.StartsWith("--max=", StringComparison.OrdinalIgnoreCase))?["--max=".Length..],
     out var parsedMax) ? parsedMax : 25;
+
+// Parsed before anything runs, and allowed to stop the run. A malformed entry in a list of
+// hundreds must not be read as "no restriction" — that is the difference between withdrawing
+// 250 images and withdrawing every one in the library.
+IdSelection? ids;
+try
+{
+    ids = IdSelection.Parse(
+        args.FirstOrDefault(a => a.StartsWith("--ids=", StringComparison.OrdinalIgnoreCase))?["--ids=".Length..]);
+}
+catch (Exception ex) when (ex is ArgumentException or IOException)
+{
+    logger.LogError("{Message}", ex.Message);
+    return 1;
+}
+
+if (ids is not null) logger.LogInformation("Restricted by --ids to {Selection}.", ids);
 
 await using var scope = app.Services.CreateAsyncScope();
 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -114,7 +132,7 @@ if (generating)
     var generator = scope.ServiceProvider.GetRequiredService<ImageGenerator>();
     try
     {
-        await generator.GenerateAsync(ImageClassifier.ParseKinds(kindsArg), maxImages, force);
+        await generator.GenerateAsync(ImageClassifier.ParseKinds(kindsArg), maxImages, force, ids);
     }
     finally
     {
@@ -144,7 +162,7 @@ else if (stages is not null && stages.Contains("promote"))
 // paid for. Both halves are one stage on purpose: reverting without deleting leaves the next
 // batch to adopt the very images that were just rejected.
 if (stages is not null && stages.Contains("unpromote"))
-    await scope.ServiceProvider.GetRequiredService<ImageReverter>().RevertAsync();
+    await scope.ServiceProvider.GetRequiredService<ImageReverter>().RevertAsync(ids);
 
 logger.LogInformation("Image run complete — {Time}", DateTimeOffset.UtcNow);
 return 0;

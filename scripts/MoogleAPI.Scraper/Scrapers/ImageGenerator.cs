@@ -70,7 +70,17 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// <summary>Raised once the first unrecognised 429 body has been shown, so it is shown once.</summary>
     private int _loggedUnknownRefusal;
 
-    public async Task GenerateAsync(HashSet<ImageKind> kinds, int max, bool force, CancellationToken ct = default)
+    /// <param name="kinds">Which classes of bad image to replace. Ignored when <paramref name="only"/> is set.</param>
+    /// <param name="max">Hard ceiling on images generated in one run.</param>
+    /// <param name="force">Re-select rows that already have generated art.</param>
+    /// <param name="only">
+    /// An explicit set of rows to generate for. It <em>replaces</em> the kind filter rather than
+    /// narrowing it: naming rows outright is the more specific instruction, and combining the two
+    /// silently drops any named row whose kind was not also listed.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task GenerateAsync(HashSet<ImageKind> kinds, int max, bool force,
+                                    IdSelection? only = null, CancellationToken ct = default)
     {
         var key = Environment.GetEnvironmentVariable("GEMINI_KEY");
         if (string.IsNullOrWhiteSpace(key))
@@ -86,10 +96,10 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         }
 
         logger.LogInformation(
-            "Generating for {Kinds} via {Model}, at most {Max} images.",
-            string.Join(", ", kinds), Model, max);
+            "Generating for {Selection} via {Model}, at most {Max} images.",
+            only is null ? string.Join(", ", kinds) : $"{only} named by --ids", Model, max);
 
-        var candidates = await LoadCandidatesAsync(kinds, force, ct);
+        var candidates = await LoadCandidatesAsync(kinds, force, only, ct);
         logger.LogInformation("{Count} rows match this batch and have no generated replacement.", candidates.Count);
 
         if (candidates.Count == 0)
@@ -302,7 +312,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                              string? Kind, string? Description, string? Setting, string ImageUrl);
 
     private async Task<List<Candidate>> LoadCandidatesAsync(
-        HashSet<ImageKind> kinds, bool force, CancellationToken ct)
+        HashSet<ImageKind> kinds, bool force, IdSelection? only, CancellationToken ct)
     {
         var wanted = kinds.Select(k => k.ToString()).ToList();
 
@@ -311,7 +321,9 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         // very thing that makes it correct.
         var monsters = await db.Monsters
             .Where(m => m.ImageUrl != null
-                        && m.ImageKind != null && wanted.Contains(m.ImageKind)
+                        && (only == null
+                            ? m.ImageKind != null && wanted.Contains(m.ImageKind)
+                            : only.Monsters.Contains(m.Id))
                         && (force || m.GeneratedImageUrl == null))
             .Include(m => m.Game)
             .Select(m => new Candidate("monsters", m.Id, m.Name, m.Game.Name, "monster",
@@ -320,7 +332,9 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         var characters = await db.Characters
             .Where(c => c.ImageUrl != null
-                        && c.ImageKind != null && wanted.Contains(c.ImageKind)
+                        && (only == null
+                            ? c.ImageKind != null && wanted.Contains(c.ImageKind)
+                            : only.Characters.Contains(c.Id))
                         && (force || c.GeneratedImageUrl == null))
             .Include(c => c.Game)
             .Select(c => new Candidate("characters", c.Id, c.Name, c.Game.Name, "character",

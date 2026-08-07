@@ -21,10 +21,34 @@ namespace MoogleAPI.Scraper.Scrapers;
 /// </remarks>
 public class ImageReverter(AppDbContext db, ImageStore store, ILogger<ImageReverter> logger)
 {
-    public async Task RevertAsync(CancellationToken ct = default)
+    /// <param name="only">
+    /// Confines the revert to named rows. Null reverts everything holding generated art, which is
+    /// what this stage did before the parameter existed — and is almost never what a run wants
+    /// now that the library is mostly right. See <see cref="IdSelection"/>.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task RevertAsync(IdSelection? only = null, CancellationToken ct = default)
     {
-        var monsters = await db.Monsters.Where(m => m.GeneratedImageUrl != null).ToListAsync(ct);
-        var characters = await db.Characters.Where(c => c.GeneratedImageUrl != null).ToListAsync(ct);
+        var monsters = await db.Monsters
+            .Where(m => m.GeneratedImageUrl != null
+                        && (only == null || only.Monsters.Contains(m.Id)))
+            .ToListAsync(ct);
+
+        var characters = await db.Characters
+            .Where(c => c.GeneratedImageUrl != null
+                        && (only == null || only.Characters.Contains(c.Id)))
+            .ToListAsync(ct);
+
+        if (only is not null)
+        {
+            // A row named but not reverted is worth saying out loud: it means the id was wrong, or
+            // the art was already withdrawn. Either way the caller's list and the bucket disagree.
+            var missing = only.Count - monsters.Count - characters.Count;
+            logger.LogInformation(
+                "Restricted to {Named} named rows; {Found} hold generated art{Missing}.",
+                only.Count, monsters.Count + characters.Count,
+                missing > 0 ? $", {missing} do not" : "");
+        }
 
         logger.LogInformation(
             "Reverting {Monsters} monster and {Characters} character images.", monsters.Count, characters.Count);
