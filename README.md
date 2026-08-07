@@ -156,6 +156,10 @@ what each image actually is), `generate` (replace it with an illustration in one
 `unpromote` (withdraw generated art and restore the original). `generate` costs money per image, so
 it takes an explicit ceiling with `--max` and never runs as part of an unnamed "all stages" pass.
 
+The two stages that spend money or throw it away can be aimed at named rows with
+`--ids=m31,c471` — `m` for a monster, `c` for a character, or `--ids=@file` for a long list.
+Without it `unpromote` withdraws *every* generated image, which is rarely what a run wants.
+
 Artwork is served from Cloudflare R2 at `images.moogleapi.com`. Keys derive from the row id, which
 is what makes a move between domains a database pass rather than a re-upload.
 
