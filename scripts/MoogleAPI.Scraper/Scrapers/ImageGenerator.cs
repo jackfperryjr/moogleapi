@@ -403,7 +403,25 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// illustration through the words instead of through the picture.
     /// </para>
     /// </remarks>
-    private async Task<string?> DescribeAsync(
+    /// <param name="Text">The prose brief describing the subject.</param>
+    /// <param name="SingleStandingFigure">
+    /// Whether the subject is one upright person or creature. False for a vehicle, a machine, an
+    /// object, a group, or an abstract shape — roughly a fifth of the rows filed as "characters".
+    /// The three-quarter crop is meaningless for those, and asking for one produced an airship cut
+    /// off at the thigh.
+    /// </param>
+    /// <param name="Figures">
+    /// How many figures the picture holds. Carried because the brief lost them: "Kings of Lucis",
+    /// a crowd of ghostly kings, came back as a single swordsman that scored 85 on style. Style
+    /// scoring is blind to a subject quietly going missing.
+    /// </param>
+    /// <param name="Dark">
+    /// Whether the subject is properly dark — a villain, demon or undead thing. The palette then
+    /// stays low-key instead of being forced light and pastel; the rest of the style still holds.
+    /// </param>
+    internal sealed record Brief(string Text, bool SingleStandingFigure, int Figures, bool Dark);
+
+    private async Task<Brief?> DescribeAsync(
         HttpClient http, string key, Candidate c, byte[] reference, CancellationToken ct)
     {
         var body = new
@@ -419,7 +437,24 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                     },
                 },
             },
-            generationConfig = new { temperature = 0.2, maxOutputTokens = 2048 },
+            generationConfig = new
+            {
+                temperature = 0.2,
+                maxOutputTokens = 2048,
+                responseMimeType = "application/json",
+                responseSchema = new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        brief = new { type = "string" },
+                        single_standing_figure = new { type = "boolean" },
+                        figures = new { type = "integer" },
+                        dark_subject = new { type = "boolean" },
+                    },
+                    required = new[] { "brief", "single_standing_figure", "figures", "dark_subject" },
+                },
+            },
         };
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{DescribeModel}:generateContent?key={key}";
@@ -449,8 +484,17 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                     .Select(p => p.TryGetProperty("text", out var t) ? t.GetString() : null)
                     .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
 
-                if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
-                break;
+                if (string.IsNullOrWhiteSpace(text)) break;
+
+                using var parsed = JsonDocument.Parse(text);
+                var prose = parsed.RootElement.GetProperty("brief").GetString();
+                if (string.IsNullOrWhiteSpace(prose)) break;
+
+                return new Brief(
+                    prose.Trim(),
+                    parsed.RootElement.GetProperty("single_standing_figure").GetBoolean(),
+                    Math.Max(1, parsed.RootElement.GetProperty("figures").GetInt32()),
+                    parsed.RootElement.GetProperty("dark_subject").GetBoolean());
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
             {
@@ -467,7 +511,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     }
 
     private async Task<byte[]?> RequestArtAsync(
-        HttpClient http, string key, Candidate c, byte[]? reference, string? brief, CancellationToken ct)
+        HttpClient http, string key, Candidate c, byte[]? reference, Brief? brief, CancellationToken ct)
     {
         var promptParts = new List<object> { new { text = BuildPrompt(c, brief) } };
 
@@ -808,30 +852,53 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         IGNORE menus, health bars, damage numbers, spell effects, other characters and scenery.
         Those are artefacts of a screenshot, not the subject.
 
-        200 words at most. Prose only, no headings and no lists.
+        200 words at most in "brief". Prose only, no headings and no lists.
+
+        Then answer three things about the picture as a whole:
+
+        "figures": how many distinct figures it contains. A crowd, a pair or a mounted rider is
+        more than one. Say so in the brief too — how many, and how they are arranged — because a
+        group that is described as one subject comes back as one subject.
+
+        "single_standing_figure": true only when the subject is ONE upright person or creature.
+        False for a vehicle, airship, machine, building, object, group scene, or an abstract or
+        formless shape.
+
+        "dark_subject": true when this is a villain, demon, undead or otherwise sinister thing
+        whose own colours are properly dark. False for an ordinary person, hero or animal.
         """;
 
     /// <param name="brief">
     /// A written description standing in for the reference picture. When present the reference is
     /// not attached at all, and the prompt has to lean on the brief for identity instead.
     /// </param>
-    internal static string BuildPrompt(Candidate c, string? brief = null)
+    internal static string BuildPrompt(Candidate c, Brief? brief = null)
     {
         var setting = string.IsNullOrWhiteSpace(c.Setting) ? "its habitat" : c.Setting;
 
-        // Characters are cropped, monsters are not. Asking for a whole figure produced head-to-toe
-        // portraits standing small in the middle of the canvas — Refia, Cloud, Dio and Elena — when
-        // what Jack picked out was Arc and Luneth, cut at mid-thigh and filling the frame. The same
-        // instruction is right for a monster, though: a bestiary picture that crops off the tail
-        // has lost the thing it is for.
-        var composition = c.Folder == "characters"
+        // The mid-thigh crop only means anything for one upright figure. Roughly a fifth of the
+        // rows filed as "characters" are airships, machines, groups or abstractions, and asking
+        // for a three-quarter crop of those produced an airship cut off at the thigh. Monsters
+        // were already excluded for the same reason in reverse: a bestiary picture that crops off
+        // the tail has lost the thing it is for.
+        var cropped = c.Folder == "characters" && brief?.SingleStandingFigure != false;
+
+        var composition = cropped
             ? "COMPOSITION: a three-quarter crop — the figure is cut at mid-thigh, above the knees, "
               + "and FILLS the frame from top to bottom, head near the upper edge with only a little "
               + "headroom. Do not draw the whole body; do not leave empty space above the head or "
               + "below the figure. Turned three-quarters towards the viewer."
             : "COMPOSITION: the entire subject is inside the frame in a three-quarter view — every "
-              + "limb, wing and tail fully visible, nothing running off any edge — and it is large "
-              + "in frame, filling most of the picture.";
+              + "limb, wing, tail, sail and spar fully visible, nothing running off any edge — and "
+              + "it is large in frame, filling most of the picture.";
+
+        // Counted rather than trusted to the prose. "Kings of Lucis", a crowd of ghostly kings,
+        // came back from its brief as a single swordsman and scored 85 on style: the style scorer
+        // cannot see a subject going missing, so the count has to be stated as a requirement.
+        var count = brief is { Figures: > 1 }
+            ? $"\n\nCOUNT: the picture contains exactly {brief.Figures} figures, all of them "
+              + "visible and complete. Do not reduce them to one, and do not add any."
+            : "";
 
         // What identity comes from, and the clauses that only make sense next to a picture.
         var source = brief is null
@@ -846,10 +913,22 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 """
             : $"""
                 The illustrator's brief, written from the original reference:
-                {brief}
+                {brief.Text}
 
                 PRESERVE: the proportions, colour palette and every distinguishing feature named in the brief — horns, wings, limbs, armour, weapons, markings. It must remain recognisably the same {c.Kind}. Do not redesign it or invent features the brief does not mention.
                 """;
+
+        // Jack, 2026-08-07: "Villains and demons can be dark, but keeping the style constraints."
+        // So the palette moves and nothing else does — linework, blended shading and clean
+        // rendering are the house style; light pastel is only the default subject matter.
+        var palette = brief?.Dark == true
+            ? "Palette is low-key and sombre, suited to a sinister subject: deep shadow is allowed "
+              + "and so are dark colours, but keep the contrast controlled and the shading soft and "
+              + "blended — no harsh cel bands, no glare, nothing neon or garish. It must still be "
+              + "FULLY COLOURED: dark means deep reds, bruised purples, cold blues and near-blacks, "
+              + "never a grey, monochrome or desaturated picture."
+            : "Palette is light, gentle and slightly pastel: low contrast, no deep blacks, nothing "
+              + "gloomy, nothing neon or heavily saturated. Even, soft daylight.";
 
         return $"""
             Illustrate a single Final Fantasy subject as trading-card art.
@@ -861,11 +940,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
             GEOMETRY: nothing in the picture is built from squares, rectangles, bars or stacked boxes, and no organic form carries a right angle or a stepped, notched or staircase edge. Every diagonal is a true diagonal and every curve a true curve. Bones taper and have rounded ends and real joints, limbs vary in thickness along their length, and blades have a continuous straight edge and a point. No visible pixels, no dithering, no stair-stepping and no blocky shading anywhere in the picture.
 
-            STYLE: soft painterly digital illustration with visible brushwork and painted texture, in the manner of a fantasy storybook plate. Muted, gently warm, slightly desaturated palette. Even diffuse light and low contrast — no dramatic rim lighting, no deep black shadows, no glow, nothing neon or candy-bright. Light and airy rather than dark, grim or gritty. Describe form with soft brushstrokes rather than fine photographic surface detail: suggest scale, fur and metal instead of rendering every pore and scratch. Edges blend into the paint rather than sitting on top of it as inked contour. Not an anime cel, not a glossy promotional render, and not photorealistic.
+            STYLE: clean anime-style illustration with soft, blended painted shading. Linework is delicate and confident — edges read clearly, but they are neither heavy black contours nor dissolved into visible brushstrokes. Shading is smooth and gradual, blended rather than banded into flat cel shapes, with no hard specular highlights and no glow. {palette} Render cleanly rather than photographically — suggest fabric, leather, scale and metal without picking out every pore, scratch or reflection. Explicitly not loose watercolour, not an unfinished sketch, not flat cartoon cel, not a glossy promotional render, and not photorealistic.
 
-            {composition} Behind it a fully painted environment suggesting {setting}, with real depth and real forms, softly out of focus, in the same muted warm palette as the subject. The subject must sit inside a place: never a blank, white or empty backdrop, and never a plain flat gradient.
+            {composition}{count} Behind it a painted environment suggesting {setting}: real depth and real forms, but softly out of focus and clearly subordinate to the figure, in the same light, gentle palette. The subject must sit inside a place — never a blank, white or empty backdrop, and never a plain flat gradient — but the background must never compete with it for attention.
 
             DO NOT INCLUDE: any text, letters, numbers, numerals, words, logos, signatures, watermarks or UI. No glyph of any kind appears anywhere in the picture.
+
+            ONE FINISHED PICTURE: a single completed illustration of one scene. Never a character sheet, turnaround, model sheet or study page — no repeated views of the subject, no detail insets, no alternate angles, no callouts, and never bare paper or a blank margin around it.
 
             CRITICAL — the artwork is full-bleed: the illustration runs edge to edge with no card frame, no border, no outline, no rounded corners, no inner bevel, no matting and no margin of any kind. Do not draw a card. Draw only the picture that would go inside one.
 
