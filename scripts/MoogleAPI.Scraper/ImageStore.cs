@@ -199,6 +199,28 @@ public class ImageStore(ImageStoreOptions options, HttpClient http, ILogger<Imag
     }
 
     /// <summary>
+    /// When an object was last written, or null when the bucket does not hold it.
+    /// </summary>
+    /// <remarks>
+    /// Used to tell a stale backup from a live one. Keys derive from the row id, so a picture
+    /// replaced by hand through the dashboard lands on top of the address a previous stage backed
+    /// up — and the only thing separating "this backup is the original" from "this backup is
+    /// something the owner has since deliberately replaced" is which one is newer.
+    /// </remarks>
+    public async Task<DateTime?> LastModifiedAsync(string key, CancellationToken ct)
+    {
+        try
+        {
+            var meta = await _s3.GetObjectMetadataAsync(options.Bucket, key, ct);
+            return meta.LastModified;
+        }
+        catch (AmazonS3Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Removes an object. Returns true when the bucket no longer holds the key, including when
     /// it never did.
     /// </summary>
