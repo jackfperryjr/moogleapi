@@ -155,6 +155,10 @@
     .pager button:hover:not(:disabled) { border-color: var(--accent); }
     .pager button:disabled { opacity: 0.35; cursor: default; }
     .pager .page-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+    /* The same control repeated under the table: fifty rows is more than a screen, and turning the
+       page from the top means scrolling back up to a control you have just scrolled away from. */
+    .pager-bottom { justify-content: center; padding: 0.85rem 0 0.25rem; }
+    .pager-bottom[hidden] { display: none; }
 
     /* ── Table ── */
     .table-wrap {
@@ -496,9 +500,9 @@
     <div class="toolbar-spacer"></div>
     <span class="result-count" id="result-count"></span>
     <div class="pager">
-      <button id="prev" type="button">‹ Prev</button>
-      <span class="page-label" id="page-label">—</span>
-      <button id="next" type="button">Next ›</button>
+      <button class="pager-prev" type="button">‹ Prev</button>
+      <span class="page-label">—</span>
+      <button class="pager-next" type="button">Next ›</button>
     </div>
   </div>
 
@@ -507,6 +511,12 @@
       <thead><tr id="thead-row"></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
+  </div>
+
+  <div class="pager pager-bottom" id="pager-bottom">
+    <button class="pager-prev" type="button">‹ Prev</button>
+    <span class="page-label">—</span>
+    <button class="pager-next" type="button">Next ›</button>
   </div>
 </main>
 
@@ -754,6 +764,7 @@
   let requestSeq = 0;
 
   const $ = id => document.getElementById(id);
+  const $$ = sel => document.querySelectorAll(sel);
   const fmt = n => Number(n).toLocaleString();
 
   // An upload overwrites the object at the row's existing address, so every copy of that URL
@@ -939,14 +950,19 @@
     body.replaceChildren(frag);
   }
 
+  // Both pagers are driven from here — they are the same control drawn twice, so they are
+  // selected by class rather than by id and can never disagree about which page you are on.
   function renderPager() {
     const cfg = TABS[state.tab];
     const pages = cfg.paged ? Math.max(1, Math.ceil(state.total / state.pageSize)) : 1;
 
     $('result-count').textContent = state.total ? `${fmt(state.total)} rows` : '';
-    $('page-label').textContent = cfg.paged ? `${state.page} / ${pages}` : '—';
-    $('prev').disabled = !cfg.paged || state.page <= 1;
-    $('next').disabled = !cfg.paged || state.page >= pages;
+    for (const el of $$('.page-label')) el.textContent = cfg.paged ? `${state.page} / ${pages}` : '—';
+    for (const el of $$('.pager-prev')) el.disabled = !cfg.paged || state.page <= 1;
+    for (const el of $$('.pager-next')) el.disabled = !cfg.paged || state.page >= pages;
+    // Games is a short unpaged table; a dead control under it is just clutter. The toolbar keeps
+    // its disabled pager, because the toolbar's layout expects something to be there.
+    $('pager-bottom').hidden = !cfg.paged;
     $('count-' + state.tab).textContent = state.total ? fmt(state.total) : '';
   }
 
@@ -1564,8 +1580,21 @@
 
   $('game-filter').addEventListener('change', e => { state.gameId = e.target.value; state.page = 1; load(); });
   $('page-size').addEventListener('change', e => { state.pageSize = Number(e.target.value); state.page = 1; load(); });
-  $('prev').addEventListener('click', () => { if (state.page > 1) { state.page--; load(); } });
-  $('next').addEventListener('click', () => { state.page++; load(); });
+  // Turning the page from the bottom lands you at the bottom of the next one, looking at row 50
+  // of a page whose row 1 you have not seen. Only the bottom control scrolls, and only back to
+  // the head of the table — the toolbar copy is already up there.
+  function turn(delta, scroll) {
+    if (state.page + delta < 1) return;
+    state.page += delta;
+    load().finally(() => {
+      if (scroll) $('table-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  for (const el of $$('.pager-prev'))
+    el.addEventListener('click', () => turn(-1, el.closest('.pager-bottom') !== null));
+  for (const el of $$('.pager-next'))
+    el.addEventListener('click', () => turn(1, el.closest('.pager-bottom') !== null));
 
   // Only redraw when the window crosses a breakpoint — the widths themselves are CSS calc()
   // against the table, so ordinary resizing needs no help from JavaScript.

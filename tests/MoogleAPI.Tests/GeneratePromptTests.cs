@@ -166,7 +166,7 @@ public class GeneratePromptTests
     [Fact]
     public void A_group_carries_its_figure_count_as_an_instruction()
     {
-        var many = ImageGenerator.BuildPrompt(Subject(), Brief(figures: 7));
+        var many = ImageGenerator.BuildPrompt(Subject(), Brief(figures: 7, standing: false));
 
         Assert.Contains("exactly 7 figures", many);
         Assert.Contains("Do not reduce them to one", many);
@@ -176,6 +176,29 @@ public class GeneratePromptTests
     public void A_single_subject_gets_no_count_clause()
     {
         Assert.DoesNotContain("COUNT:", ImageGenerator.BuildPrompt(Subject(), Brief(figures: 1)));
+    }
+
+    /// <summary>
+    /// A count that contradicts the standing-figure answer is the busy reference reporting its
+    /// bystanders — a battle screenshot, a party splash, onlookers behind a portrait. One upright
+    /// person is not five figures, and honouring the count there replaces the character the row
+    /// exists for with a crowd.
+    /// </summary>
+    [Fact]
+    public void A_count_that_contradicts_one_standing_figure_is_not_believed()
+    {
+        var portrait = ImageGenerator.BuildPrompt(Subject(), Brief(figures: 5, standing: true));
+
+        Assert.DoesNotContain("COUNT:", portrait);
+        Assert.DoesNotContain("exactly 5 figures", portrait);
+    }
+
+    /// <summary>And a real group is asked for alone, not with the reference's extras beside it.</summary>
+    [Fact]
+    public void A_group_is_the_only_thing_in_its_picture()
+    {
+        Assert.Contains("Nobody else appears in the picture",
+                        ImageGenerator.BuildPrompt(Subject(), Brief(figures: 3, standing: false)));
     }
 
     /// <summary>
@@ -298,6 +321,40 @@ public class GeneratePromptTests
         var banned = ask[ask.IndexOf("Do not use", StringComparison.Ordinal)..];
 
         Assert.Contains(word, banned, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The request tells the describing model to ignore other characters, then used to ask how many
+    /// figures the picture contained — so a screenshot with the party in it answered 5 and the count
+    /// clause turned a portrait into a crowd. The question is about the subject.
+    /// </summary>
+    [Fact]
+    public void The_figure_count_is_asked_about_the_subject_not_the_picture()
+    {
+        var ask = ImageGenerator.BuildBriefPrompt(Subject());
+
+        Assert.Contains("about THE SUBJECT, never about the reference picture", ask);
+        Assert.Contains("THE SUBJECT ITSELF is", ask);
+        Assert.Contains("When in doubt answer 1", ask);
+        Assert.DoesNotContain("how many distinct figures it contains", ask);
+    }
+
+    /// <summary>
+    /// A species entry's wiki art is usually a row of palette swaps, and the model reads that
+    /// honestly as "not one standing figure" and "four" — so the contradiction guard cannot catch
+    /// it. Nine of the seventeen characters still drawn as groups after the 2026-08-08 redo had a
+    /// lineup source. Monsters are mostly species entries, so the case is named outright.
+    /// </summary>
+    [Fact]
+    public void The_brief_request_treats_a_variant_row_as_one_subject()
+    {
+        var ask = ImageGenerator.BuildBriefPrompt(Subject());
+
+        Assert.Contains("SAME CREATURE APPEARS SEVERAL TIMES", ask);
+        Assert.Contains("describe ONLY that one", ask);
+        Assert.Contains("four colours of the same beast is one beast", ask);
+        Assert.Contains("When in doubt answer 1", ask);
+        Assert.Contains("neither does the same creature being drawn several times over", ask);
     }
 
     [Fact]
