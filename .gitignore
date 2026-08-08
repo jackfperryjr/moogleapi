@@ -27,5 +27,9 @@ Thumbs.db
 ## Local image review (not committed)
 image-pilot/
 
+## Art-style audit working set — scoring scripts, score files and the review page. Local to
+## whoever is running the re-generation campaign, and rebuildable from the API and the bucket.
+art-audit/
+
 ## Agent settings and transcripts — local to whoever is working, not part of the project
 .claude/
