@@ -411,9 +411,26 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// off at the thigh.
     /// </param>
     /// <param name="Figures">
-    /// How many figures the picture holds. Carried because the brief lost them: "Kings of Lucis",
-    /// a crowd of ghostly kings, came back as a single swordsman that scored 85 on style. Style
-    /// scoring is blind to a subject quietly going missing.
+    /// How many figures the <em>subject</em> is. Carried because the brief lost them: "Kings of
+    /// Lucis", a crowd of ghostly kings, came back as a single swordsman that scored 85 on style.
+    /// Style scoring is blind to a subject quietly going missing.
+    /// <para>
+    /// Asked about the subject rather than the frame, which it was not at first: the same request
+    /// tells the describing model to ignore other characters and then asked how many figures the
+    /// picture contained, so a battle screenshot or a party splash reported its bystanders and the
+    /// count clause rebuilt a portrait as a crowd. <see cref="BuildPrompt"/> additionally refuses
+    /// a count that contradicts <paramref name="SingleStandingFigure"/>.
+    /// </para>
+    /// <para>
+    /// That guard does not catch a variant row, and could not: wiki art for a species is often a
+    /// line of palette swaps, so the model answers "not one standing figure" and "four" and both
+    /// are honest readings of what it was shown. Redoing 71 characters on 2026-08-08 left 17 still
+    /// drawn as groups, and nine of those were lineup sources — Kobold's reference is two kobolds
+    /// side by side, Bangaa Hunter's is a four-colour job row. Monsters are mostly species entries,
+    /// so the request now names the case outright: repeats are one subject, describe the clearest
+    /// example only. Jack chose one representative over the lineup, for consistency with the rest
+    /// of the library.
+    /// </para>
     /// </param>
     /// <param name="Dark">
     /// Whether the subject is properly dark — a villain, demon or undead thing. The palette then
@@ -896,17 +913,30 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         IGNORE menus, health bars, damage numbers, spell effects, other characters and scenery.
         Those are artefacts of a screenshot, not the subject.
 
+        IF THE SAME CREATURE APPEARS SEVERAL TIMES OVER — a row of colour or equipment variants, a
+        family of palette swaps, or one character drawn from two or three angles — that is a
+        catalogue page, not a group. Pick the single clearest and most complete example and
+        describe ONLY that one, as one individual. Do not describe the row, do not average the
+        variants together, and do not mention the other versions or their colours at all.
+
         200 words at most in "brief". Prose only, no headings and no lists.
 
-        Then answer three things about the picture as a whole:
+        Then answer four things about THE SUBJECT, never about the reference picture. The company
+        you were just told to ignore must not change any of these answers.
 
-        "figures": how many distinct figures it contains. A crowd, a pair or a mounted rider is
-        more than one. Say so in the brief too — how many, and how they are arranged — because a
-        group that is described as one subject comes back as one subject.
+        "figures": how many figures THE SUBJECT ITSELF is — not how many the reference holds.
+        Almost always 1. It is more than one only when this entry is inherently plural: a named
+        pair or trio, a group or crowd that the name itself refers to, or a rider and mount.
+        Anyone else sharing the frame — a party, an opponent, a bystander, a crowd in a screenshot
+        — is one of the artefacts above and counts for nothing. So is every repeat in a variant
+        row: four colours of the same beast is one beast. When in doubt answer 1. If the subject
+        genuinely is plural, say so in the brief too — how many, and how they are arranged —
+        because a group described as one subject comes back as one subject.
 
         "single_standing_figure": true only when the subject is ONE upright person or creature.
-        False for a vehicle, airship, machine, building, object, group scene, or an abstract or
-        formless shape.
+        False for a vehicle, airship, machine, building, object, an inherently plural subject, or
+        an abstract or formless shape. Company in the reference does not make the subject a group,
+        and neither does the same creature being drawn several times over.
 
         "dark_subject": true when this is a villain, demon, undead or otherwise sinister thing
         whose own colours are properly dark. False for an ordinary person, hero or animal.
@@ -950,9 +980,19 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
         // Counted rather than trusted to the prose. "Kings of Lucis", a crowd of ghostly kings,
         // came back from its brief as a single swordsman and scored 85 on style: the style scorer
         // cannot see a subject going missing, so the count has to be stated as a requirement.
-        var count = brief is { Figures: > 1 }
-            ? $"\n\nCOUNT: the picture contains exactly {brief.Figures} figures, all of them "
-              + "visible and complete. Do not reduce them to one, and do not add any."
+        //
+        // But the count is only believed when the brief also says the subject is not one upright
+        // figure, because the two answers cannot both be true — one standing person is not seven
+        // figures. When they disagree the picture is the thing that had several figures in it, not
+        // the subject: a battle screenshot, a party splash, a portrait with onlookers behind it.
+        // SingleStandingFigure is asked about the subject and Figures was being answered about the
+        // frame, so the former wins. The failure is asymmetric — dropping an extra from a real
+        // group costs one thinned picture, while inflating a portrait replaces the character the
+        // row exists for with a crowd.
+        var count = brief is { Figures: > 1, SingleStandingFigure: false }
+            ? $"\n\nCOUNT: the subject is a group of exactly {brief.Figures} figures, all of them "
+              + "visible and complete. Do not reduce them to one, and do not add any. Nobody else "
+              + "appears in the picture."
             : "";
 
         // What identity comes from, and the clauses that only make sense next to a picture.
