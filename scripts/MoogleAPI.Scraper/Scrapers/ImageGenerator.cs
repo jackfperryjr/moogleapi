@@ -419,7 +419,15 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// Whether the subject is properly dark — a villain, demon or undead thing. The palette then
     /// stays low-key instead of being forced light and pastel; the rest of the style still holds.
     /// </param>
-    internal sealed record Brief(string Text, bool SingleStandingFigure, int Figures, bool Dark);
+    /// <param name="HumanLike">
+    /// Whether the subject is essentially a person, whatever table it is filed in. Jack, on the
+    /// monsters: <em>"The humanoid monsters can fall into the same scorer/prompter as the
+    /// characters. 7295 and 12649 for example"</em> — Vayne Novus, a man, and a human skeleton.
+    /// The test is "essentially a person", not "stands upright": his accepted Goblin is a standing
+    /// biped and is right as a creature, framed whole.
+    /// </param>
+    internal sealed record Brief(string Text, bool SingleStandingFigure, int Figures, bool Dark,
+                                 bool HumanLike);
 
     private async Task<Brief?> DescribeAsync(
         HttpClient http, string key, Candidate c, byte[] reference, CancellationToken ct)
@@ -451,8 +459,10 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                         single_standing_figure = new { type = "boolean" },
                         figures = new { type = "integer" },
                         dark_subject = new { type = "boolean" },
+                        human_like = new { type = "boolean" },
                     },
-                    required = new[] { "brief", "single_standing_figure", "figures", "dark_subject" },
+                    required = new[] { "brief", "single_standing_figure", "figures",
+                                       "dark_subject", "human_like" },
                 },
             },
         };
@@ -494,7 +504,8 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                     prose.Trim(),
                     parsed.RootElement.GetProperty("single_standing_figure").GetBoolean(),
                     Math.Max(1, parsed.RootElement.GetProperty("figures").GetInt32()),
-                    parsed.RootElement.GetProperty("dark_subject").GetBoolean());
+                    parsed.RootElement.GetProperty("dark_subject").GetBoolean(),
+                    parsed.RootElement.GetProperty("human_like").GetBoolean());
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
             {
@@ -866,6 +877,12 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         "dark_subject": true when this is a villain, demon, undead or otherwise sinister thing
         whose own colours are properly dark. False for an ordinary person, hero or animal.
+
+        "human_like": true when the subject is ESSENTIALLY A PERSON — a human or near-human figure
+        with human proportions and bearing, whether alive, undead, armoured or robed. A man, a
+        knight in plate, a mage, a human skeleton: all true. False for a creature that merely
+        stands on two legs — a goblin, imp, lizardman, beast or ogre is a creature, not a person —
+        and false for any animal, machine, vehicle or formless thing.
         """;
 
     /// <param name="brief">
@@ -878,10 +895,15 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         // The mid-thigh crop only means anything for one upright figure. Roughly a fifth of the
         // rows filed as "characters" are airships, machines, groups or abstractions, and asking
-        // for a three-quarter crop of those produced an airship cut off at the thigh. Monsters
-        // were already excluded for the same reason in reverse: a bestiary picture that crops off
-        // the tail has lost the thing it is for.
-        var cropped = c.Folder == "characters" && brief?.SingleStandingFigure != false;
+        // for a three-quarter crop of those produced an airship cut off at the thigh.
+        //
+        // It follows the subject rather than the table. A humanoid monster — Vayne Novus is a man,
+        // and there is a human skeleton in there too — is a person as far as framing goes, and
+        // Jack wants those on the character treatment. A creature that merely stands upright is
+        // not: his accepted Goblin is a biped and is right framed whole, because a bestiary
+        // picture that crops off the tail has lost the thing it is for.
+        var person = c.Folder == "characters" || brief?.HumanLike == true;
+        var cropped = person && brief?.SingleStandingFigure != false;
 
         var composition = cropped
             ? "COMPOSITION: a three-quarter crop — the figure is cut at mid-thigh, above the knees, "

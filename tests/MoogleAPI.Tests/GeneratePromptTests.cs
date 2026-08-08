@@ -11,8 +11,8 @@ public class GeneratePromptTests
 {
     private static ImageGenerator.Brief Brief(string text = "A rounded violet slime.",
                                               bool standing = true, int figures = 1,
-                                              bool dark = false) =>
-        new(text, standing, figures, dark);
+                                              bool dark = false, bool human = false) =>
+        new(text, standing, figures, dark, human);
 
     private static ImageGenerator.Candidate Subject(string? setting = "a sunken grotto") =>
         new("monsters", 1510, "Blood Slime", "Final Fantasy IV", "monster",
@@ -223,10 +223,58 @@ public class GeneratePromptTests
         Assert.Contains("no repeated views of the subject", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Framing follows the subject, not the table it is filed in. Jack: "The humanoid monsters can
+    /// fall into the same scorer/prompter as the characters. 7295 and 12649 for example" — Vayne
+    /// Novus, a man, and a human skeleton. The test is "essentially a person": his accepted Goblin
+    /// is a standing biped and is right framed whole, as a creature.
+    /// </summary>
+    [Fact]
+    public void A_humanoid_monster_is_cropped_like_a_character()
+    {
+        var monster = new ImageGenerator.Candidate(
+            "monsters", 7295, "Vayne Novus", "Final Fantasy XII", "monster",
+            "Cutout", "A man.", "a palace", "https://example.test/7295.webp");
+
+        var person = ImageGenerator.BuildPrompt(monster, Brief(human: true));
+        var creature = ImageGenerator.BuildPrompt(monster, Brief(human: false));
+
+        Assert.Contains("cut at mid-thigh", person, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cut at mid-thigh", creature, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("fully visible, nothing running off any edge", creature,
+                        StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A person who is not standing — a bust, a mounted rider — still is not cropped.</summary>
+    [Fact]
+    public void Human_like_still_defers_to_the_standing_figure_test()
+    {
+        var monster = new ImageGenerator.Candidate(
+            "monsters", 7295, "Vayne Novus", "Final Fantasy XII", "monster",
+            "Cutout", "A man.", "a palace", "https://example.test/7295.webp");
+
+        Assert.DoesNotContain("cut at mid-thigh",
+                              ImageGenerator.BuildPrompt(monster, Brief(human: true, standing: false)),
+                              StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A character with no brief at all keeps the crop — the old behaviour.</summary>
+    [Fact]
+    public void A_character_without_a_brief_is_still_cropped()
+    {
+        var character = new ImageGenerator.Candidate(
+            "characters", 58, "Arc", "Final Fantasy III", "character",
+            "LineArt", "A boy.", "ruins", "https://example.test/58.webp");
+
+        Assert.Contains("cut at mid-thigh", ImageGenerator.BuildPrompt(character),
+                        StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("figures")]
     [InlineData("single_standing_figure")]
     [InlineData("dark_subject")]
+    [InlineData("human_like")]
     public void The_brief_request_asks_for_each_signal(string field)
     {
         Assert.Contains(field, ImageGenerator.BuildBriefPrompt(Subject()));
