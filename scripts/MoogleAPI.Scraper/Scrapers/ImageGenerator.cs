@@ -487,27 +487,45 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                     break;
                 }
 
+                // Every step probed rather than indexed, exactly as RequestArtAsync already does:
+                // a safety block or filtered reply omits "candidates" entirely and GetProperty
+                // throws KeyNotFoundException on a missing name. This path was written without
+                // that guard and one such reply killed a 1,000-row run at 975.
                 using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-                var text = doc.RootElement
-                    .GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")
-                    .EnumerateArray()
-                    .Select(p => p.TryGetProperty("text", out var t) ? t.GetString() : null)
-                    .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+                string? text = null;
+                if (doc.RootElement.TryGetProperty("candidates", out var candidates)
+                    && candidates.ValueKind == JsonValueKind.Array
+                    && candidates.GetArrayLength() > 0
+                    && candidates[0].TryGetProperty("content", out var content)
+                    && content.TryGetProperty("parts", out var parts))
+                {
+                    text = parts.EnumerateArray()
+                        .Select(p => p.TryGetProperty("text", out var t) ? t.GetString() : null)
+                        .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+                }
 
                 if (string.IsNullOrWhiteSpace(text)) break;
 
                 using var parsed = JsonDocument.Parse(text);
-                var prose = parsed.RootElement.GetProperty("brief").GetString();
+                if (!parsed.RootElement.TryGetProperty("brief", out var briefText)) break;
+
+                var prose = briefText.GetString();
                 if (string.IsNullOrWhiteSpace(prose)) break;
 
+                // The schema marks the flags required, but a truncated or filtered reply can still
+                // arrive without them. Each defaults to the answer that changes the least: framed
+                // whole, one figure, ordinary palette, not a person — so a missing flag produces a
+                // conservative picture rather than an exception.
                 return new Brief(
                     prose.Trim(),
-                    parsed.RootElement.GetProperty("single_standing_figure").GetBoolean(),
-                    Math.Max(1, parsed.RootElement.GetProperty("figures").GetInt32()),
-                    parsed.RootElement.GetProperty("dark_subject").GetBoolean(),
-                    parsed.RootElement.GetProperty("human_like").GetBoolean());
+                    Flag(parsed.RootElement, "single_standing_figure", true),
+                    Math.Max(1, Number(parsed.RootElement, "figures", 1)),
+                    Flag(parsed.RootElement, "dark_subject", false),
+                    Flag(parsed.RootElement, "human_like", false));
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException
+                                          or JsonException or KeyNotFoundException
+                                          or InvalidOperationException)
             {
                 if (attempt == 2) break;
                 await Task.Delay(TimeSpan.FromSeconds(5 * (attempt + 1)), ct);
@@ -519,6 +537,21 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             c.Folder, c.Id);
 
         return null;
+    }
+
+    /// <summary>Reads a boolean the model may simply have left out.</summary>
+    internal static bool Flag(JsonElement root, string name, bool fallback) =>
+        root.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? v.GetBoolean()
+            : fallback;
+
+    /// <summary>Reads an integer the model may have left out, or returned as a string.</summary>
+    internal static int Number(JsonElement root, string name, int fallback)
+    {
+        if (!root.TryGetProperty(name, out var v)) return fallback;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n)) return n;
+        if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var parsed)) return parsed;
+        return fallback;
     }
 
     private async Task<byte[]?> RequestArtAsync(
