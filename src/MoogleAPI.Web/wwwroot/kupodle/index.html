@@ -32,13 +32,39 @@
       --radius:    2px;
 
       background-color: var(--bg);
-      /* Ruled, not decorative: it reads as squared paper and sets the grid's rhythm before the
-         board has loaded. Two hairlines rather than a texture, so it costs nothing. */
+      /* Layered back to front: the gallery wall, then the ruled paper over it.
+         
+         The ruling is not decorative — it reads as squared paper and sets the grid's rhythm
+         before the board has loaded — and it stays on top of the photograph rather than under
+         it, because the wall in that picture has the same faint ruling painted on and the two
+         lining up is the point. Two hairlines rather than a texture, so it costs nothing.
+
+         The artwork is the same picture /games/ crops its Kupodle tile from: a wall of framed
+         portraits, every one of them a silhouette but the lit one. A missing file simply does
+         not paint, so this degrades to exactly the ruled paper it was before. */
       background-image:
         linear-gradient(rgba(124,196,164,0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(124,196,164,0.045) 1px, transparent 1px);
-      background-size: 44px 44px;
+        linear-gradient(90deg, rgba(124,196,164,0.045) 1px, transparent 1px),
+        url('/assets/backgrounds/kupodle.webp');
+      background-size: 44px 44px, 44px 44px, cover;
+      background-position: 0 0, 0 0, center top;
+      background-repeat: repeat, repeat, no-repeat;
       background-attachment: fixed;
+    }
+
+    /* Keeps the wall from competing with the board. Sits under everything and over the
+       background, and is the one knob to turn if the artwork reads too strong — the same veil
+       Battle Square and Kupo Climb use, at the same strength.
+
+       It matters more here than on those pages: the one lit frame in that picture is the
+       brightest thing on the screen otherwise, and the puzzle's own tiles have to win. */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(20,26,24,0.74) 0%, rgba(20,26,24,0.88) 55%, rgba(20,26,24,0.94) 100%);
     }
 
     .page-title {
