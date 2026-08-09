@@ -496,11 +496,22 @@
     }
     #choco-wipe.run { visibility: visible; }
 
+    /* Frosted rather than solid: the page stays faintly visible through it, blurred out of
+       legibility. That changes what the swap looks like — at full opacity the theme changed
+       behind a wall and you saw only the result, and now the palette turns over behind the glass
+       while the herd is still crossing. It reads as the world changing rather than as a cut.
+       0.82 is the balance point: enough to stop the old layout being readable, little enough
+       that it is obviously something you are looking through.
+
+       -webkit- prefix is still required for Safari, including current versions. */
     #choco-curtain {
       position: absolute;
       inset: 0;
       transform: translateX(-101%);
-      background: linear-gradient(100deg, #0b1240 0%, #16266e 45%, #0b1240 100%);
+      background: linear-gradient(100deg,
+        rgba(11, 18, 64, 0.82) 0%, rgba(22, 38, 110, 0.82) 45%, rgba(11, 18, 64, 0.82) 100%);
+      -webkit-backdrop-filter: blur(16px) saturate(1.15);
+      backdrop-filter: blur(16px) saturate(1.15);
     }
     #choco-wipe.run #choco-curtain { animation: choco-curtain 1500ms cubic-bezier(0.55, 0, 0.45, 1) both; }
     @keyframes choco-curtain {
@@ -1010,17 +1021,31 @@
 
 <div id="ff-notify"></div>
 
-<!-- The herd. Sizes, lanes and speeds are set here rather than generated, because seven of them
-     is a composition — evenly spaced identical chocobos read as a loading bar. -->
+<!-- The herd. Lanes, sizes, speeds and delays are hand-set rather than generated: evenly spaced
+     identical chocobos read as a loading bar, and the thing that makes it a herd is that the big
+     ones run low and fast, the small ones high and slow, and nobody shares a lane with a
+     neighbour the same size. Delays stagger to about half a second so they stream past instead of
+     arriving as a wall. -->
 <div id="choco-wipe">
   <div id="choco-curtain"></div>
+  <div class="choco" style="--top: 4%; --size:64px;  --dur:1.42s; --delay:0.26s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:10%; --size:112px; --dur:1.02s; --delay:0.44s"><img src="/assets/chocobo.png" alt="" /></div>
   <div class="choco" style="--top:14%; --size:104px; --dur:1.05s; --delay:0.02s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:34%; --size:76px;  --dur:1.30s; --delay:0.16s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:52%; --size:132px; --dur:0.92s; --delay:0.00s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:20%; --size:72px;  --dur:1.34s; --delay:0.52s"><img src="/assets/chocobo.png" alt="" /></div>
   <div class="choco" style="--top:26%; --size:60px;  --dur:1.45s; --delay:0.30s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:68%; --size:96px;  --dur:1.15s; --delay:0.10s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:78%; --size:150px; --dur:0.86s; --delay:0.22s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:31%; --size:120px; --dur:0.98s; --delay:0.13s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:34%; --size:76px;  --dur:1.30s; --delay:0.16s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:40%; --size:56px;  --dur:1.52s; --delay:0.40s"><img src="/assets/chocobo.png" alt="" /></div>
   <div class="choco" style="--top:44%; --size:68px;  --dur:1.38s; --delay:0.38s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:48%; --size:140px; --dur:0.90s; --delay:0.29s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:52%; --size:132px; --dur:0.92s; --delay:0.00s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:57%; --size:80px;  --dur:1.24s; --delay:0.47s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:61%; --size:100px; --dur:1.10s; --delay:0.20s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:68%; --size:96px;  --dur:1.15s; --delay:0.10s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:72%; --size:124px; --dur:0.95s; --delay:0.35s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:78%; --size:150px; --dur:0.86s; --delay:0.22s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:83%; --size:88px;  --dur:1.18s; --delay:0.06s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:88%; --size:116px; --dur:1.00s; --delay:0.49s"><img src="/assets/chocobo.png" alt="" /></div>
 </div>
 
 <script>
@@ -1170,6 +1195,14 @@
   const RUN  = 1500;
   const SWAP = Math.round(RUN * 0.5);
 
+  /* The stage stays up after the curtain has left, because the slowest of the herd is still on
+     it: the longest --dur plus the longest --delay comes to about 1.9s against the curtain's
+     1.5s. Tearing the stage down at RUN chopped those stragglers off mid-stride in the middle of
+     the screen. Letting them finish is also the better picture — the curtain goes, the new theme
+     is there, and the last few chocobos are still crossing it. Keep this above the slowest lane
+     in the markup. */
+  const HERD = 2100;
+
   function toggleFFMode() {
     if (ffTransitioning) return;
     ffTransitioning = true;
@@ -1198,10 +1231,9 @@
         ffClockId = null;
       }
 
+      // The notify lands when the curtain clears, not when the last straggler does — waiting for
+      // the herd would leave the page silent for half a second after it already looks finished.
       setTimeout(() => {
-        wipe.classList.remove('run');
-        ffTransitioning = false;
-
         if (isFF) {
           showNotify(
             'FINAL FANTASY IV<br><br>' +
@@ -1212,6 +1244,11 @@
           showNotify('GAME OVER', 1800);
         }
       }, RUN - SWAP);
+
+      setTimeout(() => {
+        wipe.classList.remove('run');
+        ffTransitioning = false;
+      }, HERD - SWAP);
     }, SWAP);
   }
 
