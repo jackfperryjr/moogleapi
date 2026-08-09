@@ -61,13 +61,18 @@
     /* Each tile carries its own accent AND its own artwork through custom properties, so one
        rule styles four games and adding a fifth is two values and a link.
      *
-     * The veil is the whole trick. A photograph behind black body text is the easy way to make a
-     * card unreadable, so the artwork sits under a gradient that starts at 80% opaque and closes
-     * to 96% by the bottom — never fully, so the picture stays present all the way down rather
-     * than being cut off half way, which is what made the lower half read as a different
-     * component. Those numbers are measured, not guessed: composited over the real crops, the
-     * worst pixel under the description is 4.6:1 against --muted and the worst under the wordmark
-     * is 3.96:1 against its accent, which at 1.55rem bold is WCAG large text and wants 3:1.
+     * The veil is the whole trick, and it is shaped like the card rather than spread evenly. A
+     * flat veil strong enough to carry black body text also washed the picture out to a tint, so
+     * instead it is nearly clear across the art slot — 22%, enough to knock back the contrast of
+     * four pictures with wildly different brightness — and then closes hard to 93% right at the
+     * boundary where the text block begins, holding at 96% to the bottom. That reads as a card
+     * with a header image, which is what it is.
+     *
+     * The numbers are measured, not guessed. Composited over the real crops and sampled at both
+     * the darkest and the lightest pixel in each band of text: the description sits at 4.6:1
+     * against --muted, and the name at 5.6:1 against --text even if the tile is short enough to
+     * pull it up into the ramp. If the veil moves, re-measure rather than eyeballing it — a first
+     * attempt at this failed on all four tiles and looked fine.
      *
      * Default theme only. FFIV mode replaces the whole background with its window gradient
      * further down, using the shorthand, which drops the image with it. */
@@ -75,8 +80,9 @@
       --tile: var(--accent);
       --tile-bg: none;
       --veil: linear-gradient(180deg,
-        rgba(236, 239, 243, 0.80) 0%,
-        rgba(236, 239, 243, 0.93) 42%,
+        rgba(236, 239, 243, 0.22) 0%,
+        rgba(236, 239, 243, 0.26) 35%,
+        rgba(236, 239, 243, 0.93) 45%,
         rgba(236, 239, 243, 0.96) 100%);
       position: relative;
       display: flex;
@@ -329,15 +335,25 @@
   </main>
 
   <script>
-    // Logos are dropped in per game and may not exist yet. Rather than leave a broken-image
-    // glyph on the tile, swap in the game's name set in the site's display face — which is what
-    // the tile would have shown anyway had it been designed without art.
+    // Logos are dropped in per game and may not exist yet. What replaces a missing one depends
+    // on whether the tile has artwork behind it:
+    //
+    //   with artwork    nothing. The slot becomes a window onto the picture, and the game's name
+    //                   is already the line directly beneath it — printing a wordmark here put
+    //                   the same word on the card twice, which is what every tile did while
+    //                   /assets/logos/ did not exist.
+    //   without         the name in the display face, as before, so a bare tile is not blank.
     for (const slot of document.querySelectorAll('.tile-art')) {
       const img = slot.querySelector('img');
       if (!img) continue;
 
       const fallback = () => {
-        slot.innerHTML = '';
+        slot.replaceChildren();
+
+        const tile = slot.closest('.tile');
+        const art = tile && getComputedStyle(tile).getPropertyValue('--tile-bg').trim();
+        if (art && art !== 'none') return;
+
         const mark = document.createElement('div');
         mark.className = 'tile-wordmark';
         mark.textContent = slot.dataset.wordmark ?? '';

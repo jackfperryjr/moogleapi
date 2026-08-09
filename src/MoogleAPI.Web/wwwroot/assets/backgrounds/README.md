@@ -43,11 +43,14 @@ that loaded four of those would be ~25 MB to draw four cards. The four crops tog
 | **Size** | **880 × 600**, centre-cropped from the full image |
 | **Format** | WebP, quality ~72 |
 
-Rebuild them from the originals rather than exporting by hand, and re-measure if the veil changes:
-a card is black body text over a picture, which is the easy way to make one unreadable. The veil in
-`games/index.html` runs 80% → 96% opaque down the card, and against the real crops that leaves the
-description at 4.6:1 and the wordmark at 3.96:1 — the latter is 1.55rem bold, so WCAG treats it as
-large text and wants 3:1.
+Rebuild them from the originals rather than exporting by hand, and **re-measure if the veil
+changes** — a card is black body text over a picture, which is the easy way to make one unreadable.
+
+The veil in `games/index.html` is shaped like the card rather than spread evenly: about 22% across
+the art slot, so the picture actually reads, then closing hard to 93% at the boundary where the
+text block starts and holding at 96% to the bottom. Against the real crops that leaves the
+description at 4.6:1 against `--muted` and the name at 5.6:1 against `--text`. Two earlier attempts
+looked fine and failed the measurement, so do not trust your eye on this one.
 
 FFIV mode replaces the tile background wholesale with its window gradient, so none of this applies
 there.
