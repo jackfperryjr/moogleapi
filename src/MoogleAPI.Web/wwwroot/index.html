@@ -27,11 +27,14 @@
       --bg-2:        #e3e5e9;
       --surface:     #ffffff;
       --border:      #d3d7de;
-      --brand:       #b8202a;
-      --brand-2:     #8f161f;
-      --accent:      #b8202a;
-      --accent-2:    #8f161f;
-      --accent-soft: rgba(184, 32, 42, 0.07);
+      --brand:       #d0021b;
+      --brand-2:     #94060f;
+      --accent:      #d0021b;
+      --accent-2:    #a10214;
+      --accent-soft: rgba(208, 2, 27, 0.07);
+      /* The wash under the nav. White, not a tint of the brand — a red one read as a glow
+         leaking out of the navbar rather than as light falling on the page. */
+      --hero-glow:   rgba(255, 255, 255, 0.95);
       --heading:     #14161a;
       --text:        #14161a;
       --muted:       #5b626d;
@@ -110,7 +113,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse 80% 50% at 50% 0%, var(--accent-soft) 0%, transparent 70%);
+      background: radial-gradient(ellipse 80% 50% at 50% 0%, var(--hero-glow) 0%, transparent 70%);
       pointer-events: none;
     }
     .hero h1 {
@@ -428,11 +431,16 @@
 
     /* ── Final Fantasy Easter Egg (FFIV, SNES) ── */
     /*
-     * The look is the FFIV menu window and nothing else: a blue panel that goes lighter towards
-     * the top, a pale two-pixel edge with a darker line just inside it, white text carrying a
-     * hard one-pixel shadow, and gold for the thing the cursor is on. That combination is what
-     * makes it read as FFIV rather than as "retro" in general, so the window treatment is one
-     * shared rule applied to every panel on the page instead of per-component colours.
+     * The look is the FFIV menu screen: blue windows that go lighter towards the top, a pale
+     * two-pixel edge with a darker line just inside it, white text carrying a hard one-pixel
+     * shadow, and a gold cursor on whatever is selected. That combination is what makes it read
+     * as FFIV rather than as "retro" in general, so the window treatment is one shared rule
+     * applied to every panel instead of per-component colours.
+     *
+     * The page is also re-laid-out, not just recoloured. FFIV's menu is a command list down one
+     * side with the content beside it and a status window at the bottom, so ff-mode reveals a
+     * command column (#ff-menu, display:none otherwise) and indents the content to sit next to
+     * it. Nothing in the markup moves; the silver theme simply never shows that element.
      *
      * Everything here is scoped under body.ff-mode. The silver theme owns :root and the egg
      * overrides the same tokens, so components never need to know which mode they are in.
@@ -442,16 +450,6 @@
       filter: drop-shadow(0 0 10px rgba(248, 208, 48, 0.9)) !important;
       transform: rotate(-8deg) translateY(-0.05em) scale(1.2) !important;
     }
-
-    #ff-stars {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: -1;
-      opacity: 0;
-      transition: opacity 1.6s;
-    }
-    #ff-stars.show { opacity: 1; }
 
     #ff-notify {
       position: fixed;
@@ -478,124 +476,86 @@
     }
     #ff-notify.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ── The break-in ──────────────────────────────────────────────────────────
-     * Three things happen at once, and none of them is a crossfade: the page itself jolts and
-     * smears, a scanline-and-tear overlay drops over it, and a caption tears apart into red and
-     * cyan ghosts.
+    /* ── The chocobo run ───────────────────────────────────────────────────────
+     * A herd crosses the screen left to right and the theme has changed by the time they are
+     * gone. The cover is a curtain that travels with them rather than a fade: it slides in from
+     * the left, sits over the viewport for the few frames the swap needs, and carries on out to
+     * the right. A fade would show the old theme dissolving into the new one, which is a
+     * transition; a curtain that something runs behind is a scene change.
      *
-     * The jolt is applied to #page, not to body. A filter or transform on an ancestor makes that
-     * element the containing block for position:fixed descendants, so animating body would drag
-     * the overlay, the notify window and the starfield along with it — the overlay would stop
-     * covering the viewport and start covering the document, which on a long page means it only
-     * works at the top. Wrapping the content and leaving the fixed layers as siblings is what
-     * keeps them still while everything behind them comes apart.
+     * The sprite is 96px of pixel art, so it is scaled with image-rendering: pixelated —
+     * smoothing it at 5x turns a crisp chocobo into a smear.
      */
-    /* will-change only while it is actually moving. Left on permanently it would hold a
-       compositing layer for the whole page, and — worse — `will-change: transform` makes #page a
-       containing block for position:fixed descendants even when the transform is none, which is
-       the exact trap the wrapper exists to avoid. */
-    #page.hacking { will-change: transform, filter; }
-
-    @keyframes hack-jolt {
-      0%   { transform: none; filter: none; }
-      7%   { transform: translate3d(-9px, 3px, 0) skewX(-1.4deg); filter: blur(0.6px) contrast(1.6) hue-rotate(-20deg); }
-      14%  { transform: translate3d(6px, -5px, 0) skewX(2deg);    filter: blur(2.4px) saturate(2.6) hue-rotate(40deg); }
-      21%  { transform: translate3d(-4px, 6px, 0) scale(1.012);   filter: blur(0.4px) invert(0.12) contrast(1.8); }
-      29%  { transform: translate3d(11px, 2px, 0) skewY(1deg);    filter: blur(3px) hue-rotate(-70deg) saturate(0.4); }
-      36%  { transform: translate3d(-6px, -3px, 0);               filter: blur(0.8px) contrast(2.2) brightness(1.3); }
-      45%  { transform: translate3d(3px, 8px, 0) skewX(-2.4deg);  filter: blur(4px) hue-rotate(120deg); }
-      54%  { transform: translate3d(-12px, -2px, 0) scale(0.985); filter: blur(1.2px) invert(0.2) saturate(3); }
-      63%  { transform: translate3d(8px, 4px, 0) skewY(-1.2deg);  filter: blur(2.6px) contrast(1.4) hue-rotate(-40deg); }
-      72%  { transform: translate3d(-3px, -6px, 0);               filter: blur(0.5px) brightness(1.5); }
-      81%  { transform: translate3d(5px, 2px, 0) skewX(0.8deg);   filter: blur(1.6px) hue-rotate(20deg); }
-      90%  { transform: translate3d(-2px, 1px, 0);                filter: blur(0.3px) contrast(1.15); }
-      100% { transform: none; filter: none; }
-    }
-    #page.hacking { animation: hack-jolt 980ms steps(1, end) both; }
-
-    #ff-transition {
+    #choco-wipe {
       position: fixed;
       inset: 0;
       z-index: 9999;
-      opacity: 0;
       pointer-events: none;
       overflow: hidden;
-      background: #04061f;
-      transition: opacity 0.22s ease-in-out;
+      visibility: hidden;
     }
-    #ff-transition.show { opacity: 1; }
+    #choco-wipe.run { visibility: visible; }
 
-    /* Scanlines, drifting downward. Inset negative so the loop never exposes an edge. */
-    #ff-transition::before {
-      content: '';
-      position: absolute;
-      inset: -10%;
-      background: repeating-linear-gradient(180deg,
-        rgba(190, 220, 255, 0.13) 0 1px, transparent 1px 3px);
-      animation: hack-scan 0.34s linear infinite;
-    }
-    @keyframes hack-scan { to { transform: translateY(3px); } }
-
-    /* Horizontal tears. Stepped rather than eased: a smooth slide reads as a wipe, a jumping one
-       reads as a signal dropping out. */
-    #ff-transition::after {
-      content: '';
+    #choco-curtain {
       position: absolute;
       inset: 0;
-      background:
-        linear-gradient(90deg, rgba(255, 40, 60, 0.5), transparent 45%),
-        linear-gradient(270deg, rgba(0, 220, 255, 0.45), transparent 40%);
-      mix-blend-mode: screen;
-      clip-path: polygon(0 12%, 100% 12%, 100% 19%, 0 19%,
-                         0 41%, 100% 41%, 100% 45%, 0 45%,
-                         0 63%, 100% 63%, 100% 72%, 0 72%,
-                         0 86%, 100% 86%, 100% 90%, 0 90%);
-      animation: hack-tear 0.19s steps(1, end) infinite;
+      transform: translateX(-101%);
+      background: linear-gradient(100deg, #0b1240 0%, #16266e 45%, #0b1240 100%);
     }
-    @keyframes hack-tear {
-      0%   { transform: translate3d(-6%, 0, 0); }
-      33%  { transform: translate3d(9%, -2%, 0); }
-      66%  { transform: translate3d(-3%, 3%, 0); }
-      100% { transform: translate3d(5%, 0, 0); }
+    #choco-wipe.run #choco-curtain { animation: choco-curtain 1500ms cubic-bezier(0.55, 0, 0.45, 1) both; }
+    @keyframes choco-curtain {
+      0%        { transform: translateX(-101%); }
+      42%, 58%  { transform: translateX(0); }
+      100%      { transform: translateX(101%); }
     }
 
-    /* The caption, in three offset copies — the real one plus a red and a cyan ghost. */
-    #ff-glitch {
+    /* Dust kicked up along the ground line, so the herd looks like it is running on something. */
+    #choco-curtain::after {
+      content: '';
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: clamp(0.7rem, 2.4vw, 1.15rem);
-      letter-spacing: 0.35em;
-      font-weight: 500;
-      color: #eaf2ff;
-      white-space: nowrap;
-      animation: hack-caption 0.14s steps(1, end) infinite;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 38%;
+      background: linear-gradient(0deg, rgba(210, 190, 130, 0.22) 0%, transparent 100%);
     }
-    #ff-glitch::before,
-    #ff-glitch::after {
-      content: attr(data-text);
-      position: absolute;
-      inset: 0;
-      opacity: 0.85;
-    }
-    #ff-glitch::before { color: #ff2b3c; animation: hack-ghost-a 0.16s steps(1, end) infinite; }
-    #ff-glitch::after  { color: #00e5ff; animation: hack-ghost-b 0.16s steps(1, end) infinite; }
-    @keyframes hack-caption { 0%, 100% { opacity: 1; } 45% { opacity: 0.35; } }
-    @keyframes hack-ghost-a { 0% { transform: translate(-3px, 1px); } 50% { transform: translate(4px, -2px); } 100% { transform: translate(-2px, 2px); } }
-    @keyframes hack-ghost-b { 0% { transform: translate(3px, -1px); } 50% { transform: translate(-4px, 2px); } 100% { transform: translate(2px, -2px); } }
 
-    /* Motion this violent is exactly what the preference exists for. The mode still changes and
-       the overlay still hides the swap — it just stops throwing the page around. */
+    .choco {
+      position: absolute;
+      left: 0;
+      top: var(--top);
+      width: var(--size);
+      transform: translateX(-30vw);
+    }
+    #choco-wipe.run .choco {
+      animation: choco-run var(--dur) linear var(--delay) both;
+    }
+    .choco img {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.35));
+    }
+    #choco-wipe.run .choco img {
+      animation: choco-hop calc(var(--dur) / 9) steps(2, end) var(--delay) infinite;
+    }
+    @keyframes choco-run {
+      from { transform: translateX(-30vw); }
+      to   { transform: translateX(130vw); }
+    }
+    /* Two frames, not a sine wave. A smooth bob reads as floating; a sprite that snaps between
+       two heights reads as running, which is how the games did it. */
+    @keyframes choco-hop {
+      0%   { transform: translateY(0) rotate(-2deg); }
+      100% { transform: translateY(-14%) rotate(2deg); }
+    }
+
+    /* The herd still crosses and the theme still changes — it just stops bouncing. */
     @media (prefers-reduced-motion: reduce) {
-      #page.hacking { animation: none; }
-      #ff-transition::before,
-      #ff-transition::after,
-      #ff-glitch,
-      #ff-glitch::before,
-      #ff-glitch::after { animation: none; }
-      #ff-transition { transition: opacity 0.3s ease-in-out; }
+      #choco-wipe.run .choco img { animation: none; }
+      #choco-wipe.run #choco-curtain,
+      #choco-wipe.run .choco { animation-timing-function: ease; }
     }
 
     /* ── FFIV palette ── */
@@ -605,10 +565,11 @@
       --surface:       #17309c;
       --border:        #dfe8ff;
       --brand:         #ffffff;
-      --brand-2:       #aec4ff;
+      --brand-2:       #ffffff;
       --accent:        #f8d030;
       --accent-2:      #ffe98a;
       --accent-soft:   rgba(248, 208, 48, 0.16);
+      --hero-glow:     rgba(248, 208, 48, 0.1);
       --heading:       #ffffff;
       --text:          #ffffff;
       --muted:         #a8bcf0;
@@ -627,10 +588,16 @@
       border-bottom: 2px solid #dfe8ff;
       box-shadow: 0 2px 0 #0c1a60;
     }
-    body.ff-mode .hero::before {
-      background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(248, 208, 48, 0.12) 0%, transparent 70%);
-    }
     body.ff-mode .moogle-letter { filter: drop-shadow(0 0 8px rgba(248, 208, 48, 0.55)); }
+
+    /* Flat white, no gradient. A clipped gradient on eight pixel-font characters just makes them
+       look unevenly lit — the SNES wordmark is one solid colour with a hard shadow under it. */
+    body.ff-mode .hero h1 {
+      background: none;
+      -webkit-text-fill-color: #ffffff;
+      color: #ffffff;
+      text-shadow: 2px 2px 0 #0a1450;
+    }
 
     body.ff-mode h1,
     body.ff-mode h2,
@@ -642,10 +609,15 @@
     body.ff-mode .try-run,
     body.ff-mode .btn-primary,
     body.ff-mode .btn-secondary,
-    body.ff-mode .btn-docs {
+    body.ff-mode .btn-docs,
+    body.ff-mode #ff-menu {
       font-family: 'Press Start 2P', monospace;
     }
     body.ff-mode h1 { font-size: clamp(0.9rem, 2.2vw, 1.4rem); letter-spacing: 0.08em; }
+    /* The pixel font shrinks h1 to about a third of its silver size, and the moogle is sized in
+       em off it — at 0.8em it came out smaller than the letters beside it. Sized in rem here so
+       it stays the mascot rather than following the type down. */
+    body.ff-mode .moogle-letter { height: 3.2rem; margin: 0 0.15rem; }
     body.ff-mode h2 {
       font-size: 0.7rem;
       letter-spacing: 0.1em;
@@ -675,7 +647,8 @@
     body.ff-mode .endpoint-static,
     body.ff-mode .try-result,
     body.ff-mode .try-bar select,
-    body.ff-mode .try-bar input {
+    body.ff-mode .try-bar input,
+    body.ff-mode .ff-window {
       background: linear-gradient(180deg, #3358d8 0%, #17309c 55%, #0e1f70 100%);
       border: 2px solid #dfe8ff;
       box-shadow: inset 0 0 0 2px #0c1a60, 0 3px 0 rgba(4, 6, 31, 0.55);
@@ -716,6 +689,71 @@
     body.ff-mode .route-param { color: var(--accent); }
     body.ff-mode .route-query { color: var(--muted); }
     body.ff-mode footer { border-top: 2px solid #dfe8ff; }
+
+    /* ── The menu ──────────────────────────────────────────────────────────────
+     * FFIV's menu is a command list pinned to one side, the content beside it, and a status
+     * window underneath holding gil and time played. This is that, using the section anchors the
+     * silver nav no longer carries: they were the right content for a command list and the wrong
+     * content for a navbar on a page meant to be scrolled.
+     */
+    #ff-menu { display: none; }
+
+    body.ff-mode #ff-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: fixed;
+      top: 6.5rem;
+      right: 1.5rem;
+      width: 13rem;
+      z-index: 20;
+      font-size: 0.55rem;
+      letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    body.ff-mode .ff-window { border-radius: 6px; padding: 0.9rem 0.75rem; }
+
+    body.ff-mode .ff-commands ul { list-style: none; display: grid; gap: 0.85rem; }
+    body.ff-mode .ff-commands a {
+      display: block;
+      color: #ffffff;
+      text-decoration: none;
+      text-shadow: 1px 1px 0 #0a1450;
+      padding-left: 1.1rem;
+      position: relative;
+    }
+    /* The cursor. Present but transparent at rest so the label never shifts when it appears. */
+    body.ff-mode .ff-commands a::before {
+      content: '\25B6';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+    body.ff-mode .ff-commands a:hover,
+    body.ff-mode .ff-commands a:focus-visible { color: var(--accent); }
+    body.ff-mode .ff-commands a:hover::before,
+    body.ff-mode .ff-commands a:focus-visible::before { opacity: 1; }
+
+    body.ff-mode .ff-status { display: grid; gap: 0.7rem; }
+    body.ff-mode .ff-status div { display: flex; justify-content: space-between; gap: 0.5rem; }
+    body.ff-mode .ff-status span { color: var(--muted); text-shadow: 1px 1px 0 #0a1450; }
+    body.ff-mode .ff-status b { color: var(--accent); font-weight: 400; text-shadow: 1px 1px 0 #0a1450; }
+
+    /* Room for the command window, so it never lands on top of the content. */
+    @media (min-width: 1100px) {
+      body.ff-mode main { margin-right: 15rem; }
+    }
+    /* Below that there is no room for a side column, so the menu drops into the flow at the top
+       of the page — still two windows, just stacked, the way the menu looks on a narrow screen. */
+    @media (max-width: 1099px) {
+      body.ff-mode #ff-menu {
+        position: static;
+        width: auto;
+        margin: 0 1rem 2rem;
+      }
+    }
 
     /* ── Footer ── */
     footer {
@@ -951,9 +989,39 @@
 
 </div><!-- /#page -->
 
-<canvas id="ff-stars"></canvas>
+<!-- The FFIV command menu. display:none until ff-mode, so the silver page never sees it — these
+     are the section anchors the navbar dropped, which is the right content for a command list
+     even though it was the wrong content for a navbar. -->
+<aside id="ff-menu" aria-hidden="true">
+  <div class="ff-window ff-commands">
+    <ul>
+      <li><a href="#endpoints">Endpoints</a></li>
+      <li><a href="#try-it">Try It</a></li>
+      <li><a href="#stack">Stack</a></li>
+      <li><a href="/games">Games</a></li>
+      <li><a href="/scalar/v1">Docs</a></li>
+    </ul>
+  </div>
+  <div class="ff-window ff-status">
+    <div><span>GIL</span><b id="ff-gil">0</b></div>
+    <div><span>TIME</span><b id="ff-time">0:00:00</b></div>
+  </div>
+</aside>
+
 <div id="ff-notify"></div>
-<div id="ff-transition"><div id="ff-glitch" data-text="BREACHING MOOGLEAPI">BREACHING MOOGLEAPI</div></div>
+
+<!-- The herd. Sizes, lanes and speeds are set here rather than generated, because seven of them
+     is a composition — evenly spaced identical chocobos read as a loading bar. -->
+<div id="choco-wipe">
+  <div id="choco-curtain"></div>
+  <div class="choco" style="--top:14%; --size:104px; --dur:1.05s; --delay:0.02s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:34%; --size:76px;  --dur:1.30s; --delay:0.16s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:52%; --size:132px; --dur:0.92s; --delay:0.00s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:26%; --size:60px;  --dur:1.45s; --delay:0.30s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:68%; --size:96px;  --dur:1.15s; --delay:0.10s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:78%; --size:150px; --dur:0.86s; --delay:0.22s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:44%; --size:68px;  --dur:1.38s; --delay:0.38s"><img src="/assets/chocobo.png" alt="" /></div>
+</div>
 
 <script>
   const BASE = window.location.origin;
@@ -1055,8 +1123,7 @@
 
   // ── Final Fantasy Easter Egg ──
   let ffFontLoaded = false;
-  let starsAnimId  = null;
-  const starField  = [];
+  let ffClockId    = null;
 
   function loadFFFont() {
     if (ffFontLoaded) return;
@@ -1067,40 +1134,6 @@
     ffFontLoaded = true;
   }
 
-  function initStars() {
-    const canvas = document.getElementById('ff-stars');
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-    starField.length = 0;
-    for (let i = 0; i < 180; i++) {
-      starField.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 1.4 + 0.2,
-        phase: Math.random() * Math.PI * 2,
-        speed: Math.random() * 0.006 + 0.002,
-      });
-    }
-  }
-
-  function animateStars() {
-    const canvas = document.getElementById('ff-stars');
-    const ctx    = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    starField.forEach(s => {
-      s.phase += s.speed;
-      const alpha = 0.25 + 0.75 * Math.abs(Math.sin(s.phase));
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      // Mostly white, with the larger ones warm — the FFIV sky over the Red Wings, not a
-      // cyan nebula. The cool blue read as PS1-era and pulled against the menu blue.
-      const hue = s.r > 1.1 ? '255,238,180' : '236,242,255';
-      ctx.fillStyle = `rgba(${hue}, ${alpha})`;
-      ctx.fill();
-    });
-    starsAnimId = requestAnimationFrame(animateStars);
-  }
-
   function showNotify(html, duration = 3200) {
     const el = document.getElementById('ff-notify');
     el.innerHTML = html;
@@ -1108,70 +1141,77 @@
     setTimeout(() => el.classList.remove('show'), duration);
   }
 
+  /* The status window's TIME, counted from when the menu opened rather than from page load —
+     it is the party's time on this screen, which is what the original counts. GIL is filled in
+     from the catalogue totals by the data-summary fetch further down. */
+  function startFFClock() {
+    const started = Date.now();
+    const el = document.getElementById('ff-time');
+    const tick = () => {
+      const t = Math.floor((Date.now() - started) / 1000);
+      const pad = n => String(n).padStart(2, '0');
+      el.textContent = `${Math.floor(t / 3600)}:${pad(Math.floor(t / 60) % 60)}:${pad(t % 60)}`;
+    };
+    tick();
+    ffClockId = setInterval(tick, 1000);
+  }
+
   let ffTransitioning = false;
 
-  /* The break-in.
+  /* The chocobo run.
    *
-   * Four phases on a shared clock. The jolt runs on #page for the whole 980ms; the overlay comes
-   * up over it, the theme swaps underneath while the overlay is opaque, and the overlay lifts
-   * just before the jolt settles so the last frames of the shake are seen through the new theme
-   * rather than through a black screen. Swapping at the exact midpoint is what makes it read as
-   * one event instead of a fade-out followed by a fade-in.
+   * One clock, shared with the CSS. The curtain is off-screen left, slides across, holds over the
+   * viewport between 42% and 58% of its travel, and carries on out to the right; the theme swaps
+   * inside that hold, which is the only window where nothing of either palette is visible. RUN and
+   * the keyframes on #choco-curtain have to agree — change one and change the other.
    *
-   * JOLT is the CSS animation's duration and the two have to agree; if the keyframes change,
-   * change this with them. */
-  const JOLT  = 980;
-  const COVER = 220;  // overlay fade, matches the CSS transition
-  const SWAP  = 430;  // theme changes here — overlay is fully opaque by now
+   * aria-hidden comes off #ff-menu at the same time as the class goes on, so the command list is
+   * only in the accessibility tree while it is actually on screen. */
+  const RUN  = 1500;
+  const SWAP = Math.round(RUN * 0.5);
 
   function toggleFFMode() {
     if (ffTransitioning) return;
     ffTransitioning = true;
 
-    const overlay = document.getElementById('ff-transition');
-    const canvas  = document.getElementById('ff-stars');
-    const page    = document.getElementById('page');
+    const wipe = document.getElementById('choco-wipe');
+    const menu = document.getElementById('ff-menu');
 
-    // The font is fetched before the shake rather than at the swap: arriving late would re-lay
-    // out the whole page in Press Start 2P after the reveal, which looks like a bug rather than
-    // like an effect.
+    // Fetched before the run rather than at the swap: arriving late would re-lay-out the page in
+    // Press Start 2P after the reveal, which looks like a bug rather than like an effect.
     loadFFFont();
 
-    page.classList.add('hacking');
-    overlay.classList.add('show');
+    // Restarted from a clean slate, so a second toggle replays the animation instead of finding
+    // it already finished.
+    wipe.classList.remove('run');
+    void wipe.offsetWidth;
+    wipe.classList.add('run');
 
     setTimeout(() => {
       const isFF = document.body.classList.toggle('ff-mode');
+      menu.setAttribute('aria-hidden', String(!isFF));
 
       if (isFF) {
-        initStars();
-        canvas.classList.add('show');
-        animateStars();
+        startFFClock();
       } else {
-        canvas.classList.remove('show');
-        cancelAnimationFrame(starsAnimId);
+        clearInterval(ffClockId);
+        ffClockId = null;
       }
 
-      // Two rAFs: the browser has to paint the new theme before the overlay starts lifting,
-      // otherwise the first frame of the reveal is still the old one.
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        overlay.classList.remove('show');
+      setTimeout(() => {
+        wipe.classList.remove('run');
+        ffTransitioning = false;
 
-        setTimeout(() => {
-          page.classList.remove('hacking');
-          ffTransitioning = false;
-
-          if (isFF) {
-            showNotify(
-              'FINAL FANTASY IV<br><br>' +
-              '<span style="color:#f8d030;">Click Moogle to restore</span>',
-              4000
-            );
-          } else {
-            showNotify('GAME OVER', 1800);
-          }
-        }, Math.max(0, JOLT - SWAP - COVER));
-      }));
+        if (isFF) {
+          showNotify(
+            'FINAL FANTASY IV<br><br>' +
+            '<span style="color:#f8d030;">Click Moogle to restore</span>',
+            4000
+          );
+        } else {
+          showNotify('GAME OVER', 1800);
+        }
+      }, RUN - SWAP);
     }, SWAP);
   }
 
@@ -1183,10 +1223,6 @@
   document.addEventListener('keydown', e => {
     konamiIdx = e.code === KONAMI[konamiIdx] ? konamiIdx + 1 : (e.code === KONAMI[0] ? 1 : 0);
     if (konamiIdx === KONAMI.length) { toggleFFMode(); konamiIdx = 0; }
-  });
-
-  window.addEventListener('resize', () => {
-    if (document.body.classList.contains('ff-mode')) initStars();
   });
 
   (async () => {
@@ -1203,6 +1239,11 @@
       const fmt = n => Number(n).toLocaleString();
       document.getElementById('data-summary').innerHTML =
         `<strong>${fmt(charCount)}</strong> characters &amp; <strong>${fmt(monsterCount)}</strong> monsters across <strong>${fmt(gameCount)}</strong> mainline games`;
+
+      // The FFIV status window wants a number where the gil goes, and the catalogue size is the
+      // one the page already has. Written whether or not the egg is open — it is behind
+      // display:none until then, and filling it later would mean holding the counts twice.
+      document.getElementById('ff-gil').textContent = fmt(charCount + monsterCount);
     } catch (e) {
       console.warn('[data-summary] failed:', e);
       document.getElementById('data-summary').textContent = '';
