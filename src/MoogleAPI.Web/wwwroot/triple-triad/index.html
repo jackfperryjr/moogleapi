@@ -32,9 +32,13 @@
       --nav-bg:    rgba(11, 30, 52, 0.92);
       --radius:    6px;
 
-      /* Felt: a soft radial lift in the middle of the table, darker at the edges. */
+      /* Felt, and now actual felt: the painted table sits over the gradient that used to be the
+         whole effect, so a slow connection still gets a green table rather than a black page.
+         Same picture the /games/ tile is cropped from, and the lamp in its upper right is why the
+         gradient's highlight was moved off centre to meet it. */
       background:
-        radial-gradient(ellipse 90% 70% at 50% 32%, #1c4034 0%, #12271f 55%, #0c1a15 100%)
+        url('/assets/backgrounds/triple-triad-table.webp') center/cover no-repeat fixed,
+        radial-gradient(ellipse 90% 70% at 68% 22%, #1c4034 0%, #12271f 55%, #0c1a15 100%)
         fixed;
     }
 
@@ -118,26 +122,43 @@
     .card.owner-opponent { border-color: #d4808f; background-color: var(--opponent); }
     .card.selected { outline: 3px solid var(--gold); outline-offset: 1px; }
     .card.selectable { cursor: pointer; }
-    .card.facedown { background: repeating-linear-gradient(45deg, #3a2a4a, #3a2a4a 6px, #4a3560 6px, #4a3560 12px); }
+    /* A real back, not a hatch pattern. Every card in a deck shares one, and the three-pointed
+       emblem on it is the game's own name. */
+    .card.facedown {
+      background: #14294a url('/assets/card-back.webp') center/cover no-repeat;
+    }
 
     /* Light enough to read the art through; ownership is carried mainly by the border. */
     .card .tint { position: absolute; inset: 0; opacity: 0.33; }
     .card.owner-player   .tint { background: var(--player); }
     .card.owner-opponent .tint { background: var(--opponent); }
 
+    /* The ranks are drawn here, over the art, and always were — they used to be hidden the
+       moment the art loaded because the 1999 card faces have their numbers printed on. The
+       regenerated faces are drawn without them, which is the better arrangement in every
+       direction: the numbers come from the row rather than from a picture, so they are crisp at
+       any size, restyleable, correct by construction, and a diffusion model never has to spell.
+       Each still sits on the edge it defends.
+
+       The chip behind each digit is what makes them survive being over artwork instead of over a
+       flat panel — a text shadow alone disappeared into a light subject. */
     .card .vals {
       position: absolute; inset: 0 0 var(--name-h) 0;
       font-family: 'JetBrains Mono', monospace;
-      font-weight: 500; font-size: 0.78rem; color: #fff;
-      text-shadow: 0 0 3px #000, 0 0 3px #000;
+      font-weight: 600; font-size: 0.72rem; color: var(--gold);
     }
-    /* Art carries its own printed values — showing both reads as doubled digits. */
-    .card.has-art .vals { display: none; }
-    .card .vals span { position: absolute; line-height: 1; }
+    .card .vals span {
+      position: absolute; line-height: 1;
+      min-width: 15px; padding: 2px 1px;
+      text-align: center; border-radius: 4px;
+      background: rgba(6, 14, 26, 0.68);
+      box-shadow: inset 0 0 0 1px rgba(232, 217, 160, 0.34);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
     .card .v-top    { top: 3px;  left: 50%; transform: translateX(-50%); }
     .card .v-bottom { bottom: 3px; left: 50%; transform: translateX(-50%); }
-    .card .v-left   { left: 4px;  top: 50%; transform: translateY(-50%); }
-    .card .v-right  { right: 4px; top: 50%; transform: translateY(-50%); }
+    .card .v-left   { left: 3px;  top: 50%; transform: translateY(-50%); }
+    .card .v-right  { right: 3px; top: 50%; transform: translateY(-50%); }
 
     .card .cname {
       position: absolute; bottom: 0; left: 0; right: 0;
@@ -222,6 +243,6 @@
   </main>
 
   <script src="/assets/stats.js?v=20260802b"></script>
-  <script src="/triple-triad/game.js?v=20260802b"></script>
+  <script src="/triple-triad/game.js?v=20260809"></script>
 </body>
 </html>
