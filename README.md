@@ -1,4 +1,4 @@
-# <img src="src\MoogleAPI.Web\wwwroot\moogle.png" alt="moogleAPI" width="30"> moogleAPI
+# <img src="src\MoogleAPI.Web\wwwroot\assets\moogle.png" alt="moogleAPI" width="30"> moogleAPI
 
 > *"I'm a SOLDIER, not a database." — Cloud Strife, probably*
 
@@ -153,4 +153,4 @@ MoogleAPI is a fan project and is not affiliated with or endorsed by Square Enix
 
 ---
 
-<p align="center">Made with ♥ and too many Phoenix Downs <img src="src\MoogleAPI.Web\wwwroot\moogle.png" alt="moogleAPI" width="12"> <em>kupo!</em></p>
+<p align="center">Made with ♥ and too many Phoenix Downs <img src="src\MoogleAPI.Web\wwwroot\assets\moogle.png" alt="moogleAPI" width="12"> <em>kupo!</em></p>

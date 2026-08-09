@@ -229,9 +229,10 @@
       font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
     }
     .chocobos { display: flex; gap: 0.35rem; align-items: center; }
-    /* The sprite is pixel art, so it has to be scaled without smoothing — the browser's
-       default interpolation turns it into a yellow smudge at this size. */
-    .chocobo { width: 26px; height: 26px; flex: none; image-rendering: pixelated; }
+    /* Was pixel art scaled with image-rendering: pixelated. The shared icon is a painted
+       illustration now, so it scales smoothly instead — nearest-neighbour on a soft-edged
+       painting at 26px is what actually produces the yellow smudge that note warned about. */
+    .chocobo { width: 26px; height: 26px; flex: none; }
     /* Spent retries stay in place rather than disappearing, so the cost of the run is legible
        at a glance. Drained of colour, and never colour alone — the label counts them too. */
     .chocobo.spent { filter: grayscale(1) brightness(0.75); opacity: 0.45; }
@@ -346,7 +347,7 @@
 </head>
 <body>
   <nav>
-    <a class="nav-brand" href="/"><img src="/moogle.png" alt="" /> moogleAPI</a>
+    <a class="nav-brand" href="/"><img src="/assets/moogle.png" alt="" /> moogleAPI</a>
     <div class="nav-links">
       <a class="nav-back" href="/games">← Games</a>
     </div>
@@ -426,6 +427,6 @@
     </section>
   </main>
 
-  <script src="/kupo-climb/game.js?v=20260802b"></script>
+  <script src="/kupo-climb/game.js?v=20260809"></script>
 </body>
 </html>

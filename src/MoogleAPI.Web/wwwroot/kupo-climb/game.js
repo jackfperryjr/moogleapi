@@ -300,7 +300,7 @@ function renderInitiative() {
 /** One chocobo per retry. The strip carries its own label and aria-label, so each sprite is
  *  decorative and stays out of the accessibility tree. */
 const chocobo = (spent) =>
-  `<img class="chocobo${spent ? ' spent' : ''}" src="/assets/chocobo.png" alt="" aria-hidden="true" />`;
+  `<img class="chocobo${spent ? ' spent' : ''}" src="/assets/chocobo.png?v=20260809" alt="" aria-hidden="true" />`;
 
 function renderRetries() {
   const box = $('retries');

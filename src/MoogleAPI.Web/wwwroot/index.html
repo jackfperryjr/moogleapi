@@ -505,8 +505,9 @@
      * the right. A fade would show the old theme dissolving into the new one, which is a
      * transition; a curtain that something runs behind is a scene change.
      *
-     * The sprite is 96px of pixel art, so it is scaled with image-rendering: pixelated —
-     * smoothing it at 5x turns a crisp chocobo into a smear.
+     * The art is a painted 512px illustration in the catalogue's house style, so it is scaled
+     * smoothly. It used to be a 96px sprite drawn with image-rendering: pixelated, which is the
+     * opposite instruction and would now stair-step a smooth edge.
      */
     #choco-wipe {
       position: fixed;
@@ -567,7 +568,6 @@
       display: block;
       width: 100%;
       height: auto;
-      image-rendering: pixelated;
       filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.35));
     }
     #choco-wipe.run .choco img {
@@ -839,7 +839,7 @@
 <div id="page">
 
 <nav>
-  <a class="nav-brand" href="/"><img src="/moogle.png" alt="" /> moogleAPI</a>
+  <a class="nav-brand" href="/"><img src="/assets/moogle.png" alt="" /> moogleAPI</a>
   <div class="nav-links">
     <a href="/games">Games</a>
     <a href="https://github.com/jackfperryjr/moogleapi" target="_blank">GitHub</a>
@@ -848,7 +848,7 @@
 </nav>
 
 <div class="hero">
-  <h1>m<img src="/moogle.png" class="moogle-letter" id="moogle-egg" alt="o" title="✦ Kupo? ✦">ogleAPI</h1>
+  <h1>m<img src="/assets/moogle.png" class="moogle-letter" id="moogle-egg" alt="o" title="✦ Kupo? ✦">ogleAPI</h1>
   <p>A free, open REST API for Final Fantasy data — characters, monsters, and games. Kupo!</p>
   <div class="hero-actions">
     <a href="#try-it" class="btn-primary">Try It Now</a>
@@ -1010,7 +1010,7 @@
 </main>
 
 <footer>
-  <img src="/moogle.png" class="kupo-footer" alt="Moogle" style="width:40px;height:auto;opacity:0.7;" />
+  <img src="/assets/moogle.png" class="kupo-footer" alt="Moogle" style="width:40px;height:auto;opacity:0.7;" />
   <p>Built with ♥ by <a href="https://github.com/jackfperryjr">jackfperryjr</a></p>
   <p style="margin-top:0.4rem;">Not affiliated with Square Enix · <a href="/scalar/v1">Docs</a></p>
   <p><a href="https://buy.stripe.com/aFafZj7YI6n06d3fxG0Fi00" target="_blank" rel="noopener">Buy me a coffee ☕</a></p>
@@ -1039,7 +1039,7 @@
     </ul>
   </div>
   <div class="ff-window ff-title">
-    <img src="/moogle.png" alt="" />
+    <img src="/assets/moogle.png" alt="" />
     <span>moogleAPI</span>
   </div>
   <div class="ff-window ff-status">
@@ -1065,40 +1065,40 @@
 
 <div id="choco-wipe">
   <div id="choco-curtain"></div>
-  <div class="choco" style="--top:2.0%; --size:48px; --dur:1.58s; --delay:0.24s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:4.7%; --size:60px; --dur:1.49s; --delay:0.24s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:7.3%; --size:79px; --dur:1.43s; --delay:0.46s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:10.0%; --size:48px; --dur:1.62s; --delay:0.17s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:12.7%; --size:60px; --dur:1.49s; --delay:0.13s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:15.3%; --size:88px; --dur:1.36s; --delay:0.48s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:18.0%; --size:96px; --dur:1.24s; --delay:0.19s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:20.7%; --size:78px; --dur:1.43s; --delay:0.51s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:23.3%; --size:94px; --dur:1.25s; --delay:0.36s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:26.0%; --size:98px; --dur:1.26s; --delay:0.11s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:28.7%; --size:78px; --dur:1.36s; --delay:0.56s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:31.3%; --size:101px; --dur:1.24s; --delay:0.18s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:34.0%; --size:94px; --dur:1.3s; --delay:0.53s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:36.7%; --size:106px; --dur:1.2s; --delay:0.25s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:39.3%; --size:96px; --dur:1.27s; --delay:0.1s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:42.0%; --size:83px; --dur:1.4s; --delay:0.03s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:44.7%; --size:73px; --dur:1.45s; --delay:0.17s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:47.3%; --size:101px; --dur:1.23s; --delay:0.21s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:50.0%; --size:128px; --dur:1.01s; --delay:0.25s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:52.7%; --size:89px; --dur:1.34s; --delay:0.17s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:55.3%; --size:100px; --dur:1.27s; --delay:0.19s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:58.0%; --size:113px; --dur:1.19s; --delay:0.06s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:60.7%; --size:90px; --dur:1.29s; --delay:0.46s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:63.3%; --size:122px; --dur:1.06s; --delay:0.2s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:66.0%; --size:102px; --dur:1.23s; --delay:0.03s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:68.7%; --size:131px; --dur:1.06s; --delay:0.57s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:71.3%; --size:124px; --dur:1.12s; --delay:0.01s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:74.0%; --size:104px; --dur:1.26s; --delay:0.47s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:76.7%; --size:125px; --dur:1.11s; --delay:0.37s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:79.3%; --size:149px; --dur:0.87s; --delay:0.11s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:82.0%; --size:132px; --dur:0.98s; --delay:0.23s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:84.7%; --size:156px; --dur:0.82s; --delay:0.01s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:87.3%; --size:117px; --dur:1.09s; --delay:0.47s"><img src="/assets/chocobo.png" alt="" /></div>
-  <div class="choco" style="--top:90.0%; --size:136px; --dur:0.96s; --delay:0.06s"><img src="/assets/chocobo.png" alt="" /></div>
+  <div class="choco" style="--top:2.0%; --size:48px; --dur:1.58s; --delay:0.24s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:4.7%; --size:60px; --dur:1.49s; --delay:0.24s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:7.3%; --size:79px; --dur:1.43s; --delay:0.46s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:10.0%; --size:48px; --dur:1.62s; --delay:0.17s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:12.7%; --size:60px; --dur:1.49s; --delay:0.13s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:15.3%; --size:88px; --dur:1.36s; --delay:0.48s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:18.0%; --size:96px; --dur:1.24s; --delay:0.19s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:20.7%; --size:78px; --dur:1.43s; --delay:0.51s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:23.3%; --size:94px; --dur:1.25s; --delay:0.36s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:26.0%; --size:98px; --dur:1.26s; --delay:0.11s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:28.7%; --size:78px; --dur:1.36s; --delay:0.56s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:31.3%; --size:101px; --dur:1.24s; --delay:0.18s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:34.0%; --size:94px; --dur:1.3s; --delay:0.53s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:36.7%; --size:106px; --dur:1.2s; --delay:0.25s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:39.3%; --size:96px; --dur:1.27s; --delay:0.1s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:42.0%; --size:83px; --dur:1.4s; --delay:0.03s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:44.7%; --size:73px; --dur:1.45s; --delay:0.17s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:47.3%; --size:101px; --dur:1.23s; --delay:0.21s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:50.0%; --size:128px; --dur:1.01s; --delay:0.25s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:52.7%; --size:89px; --dur:1.34s; --delay:0.17s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:55.3%; --size:100px; --dur:1.27s; --delay:0.19s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:58.0%; --size:113px; --dur:1.19s; --delay:0.06s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:60.7%; --size:90px; --dur:1.29s; --delay:0.46s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:63.3%; --size:122px; --dur:1.06s; --delay:0.2s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:66.0%; --size:102px; --dur:1.23s; --delay:0.03s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:68.7%; --size:131px; --dur:1.06s; --delay:0.57s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:71.3%; --size:124px; --dur:1.12s; --delay:0.01s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:74.0%; --size:104px; --dur:1.26s; --delay:0.47s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:76.7%; --size:125px; --dur:1.11s; --delay:0.37s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:79.3%; --size:149px; --dur:0.87s; --delay:0.11s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:82.0%; --size:132px; --dur:0.98s; --delay:0.23s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:84.7%; --size:156px; --dur:0.82s; --delay:0.01s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:87.3%; --size:117px; --dur:1.09s; --delay:0.47s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:90.0%; --size:136px; --dur:0.96s; --delay:0.06s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
 </div>
 
 <script>

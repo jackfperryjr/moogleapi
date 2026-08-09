@@ -6,7 +6,7 @@
    It is the only thing that makes a script change reach players. The app sets Cache-Control:
    no-cache on markup, scripts and styles, but the zone in front of it has a fixed four-hour
    Browser Cache TTL, and that setting overrides any origin lifetime *shorter* than itself —
-   measured on 2026-08-02, the 30-day header on /moogle.png passes through untouched while
+   measured on 2026-08-02, the 30-day header on /assets/moogle.png passes through untouched while
    no-cache on this file comes back as max-age=14400. The markup is never edge-cached, so a new
    ?v= is a new cache key and is the one lever that still works.
 
