@@ -153,11 +153,13 @@
       art.className = 'art';
       art.src = card.imageUrl;
       art.alt = '';
-      // The wiki CDN 404s any request carrying a Referer, so send none.
+      // The wiki CDN 404s any request carrying a Referer, so send none. Kept for the copied
+      // originals: the regenerated faces are served from our own bucket, which does not care.
       art.referrerPolicy = 'no-referrer';
-      // The authentic card face already has its values printed on it, so the overlay numbers
-      // below are suppressed once the art arrives and act as the fallback if it never does.
-      art.addEventListener('load', () => node.classList.add('has-art'));
+      // The rank numbers below used to be hidden the moment this loaded, because the 1999 card
+      // faces have their values printed on. The regenerated faces are drawn without them on
+      // purpose, so the overlay is the real thing now and the has-art class that suppressed it
+      // is gone — nothing else referenced it.
       art.addEventListener('error', () => art.remove());
       node.appendChild(art);
     }
