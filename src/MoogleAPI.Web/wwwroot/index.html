@@ -401,25 +401,6 @@
     .try-result.loaded { color: var(--text); }
     .try-result.error { color: var(--error); }
 
-    /* ── Tech stack ── */
-    .stack-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 1rem;
-    }
-    .stack-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.2rem;
-      box-shadow: var(--shadow);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .stack-card:hover { border-color: var(--accent); box-shadow: 0 2px 4px rgba(20,22,26,0.05), 0 10px 22px rgba(20,22,26,0.08); }
-    .stack-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
-    .stack-name { font-family: 'Josefin Sans', sans-serif; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
-    .stack-desc { font-size: 0.78rem; color: var(--muted); }
-
     /* ── Mobile ── */
     @media (max-width: 640px) {
       /* The nav carries three links now — Games, GitHub, Docs — and all three are worth a
@@ -463,9 +444,6 @@
       .try-run { width: 100%; box-sizing: border-box; }
       .try-bar input { min-width: unset; }
       .try-result { font-size: 0.75rem; padding: 0.875rem 1rem; }
-
-      /* Stack */
-      .stack-grid { grid-template-columns: 1fr; }
 
       /* Footer */
       footer { padding: 2rem 1rem; }
@@ -627,7 +605,6 @@
     .ff-mode h1,
     .ff-mode h2,
     .ff-mode .stat-value,
-    .ff-mode .stack-name,
     .ff-mode .group-label,
     .ff-mode .method,
     .ff-mode .try-run,
@@ -648,7 +625,6 @@
       border-bottom: 2px solid #dfe8ff;
     }
     .ff-mode .stat-value { font-size: 0.9rem; text-shadow: 1px 1px 0 #0a1450; }
-    .ff-mode .stack-name { font-size: 0.55rem; letter-spacing: 0.05em; }
     .ff-mode .group-label { font-size: 0.5rem; color: var(--accent); }
     .ff-mode .method { font-size: 0.45rem; padding: 0.3rem 0.4rem; }
     .ff-mode .btn-primary,
@@ -657,13 +633,11 @@
     .ff-mode .hero p,
     .ff-mode .route,
     .ff-mode .desc,
-    .ff-mode .stack-desc,
     .ff-mode .stat-label,
     .ff-mode footer { text-shadow: 1px 1px 0 rgba(10, 20, 80, 0.9); }
 
     /* The window. One rule, because the panel treatment is the whole look. */
     .ff-mode .stats,
-    .ff-mode .stack-card,
     .ff-mode a.endpoint,
     .ff-mode .endpoint-static,
     .ff-mode .try-result,
@@ -677,8 +651,7 @@
     }
     .ff-mode .stats { border-left: none; border-right: none; border-radius: 0; }
 
-    .ff-mode a.endpoint:hover,
-    .ff-mode .stack-card:hover {
+    .ff-mode a.endpoint:hover {
       border-color: var(--accent);
       background: linear-gradient(180deg, #4468e8 0%, #2340b4 55%, #14288a 100%);
       box-shadow: inset 0 0 0 2px #0c1a60, 0 0 14px rgba(248, 208, 48, 0.35), 0 3px 0 rgba(4, 6, 31, 0.55);
@@ -964,41 +937,6 @@
     </div>
   </section>
 
-  <section id="stack">
-    <h2>Built With</h2>
-    <div class="stack-grid">
-      <div class="stack-card">
-        <div class="stack-icon">⚡</div>
-        <div class="stack-name">FastEndpoints v8</div>
-        <div class="stack-desc">REPR pattern — one folder per operation, zero controller bloat</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">🗄️</div>
-        <div class="stack-name">EF Core 10 + Neon</div>
-        <div class="stack-desc">Serverless PostgreSQL with automatic migrations on startup</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">⚙️</div>
-        <div class="stack-name">.NET 10 / C# 14</div>
-        <div class="stack-desc">Primary constructors, collection expressions, field-backed props</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">🔮</div>
-        <div class="stack-name">HybridCache</div>
-        <div class="stack-desc">L1 in-process + optional L2 Redis — stampede-proof</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">📖</div>
-        <div class="stack-name">Scalar</div>
-        <div class="stack-desc">Beautiful interactive API docs, replacing Swagger UI</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">🤖</div>
-        <div class="stack-name">GitHub Actions</div>
-        <div class="stack-desc">Weekly scraper keeps data fresh</div>
-      </div>
-    </div>
-  </section>
 
 </main>
 
@@ -1019,7 +957,6 @@
     <ul>
       <li><a href="#endpoints">Endpoints</a></li>
       <li><a href="#try-it">Try It</a></li>
-      <li><a href="#stack">Stack</a></li>
       <li><a href="/games">Games</a></li>
       <li><a href="/scalar/v1">Docs</a></li>
     </ul>
