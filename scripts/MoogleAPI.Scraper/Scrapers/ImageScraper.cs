@@ -52,14 +52,11 @@ public class ImageScraper(AppDbContext db, ImageStore store, ILogger<ImageScrape
                 row.ImageUrl = url;
             });
 
-        await CopyAsync("characters", force, ct,
-            () => Pending(db.Characters, force).Select(c => new Art(c.Id, c.ImageUrl!, c.ImageSourceUrl)).ToListAsync(ct),
-            async (id, url, source) =>
-            {
-                var row = await db.Characters.FirstAsync(c => c.Id == id, ct);
-                row.ImageSourceUrl = source;
-                row.ImageUrl = url;
-            });
+        // Characters are not copied any more. Generated art is their primary artwork, chosen and
+        // corrected by hand in the dashboard, and a copy stage exists to put wiki art on a row —
+        // which for a character is now never the right answer. A row with no picture serves no
+        // picture; the clients draw the placeholder. Monsters and cards are unchanged until that
+        // half of the library has been reviewed.
 
         await CopyAsync("cards", force, ct,
             () => Pending(db.Cards, force).Select(c => new Art(c.Id, c.ImageUrl!, c.ImageSourceUrl)).ToListAsync(ct),
@@ -81,6 +78,13 @@ public class ImageScraper(AppDbContext db, ImageStore store, ILogger<ImageScrape
     /// simply be recomputed. That makes moving from the r2.dev domain to a custom one — or
     /// between custom domains later — a database pass of a few seconds rather than a re-upload
     /// of the entire library.
+    /// <para>
+    /// Each layer is rebased at its own address. This used to recompute every <c>ImageUrl</c> as
+    /// the plain <c>{folder}/{id}.webp</c> key regardless of what the row was actually serving, so
+    /// the default stage — the one described above as the only harmless one — would have taken all
+    /// 5,559 rows of generated art out of service on its next run and put the wiki copies back. It
+    /// was never noticed because no domain has moved since the art was generated.
+    /// </para>
     /// </remarks>
     private async Task RebaseAsync(CancellationToken ct)
     {
@@ -106,17 +110,56 @@ public class ImageScraper(AppDbContext db, ImageStore store, ILogger<ImageScrape
         var moved = 0;
         foreach (var row in copied)
         {
-            var id = (int)set.Entry(row).Property("Id").CurrentValue!;
-            var expected = store.PublicUrlFor($"{folder}/{id}.webp");
-            var entry = set.Entry(row).Property("ImageUrl");
+            var entry = set.Entry(row);
+            var id = (int)entry.Property("Id").CurrentValue!;
+            var generatedKey = $"gen/{folder}/{id}.webp";
 
-            if ((string?)entry.CurrentValue == expected) continue;
+            // The generated column first, so ImageUrl can be compared against a current value.
+            // Cards have no such column, hence the lookup rather than a direct Property call.
+            if (entry.Metadata.FindProperty("GeneratedImageUrl") is not null)
+            {
+                var generated = entry.Property("GeneratedImageUrl");
+                if (generated.CurrentValue is not null)
+                {
+                    moved += Repoint(generated, store.PublicUrlFor(generatedKey));
+                }
+            }
 
-            entry.CurrentValue = expected;
-            moved++;
+            var served = entry.Property("ImageUrl");
+            moved += Repoint(served, store.PublicUrlFor(ServedKey((string?)served.CurrentValue, folder, id)));
         }
 
         return moved;
+    }
+
+    /// <summary>
+    /// Which stored object a row is currently serving, so a rebase moves it to that object's new
+    /// address rather than to a different picture at a different key.
+    /// </summary>
+    /// <remarks>
+    /// The generated image and the copied original are two files, and a row points at one of them.
+    /// This used to answer "the copied original" unconditionally, which meant the next domain move
+    /// would have repointed all 5,559 rows of generated art back at wiki copies — from the stage
+    /// documented as the harmless one, in a pass that reports itself as "repointed N images".
+    /// </remarks>
+    internal static string ServedKey(string? currentUrl, string folder, int id)
+    {
+        var generated = $"gen/{folder}/{id}.webp";
+
+        // Matched on the path and not the whole URL, because the host is the thing that just
+        // changed. The leading slash keeps monsters/12.webp from matching gen/monsters/12.webp.
+        return currentUrl is not null && currentUrl.Contains($"/{generated}", StringComparison.Ordinal)
+            ? generated
+            : $"{folder}/{id}.webp";
+    }
+
+    /// <summary>Sets a URL property, reporting whether it actually changed.</summary>
+    private static int Repoint(Microsoft.EntityFrameworkCore.ChangeTracking.PropertyEntry property, string expected)
+    {
+        if ((string?)property.CurrentValue == expected) return 0;
+
+        property.CurrentValue = expected;
+        return 1;
     }
 
     private record Art(int Id, string ImageUrl, string? ImageSourceUrl);

@@ -145,21 +145,39 @@ if (generating)
         // wrong cause.
         try
         {
-            await generator.PromoteAsync();
+            // Only what this run made. A promote used to be handed the whole library, which
+            // turned every generate — however small — into a write across every row holding
+            // generated art, and quietly undid artwork chosen by hand in the dashboard.
+            await generator.PromoteAsync(generator.Recorded);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Promote failed after generation. Rerun with --only=promote — it is free and idempotent.");
+            logger.LogError(ex, "Promote failed after generation. Rerun with --only=promote --ids=… — it is free and idempotent.");
         }
     }
 }
 
-// Promotion on its own, for art from a run that predates the automatic promote above.
-//
-// Worth knowing: this promotes *every* row holding generated art, not only the rows a run
-// produced. Anything deliberately generated and left unpromoted earlier goes live too.
+// Promotion on its own, for art from a run that predates the automatic promote above. It has to
+// be told which rows: a bare promote is a library-wide overwrite of the served URL, and the
+// dashboard is the only thing allowed to choose a row's picture now.
 else if (stages is not null && stages.Contains("promote"))
-    await scope.ServiceProvider.GetRequiredService<ImageGenerator>().PromoteAsync();
+{
+    if (ids is null)
+    {
+        logger.LogError(
+            "--only=promote needs --ids. On its own it would repoint every row holding generated "
+            + "art, including rows whose artwork was chosen by hand. Name them: --ids=c471,m31.");
+        return 1;
+    }
+
+    List<(string Folder, int Id)> named =
+    [
+        .. ids.Monsters.Select(id => ("monsters", id)),
+        .. ids.Characters.Select(id => ("characters", id)),
+    ];
+
+    await scope.ServiceProvider.GetRequiredService<ImageGenerator>().PromoteAsync(named);
+}
 
 // Puts the served URLs back on the copied originals and deletes the generated art. Destructive
 // and asked for by name, like generate — and for the same reason, since what it throws away was
