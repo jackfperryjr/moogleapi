@@ -74,6 +74,20 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// <summary>Raised once the first unrecognised 429 body has been shown, so it is shown once.</summary>
     private int _loggedUnknownRefusal;
 
+    /// <summary>Rows this run wrote a <c>GeneratedImageUrl</c> to — the only rows it may promote.</summary>
+    private readonly List<(string Folder, int Id)> _recorded = [];
+
+    /// <summary>
+    /// What <see cref="GenerateAsync"/> actually produced, for the promote that follows it.
+    /// </summary>
+    /// <remarks>
+    /// Promotion used to be handed the whole library, and on 2026-08-08 a six-image run repointed
+    /// twelve unrelated character rows whose <c>ImageUrl</c> had been set to something other than
+    /// their generated art — by hand, through the dashboard, which is the one place art is
+    /// supposed to be chosen. A run may only publish what it made.
+    /// </remarks>
+    public IReadOnlyCollection<(string Folder, int Id)> Recorded => _recorded;
+
     /// <param name="kinds">Which classes of bad image to replace. Ignored when <paramref name="only"/> is set.</param>
     /// <param name="max">Hard ceiling on images generated in one run.</param>
     /// <param name="force">Re-select rows that already have generated art.</param>
@@ -171,6 +185,10 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                         if (character is null) { WarnVanished(row); continue; }
                         character.GeneratedImageUrl = row.Url;
                     }
+
+                    // Recorded inside the gate, alongside the column it corresponds to, so the
+                    // promote list cannot drift from what was actually written.
+                    _recorded.Add((row.Folder, row.Id));
                     written++;
                 }
 
@@ -304,25 +322,47 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     }
 
     /// <summary>
-    /// Copies generated art over the served URL. Runs automatically after <c>generate</c>, and
-    /// can still be asked for by name to pick up art from an earlier run. Both columns are kept
-    /// even so — <c>ImageReverter</c> needs the original to put back.
+    /// Copies generated art over the served URL, for named rows only. Runs automatically after
+    /// <c>generate</c> against what that run produced. Both columns are kept even so —
+    /// <c>ImageReverter</c> needs the original to put back.
     /// </summary>
     /// <remarks>
-    /// Promotes every row holding generated art, not just the current batch.
+    /// It used to promote every row holding generated art, which made a six-image run a
+    /// library-wide write: on 2026-08-08 it repointed twelve character rows whose <c>ImageUrl</c>
+    /// someone had deliberately set elsewhere, and there was no record of what they had been. The
+    /// blast radius is now the batch, and a promote asked for by name has to say which rows.
+    /// <para>
+    /// Rows already serving their generated art produce no UPDATE, so a repeat is still free.
+    /// </para>
     /// </remarks>
-    public async Task PromoteAsync(CancellationToken ct = default)
+    /// <param name="only">The rows this promote may touch. See <see cref="Recorded"/>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task PromoteAsync(IReadOnlyCollection<(string Folder, int Id)> only, CancellationToken ct = default)
     {
-        var monsters = await db.Monsters.Where(m => m.GeneratedImageUrl != null).ToListAsync(ct);
+        if (only.Count == 0)
+        {
+            logger.LogInformation("Nothing to promote — no rows were named.");
+            return;
+        }
+
+        var monsterIds = only.Where(r => r.Folder == "monsters").Select(r => r.Id).ToHashSet();
+        var characterIds = only.Where(r => r.Folder == "characters").Select(r => r.Id).ToHashSet();
+
+        var monsters = await db.Monsters
+            .Where(m => m.GeneratedImageUrl != null && monsterIds.Contains(m.Id))
+            .ToListAsync(ct);
         foreach (var m in monsters) m.ImageUrl = m.GeneratedImageUrl;
 
-        var characters = await db.Characters.Where(c => c.GeneratedImageUrl != null).ToListAsync(ct);
+        var characters = await db.Characters
+            .Where(c => c.GeneratedImageUrl != null && characterIds.Contains(c.Id))
+            .ToListAsync(ct);
         foreach (var c in characters) c.ImageUrl = c.GeneratedImageUrl;
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation(
-            "Promoted {Monsters} monster and {Characters} character images to the served URL.",
-            monsters.Count, characters.Count);
+            "Promoted {Monsters} monster and {Characters} character images to the served URL, "
+            + "from {Named} named rows.",
+            monsters.Count, characters.Count, only.Count);
     }
 
     internal record Candidate(string Folder, int Id, string Name, string Game, string Subject,

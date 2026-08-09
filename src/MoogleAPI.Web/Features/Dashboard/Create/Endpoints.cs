@@ -54,7 +54,9 @@ public class CharacterEndpoint(AppDbContext db, HybridCache cache)
             Popularity = f.Popularity,
             WikiPageLength = f.WikiPageLength,
             WikiBacklinks = f.WikiBacklinks,
-            ImageUrl = EditText.Clean(f.ImageUrl),
+            // A new character starts on whatever the import found, if anything — but the moment it
+            // has house-style artwork that is what it serves, matching the update endpoint.
+            ImageUrl = EditText.Clean(f.GeneratedImageUrl) ?? EditText.Clean(f.ImageUrl),
             ImageSourceUrl = EditText.Clean(f.ImageSourceUrl),
             GeneratedImageUrl = EditText.Clean(f.GeneratedImageUrl),
             ImageKind = EditText.Clean(f.ImageKind),

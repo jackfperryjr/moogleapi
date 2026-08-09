@@ -206,17 +206,25 @@ app.MapScalarApiReference(options =>
     options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
     options.WithFavicon("/favicon.ico");
 
-    // DeepSpace was close to the site's palette but never actually it. The reference is now
-    // themed from wwwroot/assets/scalar.css against the same tokens games.css uses — see that
-    // file for why no preset is loaded underneath it, and why the site is dark-only here.
+    // DeepSpace was close to the site's palette but never actually it. The reference is themed
+    // from wwwroot/assets/scalar.css against the landing page's tokens — see that file for why no
+    // preset is loaded underneath it, and why the site is single-mode here.
+    //
+    // Light, since the site went silver. The stylesheet sets the same tokens on both .dark-mode
+    // and .light-mode, so this only decides which class Scalar puts on the root; the toggle stays
+    // hidden because there is no second palette for it to switch to.
     options.Theme = ScalarTheme.None;
-    options.ForceThemeMode = ThemeMode.Dark;
+    options.ForceThemeMode = ThemeMode.Light;
     options.HideDarkModeToggle = true;
+    // theme.js is synchronous and first on purpose: it stamps .ff-mode on <html> before the first
+    // paint, so a reader who switched the site to FFIV mode on another page does not watch this
+    // one load silver and then turn blue. scalar.css carries both palettes behind that class.
     options.AddHeadContent(
         """
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+        <script src="/assets/theme.js"></script>
         <link rel="stylesheet" href="/assets/scalar.css" />
         """);
     // FastEndpoints.Swagger (NSwag) serves the spec here, not the ASP.NET Core default

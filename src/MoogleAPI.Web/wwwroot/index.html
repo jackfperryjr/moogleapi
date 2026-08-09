@@ -7,24 +7,76 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- Synchronous and before the stylesheets: it stamps .ff-mode on <html> so the first paint is
+       already the right theme. See assets/theme.js. -->
+  <script src="/assets/theme.js"></script>
+  <link rel="stylesheet" href="/assets/ff4.css" />
   <style>
+    /* Silver, black and red.
+     *
+     * Only the wordmark is red — --brand is spent on "moogleAPI" in the nav and the hero and
+     * nowhere else, so it stays a mark rather than becoming the page's accent colour. Everything
+     * that used to be gold is now --heading, which is black: section titles, stat values and the
+     * numbers in the data summary were picked out in gold because the page was dark, and on
+     * silver they only need weight.
+     *
+     * --accent is still the one interactive colour — buttons, focus rings, hover borders — and it
+     * is the same red. That is deliberate: two accents on a near-white page fight, and the red
+     * already has to be there for the wordmark.
+     *
+     * Every value below is overridden wholesale by .ff-mode further down, which is why the
+     * components underneath reference tokens rather than colours. */
     :root {
-      --bg:        #25282c;
-      --surface:   #37474f;
-      --border:    #455a64;
-      --accent:    #4285f4;
-      --accent-2:  #bbdefb;
-      --gold:      #ffecb3;
-      --text:      #ffffff;
-      --muted:     #90a4ae;
-      --green:     #c8e6c9;
-      --radius:    10px;
+      --bg:          #f4f6f8;
+      --bg-2:        #edeff3;
+      /* Panels are DARKER than the page, not lighter. The usual light-theme move is a white card
+         floating over grey, but the page is silver and white cards on it read as holes rather
+         than as surfaces. Everything is a step down instead, and the border does the separating
+         that a shadow would on a white card. */
+      --surface:     #e0e4ea;
+      --border:      #c9cfd8;
+      --brand:       #d0021b;
+      --brand-2:     #94060f;
+      --accent:      #d0021b;
+      /* The deep red does two jobs: hover states, and red *text*. The bright red is tuned to sit
+         under white as a button fill and to carry the wordmark on the page, and at 4.44:1 on a
+         --surface panel it misses AA as body-sized text. Anywhere red is a word rather than a
+         fill, it is this one. */
+      --accent-2:    #a10214;
+      --accent-soft: rgba(208, 2, 27, 0.07);
+      /* The wash under the nav. White, not a tint of the brand — a red one read as a glow
+         leaking out of the navbar rather than as light falling on the page. */
+      --hero-glow:   rgba(255, 255, 255, 0.95);
+      --heading:     #14161a;
+      --text:        #14161a;
+      --muted:       #5b626d;
+      --green:       #1c6b40;
+      --error:       #a4121e;
+      --method-bg:   rgba(28, 107, 64, 0.09);
+      --method-border: rgba(28, 107, 64, 0.28);
+      /* The premium rate-limit pill. Blue keeps it apart from the green tiers and the red
+         actions, which is the whole job — it is a label, not something you can click. */
+      --premium:        #17458f;
+      --premium-bg:     rgba(23, 69, 143, 0.09);
+      --premium-border: rgba(23, 69, 143, 0.3);
+      /* The nav stays light. It sits over the top of the page gradient, which is nearly white
+         there anyway, and dropping it to panel silver put the wordmark at 4.44:1 — fine for
+         large text, thin for a brand mark. The white the eye reads as "unfinished" was the
+         cards and the stats band, and those are what moved. */
+      --nav-bg:      rgba(250, 251, 252, 0.9);
+      --shadow:      0 1px 1px rgba(20, 22, 26, 0.03), 0 4px 12px rgba(20, 22, 26, 0.04);
+      --radius:      10px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
+      /* A flat off-white over a whole page reads as unpainted rather than light. The two stops
+         are close enough to stay neutral under black text and far enough apart to give the page
+         a top-down light source — the silver the palette is named for. */
       background: var(--bg);
+      background-image: linear-gradient(180deg, #fcfcfd 0%, var(--bg) 38%, var(--bg-2) 100%);
+      background-attachment: fixed;
       color: var(--text);
       font-family: 'Raleway', sans-serif;
       line-height: 1.6;
@@ -42,15 +94,26 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: rgba(37, 40, 44, 0.9);
+      background: var(--nav-bg);
     }
     .nav-brand {
       font-family: 'Josefin Sans', sans-serif;
       font-size: 1.25rem;
       font-weight: 700;
-      color: var(--gold);
+      color: var(--brand);
       letter-spacing: 0.1em;
       text-decoration: none;
+    }
+    /* Was an inline style, which meant ff-mode could not reach it — and it is sized in em off
+       a .nav-brand that the pixel font drops to 0.65rem, so the mascot came out smaller than the
+       letters next to it. Same trap as .moogle-letter in the hero. */
+    .nav-brand img {
+      height: 1.4em;
+      width: auto;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+      transform: rotate(-8deg);
+      display: inline-block;
     }
     .nav-links { display: flex; gap: 1.5rem; align-items: center; }
     .nav-links a {
@@ -60,7 +123,7 @@
       font-weight: 500;
       transition: color 0.2s;
     }
-    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover { color: var(--brand); }
     .btn-docs {
       background: var(--accent);
       color: #fff !important;
@@ -82,7 +145,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 70%);
+      background: radial-gradient(ellipse 80% 50% at 50% 0%, var(--hero-glow) 0%, transparent 70%);
       pointer-events: none;
     }
     .hero h1 {
@@ -90,7 +153,10 @@
       font-size: clamp(2.5rem, 6vw, 4rem);
       font-weight: 700;
       letter-spacing: 0.15em;
-      background: linear-gradient(135deg, var(--gold) 0%, var(--accent-2) 60%);
+      /* Kept as a clipped gradient rather than a flat colour so ff-mode can put a two-tone
+         wordmark back without restructuring the rule. In silver mode the two stops are the same
+         red a shade apart, which reads as solid at a glance and gives the letters some depth. */
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 60%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -108,7 +174,7 @@
       margin: 0 -0.04em;
       -webkit-text-fill-color: initial;
       transform: rotate(-8deg) translateY(-0.05em);
-      filter: drop-shadow(0 2px 8px rgba(66,133,244,0.3));
+      filter: drop-shadow(0 2px 6px rgba(20, 22, 26, 0.18));
     }
     .hero p {
       color: var(--muted);
@@ -141,7 +207,7 @@
       border: 1px solid var(--border);
       transition: border-color 0.2s, background 0.2s;
     }
-    .btn-secondary:hover { border-color: var(--accent); background: rgba(66,133,244,0.08); }
+    .btn-secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
 
     /* ── Data summary ── */
     .data-summary {
@@ -151,7 +217,7 @@
       color: var(--muted);
       letter-spacing: 0.02em;
     }
-    .data-summary strong { color: var(--gold); font-family: 'Josefin Sans', sans-serif; font-weight: 700; }
+    .data-summary strong { color: var(--heading); font-family: 'Josefin Sans', sans-serif; font-weight: 700; }
 
     /* ── Stats bar ── */
     .stats {
@@ -168,7 +234,7 @@
     .stat-value {
       font-family: 'Josefin Sans', sans-serif;
       font-size: 1.75rem;
-      color: var(--gold);
+      color: var(--heading);
       font-weight: 700;
       letter-spacing: 0.08em;
     }
@@ -182,7 +248,7 @@
       font-family: 'Josefin Sans', sans-serif;
       font-size: 1.4rem;
       font-weight: 700;
-      color: var(--gold);
+      color: var(--heading);
       margin-bottom: 1.5rem;
       padding-bottom: 0.75rem;
       border-bottom: 1px solid var(--border);
@@ -197,7 +263,7 @@
       font-weight: 600;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: var(--accent-2);
+      color: var(--muted);
       margin-bottom: 0.75rem;
     }
     a.endpoint {
@@ -210,12 +276,13 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       margin-bottom: 0.5rem;
+      box-shadow: var(--shadow);
       transition: border-color 0.2s, background 0.2s;
       text-decoration: none;
       color: inherit;
       cursor: pointer;
     }
-    a.endpoint:hover { border-color: var(--accent); background: rgba(66,133,244,0.05); }
+    a.endpoint:hover { border-color: var(--accent); background: var(--accent-soft); }
     .endpoint-static {
       display: grid;
       grid-template-columns: 5rem 1fr;
@@ -226,6 +293,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       margin-bottom: 0.5rem;
+      box-shadow: var(--shadow);
     }
     .method {
       font-family: 'JetBrains Mono', monospace;
@@ -234,9 +302,19 @@
       padding: 0.25rem 0.5rem;
       border-radius: 4px;
       text-align: center;
-      background: rgba(200, 230, 201, 0.15);
+      background: var(--method-bg);
       color: var(--green);
-      border: 1px solid rgba(200, 230, 201, 0.3);
+      border: 1px solid var(--method-border);
+    }
+    .method-play {
+      background: var(--accent-soft);
+      color: var(--accent-2);
+      border-color: rgba(208, 2, 27, 0.3);
+    }
+    .method-premium {
+      background: var(--premium-bg);
+      color: var(--premium);
+      border-color: var(--premium-border);
     }
     .route {
       font-family: 'JetBrains Mono', monospace;
@@ -317,37 +395,19 @@
       max-height: 420px;
       overflow-y: auto;
       white-space: pre;
+      box-shadow: var(--shadow);
       color: var(--muted);
     }
     .try-result.loaded { color: var(--text); }
-    .try-result.error { color: #ef9a9a; }
-
-    /* ── Tech stack ── */
-    .stack-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 1rem;
-    }
-    .stack-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.2rem;
-      transition: border-color 0.2s;
-    }
-    .stack-card:hover { border-color: var(--accent); }
-    .stack-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
-    .stack-name { font-family: 'Josefin Sans', sans-serif; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
-    .stack-desc { font-size: 0.78rem; color: var(--muted); }
+    .try-result.error { color: var(--error); }
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
-      /* Nav: drop the section anchors, keep the links that go somewhere. Games is matched by
-         href rather than left to the :not() chain — it used to be a #games anchor and was
-         dropped here with the rest, but it is a page of its own now and the one link on this
-         nav a phone visitor is most likely to want. */
+      /* The nav carries three links now — Games, GitHub, Docs — and all three are worth a
+         phone tap, so nothing is hidden here any more. The section anchors it used to drop are
+         gone from the markup entirely: the page is meant to be scrolled. */
       nav { padding: 0.9rem 1.25rem; }
-      .nav-links a:not(.btn-docs):not([href*="github"]):not([href="/games"]) { display: none; }
+      .nav-links { gap: 1rem; }
 
       /* Hero */
       .hero { padding: 3rem 1.25rem 1.5rem; }
@@ -385,155 +445,379 @@
       .try-bar input { min-width: unset; }
       .try-result { font-size: 0.75rem; padding: 0.875rem 1rem; }
 
-      /* Stack */
-      .stack-grid { grid-template-columns: 1fr; }
-
       /* Footer */
       footer { padding: 2rem 1rem; }
     }
 
-    /* ── Final Fantasy Easter Egg (PS1 era) ── */
+    /* ── Final Fantasy Easter Egg (FFIV, SNES) ── */
+    /*
+     * The look is the FFIV menu screen: blue windows that go lighter towards the top, a pale
+     * two-pixel edge with a darker line just inside it, white text carrying a hard one-pixel
+     * shadow, and a gold cursor on whatever is selected. That combination is what makes it read
+     * as FFIV rather than as "retro" in general, so the window treatment is one shared rule
+     * applied to every panel instead of per-component colours.
+     *
+     * The page is also re-laid-out, not just recoloured. FFIV's menu is a command list down one
+     * side with the content beside it and a status window at the bottom, so ff-mode reveals a
+     * command column (#ff-menu, display:none otherwise) and indents the content to sit next to
+     * it. Nothing in the markup moves; the silver theme simply never shows that element.
+     *
+     * The palette, the window rule and the shared chrome live in assets/ff4.css, which the games
+     * hub and the API reference load too — this block is only what is specific to this page. The
+     * silver theme owns :root and ff4.css overrides the same tokens on :root.ff-mode, so
+     * components never need to know which mode they are in.
+     */
     #moogle-egg { cursor: pointer; }
     #moogle-egg:hover {
-      filter: drop-shadow(0 0 10px rgba(0,210,220,0.9)) !important;
+      filter: drop-shadow(0 0 10px rgba(248, 208, 48, 0.9)) !important;
       transform: rotate(-8deg) translateY(-0.05em) scale(1.2) !important;
     }
-
-    #ff-stars {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: -1;
-      opacity: 0;
-      transition: opacity 1.6s;
-    }
-    #ff-stars.show { opacity: 1; }
 
     #ff-notify {
       position: fixed;
       top: 5rem;
       left: 50%;
       transform: translateX(-50%) translateY(-20px);
-      background: rgba(8, 16, 48, 0.96);
-      border: 1px solid #3868d0;
+      background: linear-gradient(180deg, #3358d8 0%, #17309c 55%, #0e1f70 100%);
+      border: 2px solid #dfe8ff;
       border-radius: 6px;
       padding: 1.1rem 2rem;
       font-family: 'Press Start 2P', monospace;
-      color: #dce8ff;
+      color: #ffffff;
       font-size: 0.55rem;
       letter-spacing: 0.08em;
       line-height: 2;
       text-align: center;
+      text-shadow: 1px 1px 0 #0a1450;
       z-index: 200;
       opacity: 0;
-      transition: opacity 0.5s, transform 0.5s;
+      transition: opacity 0.4s, transform 0.4s;
       pointer-events: none;
-      box-shadow: 0 0 0 1px rgba(56,104,208,0.4), 0 0 32px rgba(0,180,220,0.25), inset 0 1px 0 rgba(100,160,255,0.15);
+      box-shadow: inset 0 0 0 2px #0c1a60, 0 4px 0 rgba(4, 6, 31, 0.55);
       white-space: nowrap;
-      backdrop-filter: blur(8px);
     }
     #ff-notify.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    #ff-transition {
+    /* ── The chocobo run ───────────────────────────────────────────────────────
+     * A herd crosses the screen left to right and the theme has changed by the time they are
+     * gone. The cover is a curtain that travels with them rather than a fade: it slides in from
+     * the left, sits over the viewport for the few frames the swap needs, and carries on out to
+     * the right. A fade would show the old theme dissolving into the new one, which is a
+     * transition; a curtain that something runs behind is a scene change.
+     *
+     * The art is a painted 512px illustration in the catalogue's house style, so it is scaled
+     * smoothly. It used to be a 96px sprite drawn with image-rendering: pixelated, which is the
+     * opposite instruction and would now stair-step a smooth edge.
+     */
+    #choco-wipe {
       position: fixed;
       inset: 0;
       z-index: 9999;
-      opacity: 0;
       pointer-events: none;
-      background: radial-gradient(ellipse at 50% 40%, rgba(0,80,120,0.35) 0%, #060a1a 100%);
-      transition: opacity 0.5s ease-in-out;
+      overflow: hidden;
+      visibility: hidden;
+    }
+    #choco-wipe.run { visibility: visible; }
+
+    /* Frosted rather than solid: the page stays faintly visible through it, blurred out of
+       legibility. That changes what the swap looks like — at full opacity the theme changed
+       behind a wall and you saw only the result, and now the palette turns over behind the glass
+       while the herd is still crossing. It reads as the world changing rather than as a cut.
+       0.82 is the balance point: enough to stop the old layout being readable, little enough
+       that it is obviously something you are looking through.
+
+       -webkit- prefix is still required for Safari, including current versions. */
+    #choco-curtain {
+      position: absolute;
+      inset: 0;
+      transform: translateX(-101%);
+      background: linear-gradient(100deg,
+        rgba(11, 18, 64, 0.82) 0%, rgba(22, 38, 110, 0.82) 45%, rgba(11, 18, 64, 0.82) 100%);
+      -webkit-backdrop-filter: blur(16px) saturate(1.15);
+      backdrop-filter: blur(16px) saturate(1.15);
+    }
+    #choco-wipe.run #choco-curtain { animation: choco-curtain 1500ms cubic-bezier(0.55, 0, 0.45, 1) both; }
+    @keyframes choco-curtain {
+      0%        { transform: translateX(-101%); }
+      42%, 58%  { transform: translateX(0); }
+      100%      { transform: translateX(101%); }
     }
 
-    body.ff-mode {
-      --bg:       #080c20;
-      --surface:  #101840;
-      --border:   #2850b0;
-      --accent:   #00c8e0;
-      --accent-2: #80e0ff;
-      --gold:     #ffd700;
-      --text:     #dce8ff;
-      --muted:    #486898;
-      --green:    #40ff90;
-      --radius:   4px;
-      background: linear-gradient(160deg, #080c20 0%, #0c1235 60%, #080c20 100%);
+    /* Dust kicked up along the ground line, so the herd looks like it is running on something. */
+    #choco-curtain::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 38%;
+      background: linear-gradient(0deg, rgba(210, 190, 130, 0.22) 0%, transparent 100%);
     }
 
-    body.ff-mode nav {
-      background: rgba(8, 12, 32, 0.97);
-      border-bottom: 1px solid #2850b0;
-      box-shadow: 0 1px 0 rgba(0,200,224,0.15), 0 4px 20px rgba(0,0,0,0.6);
+    .choco {
+      position: absolute;
+      left: 0;
+      top: var(--top);
+      width: var(--size);
+      transform: translateX(-30vw);
     }
-    body.ff-mode .hero::before {
-      background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,180,220,0.15) 0%, transparent 70%);
+    #choco-wipe.run .choco {
+      animation: choco-run var(--dur) linear var(--delay) both;
+    }
+    .choco img {
+      display: block;
+      width: 100%;
+      height: auto;
+      filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.35));
+    }
+    #choco-wipe.run .choco img {
+      animation: choco-hop calc(var(--dur) / 9) steps(2, end) var(--delay) infinite;
+    }
+    @keyframes choco-run {
+      from { transform: translateX(-30vw); }
+      to   { transform: translateX(130vw); }
+    }
+    /* Two frames, not a sine wave. A smooth bob reads as floating; a sprite that snaps between
+       two heights reads as running, which is how the games did it. */
+    @keyframes choco-hop {
+      0%   { transform: translateY(0) rotate(-2deg); }
+      100% { transform: translateY(-14%) rotate(2deg); }
     }
 
-    body.ff-mode h1,
-    body.ff-mode h2,
-    body.ff-mode .nav-brand,
-    body.ff-mode .stat-value,
-    body.ff-mode .stack-name,
-    body.ff-mode .group-label,
-    body.ff-mode .method,
-    body.ff-mode .try-run,
-    body.ff-mode .btn-primary,
-    body.ff-mode .btn-secondary {
+    /* The herd still crosses and the theme still changes — it just stops bouncing. */
+    @media (prefers-reduced-motion: reduce) {
+      #choco-wipe.run .choco img { animation: none; }
+      #choco-wipe.run #choco-curtain,
+      #choco-wipe.run .choco { animation-timing-function: ease; }
+    }
+
+    .ff-mode h2,
+    .ff-mode .stat-value,
+    .ff-mode .group-label,
+    .ff-mode .method,
+    .ff-mode .try-run,
+    .ff-mode .btn-primary,
+    .ff-mode .btn-secondary,
+    .ff-mode #ff-menu {
       font-family: 'Press Start 2P', monospace;
     }
-    body.ff-mode h1 { font-size: clamp(0.9rem, 2.2vw, 1.4rem); letter-spacing: 0.08em; }
-    body.ff-mode h2 {
+    .ff-mode h2 {
       font-size: 0.7rem;
       letter-spacing: 0.1em;
-      text-shadow: 0 0 16px rgba(0,200,224,0.5);
-      border-bottom-color: #2850b0;
+      text-shadow: 1px 1px 0 #0a1450;
+      border-bottom: 2px solid #dfe8ff;
     }
-    body.ff-mode .nav-brand { font-size: 0.65rem; letter-spacing: 0.05em; }
-    body.ff-mode .stat-value { font-size: 0.9rem; }
-    body.ff-mode .stack-name { font-size: 0.55rem; letter-spacing: 0.05em; }
-    body.ff-mode .group-label { font-size: 0.5rem; color: var(--accent-2); }
-    body.ff-mode .method { font-size: 0.45rem; padding: 0.3rem 0.4rem; }
-    body.ff-mode .btn-primary,
-    body.ff-mode .btn-secondary { font-size: 0.55rem; letter-spacing: 0.05em; }
-    body.ff-mode .try-run { font-size: 0.55rem; }
+    .ff-mode .stat-value { font-size: 0.9rem; text-shadow: 1px 1px 0 #0a1450; }
+    .ff-mode .group-label { font-size: 0.5rem; color: var(--accent); }
+    .ff-mode .method { font-size: 0.45rem; padding: 0.3rem 0.4rem; }
+    .ff-mode .btn-primary,
+    .ff-mode .btn-secondary { font-size: 0.55rem; letter-spacing: 0.05em; }
+    .ff-mode .try-run { font-size: 0.55rem; }
+    .ff-mode .route,
+    .ff-mode .desc,
+    .ff-mode .stat-label,
+    .ff-mode footer { text-shadow: 1px 1px 0 rgba(10, 20, 80, 0.9); }
 
-    body.ff-mode .stack-card,
-    body.ff-mode a.endpoint,
-    body.ff-mode .endpoint-static,
-    body.ff-mode .try-result,
-    body.ff-mode .try-bar select,
-    body.ff-mode .try-bar input {
-      border-color: #2850b0;
-      background: rgba(16, 24, 64, 0.85);
-      backdrop-filter: blur(4px);
+    /* The window. One rule, because the panel treatment is the whole look. */
+    .ff-mode .stats,
+    .ff-mode a.endpoint,
+    .ff-mode .endpoint-static,
+    .ff-mode .try-result,
+    .ff-mode .try-bar select,
+    .ff-mode .try-bar input,
+    .ff-mode .ff-window {
+      background: linear-gradient(180deg, #3358d8 0%, #17309c 55%, #0e1f70 100%);
+      border: 2px solid #dfe8ff;
+      box-shadow: inset 0 0 0 2px #0c1a60, 0 3px 0 rgba(4, 6, 31, 0.55);
+      color: var(--text);
     }
-    body.ff-mode a.endpoint:hover,
-    body.ff-mode .stack-card:hover {
-      border-color: #00c8e0;
-      background: rgba(0, 48, 96, 0.9);
-      box-shadow: 0 0 18px rgba(0,200,224,0.2), inset 0 0 8px rgba(0,0,0,0.4);
+    .ff-mode .stats { border-left: none; border-right: none; border-radius: 0; }
+
+    .ff-mode a.endpoint:hover {
+      border-color: var(--accent);
+      background: linear-gradient(180deg, #4468e8 0%, #2340b4 55%, #14288a 100%);
+      box-shadow: inset 0 0 0 2px #0c1a60, 0 0 14px rgba(248, 208, 48, 0.35), 0 3px 0 rgba(4, 6, 31, 0.55);
     }
-    body.ff-mode .btn-primary {
-      background: rgba(0, 80, 180, 0.85);
-      border-color: #3868d0;
-      box-shadow: 0 0 12px rgba(0,180,220,0.3);
+    .ff-mode .btn-primary,
+    .ff-mode .try-run {
+      background: linear-gradient(180deg, #3358d8 0%, #17309c 100%);
+      border: 2px solid #dfe8ff;
+      color: var(--accent) !important;
+      box-shadow: inset 0 0 0 2px #0c1a60;
+      text-shadow: 1px 1px 0 #0a1450;
     }
-    body.ff-mode .btn-primary:hover { background: rgba(0,100,210,0.95); opacity: 1; transform: translateY(-1px); }
-    body.ff-mode .btn-secondary { border-color: #2850b0; }
-    body.ff-mode .btn-secondary:hover {
-      background: rgba(0,60,120,0.4);
-      border-color: #00c8e0;
+    .ff-mode .btn-primary:hover,
+    .ff-mode .try-run:hover {
+      background: linear-gradient(180deg, #4468e8 0%, #2340b4 100%);
+      opacity: 1;
     }
-    body.ff-mode .try-bar select:focus,
-    body.ff-mode .try-bar input:focus { border-color: #00c8e0; }
-    body.ff-mode .try-run {
-      background: rgba(0, 80, 180, 0.85);
+    .ff-mode .btn-secondary {
+      border: 2px solid #dfe8ff;
+      box-shadow: inset 0 0 0 2px #0c1a60;
+      color: var(--text);
+    }
+    .ff-mode .btn-secondary:hover { background: rgba(248, 208, 48, 0.16); border-color: var(--accent); }
+    .ff-mode .try-bar select:focus,
+    .ff-mode .try-bar input:focus { border-color: var(--accent); }
+    .ff-mode .method-play { background: rgba(248, 208, 48, 0.18); color: var(--accent); border-color: rgba(248, 208, 48, 0.5); }
+    /* On a blue window a blue pill would vanish into it, so premium goes pale rather than deep —
+       the same inversion the greens and reds make in this mode. */
+    .ff-mode .method-premium { background: rgba(138, 180, 248, 0.16); color: #8ab4f8; border-color: rgba(138, 180, 248, 0.5); }
+    .ff-mode .route-param { color: var(--accent); }
+    .ff-mode .route-query { color: var(--muted); }
+
+    /* ── The menu screen ───────────────────────────────────────────────────────
+     * Modelled on FFIV's party screen (sample-theme.png in the repo root): one tall panel on the
+     * left holding the list you scroll, and a column of three windows down the right — commands
+     * at the top, the location plate under it, gil and time at the bottom.
+     *
+     * So in this mode the page stops being a page. #page becomes the left panel: fixed to the
+     * viewport, inset by a margin, with its own scrollbar. The document itself does not scroll —
+     * a menu screen that scrolls as a whole is a web page wearing a costume, and the thing that
+     * makes the original read as a menu is that the frame stays put while the list moves inside
+     * it. Below 1000px there is no room for two columns and it reverts to ordinary flow.
+     *
+     * The nav and the hero are hidden outright. A game menu has no masthead, and the hero's job —
+     * name the site, offer the two buttons — is done here by the title window and the command
+     * list. See the markup for why Restore has to exist once the nav is gone.
+     */
+    #ff-menu { display: none; }
+
+    @media (min-width: 1000px) {
+      /* The document is the frame now; the list scrolls inside #page. */
+      .ff-mode body { overflow: hidden; height: 100vh; }
+
+      .ff-mode #page {
+        position: fixed;
+        inset: 1.1rem 17.5rem 1.1rem 1.1rem;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border: 2px solid #dfe8ff;
+        border-radius: 6px;
+        background: linear-gradient(180deg, #2a4ac0 0%, #17309c 45%, #0e1f70 100%);
+        box-shadow: inset 0 0 0 2px #0c1a60, 0 3px 0 rgba(4, 6, 31, 0.55);
+      }
+
+      .ff-mode #ff-menu {
+        position: fixed;
+        top: 1.1rem;
+        right: 1.1rem;
+        bottom: 1.1rem;
+        width: 15.6rem;
+      }
+      /* The command window takes the slack, exactly as it does in the original — the status
+         plate is pinned to the bottom and the list grows to meet it. */
+      .ff-mode .ff-commands { flex: 1; }
+
+      .ff-mode main { padding: 1.5rem 1.75rem 2.5rem; max-width: none; }
+
+      /* An FFIV window has a two-pixel edge; so does its scrollbar. */
+      .ff-mode #page::-webkit-scrollbar { width: 12px; }
+      .ff-mode #page::-webkit-scrollbar-track { background: rgba(4, 6, 31, 0.4); }
+      .ff-mode #page::-webkit-scrollbar-thumb {
+        background: #dfe8ff;
+        border: 2px solid #0c1a60;
+        border-radius: 6px;
+      }
+      .ff-mode #page { scrollbar-color: #dfe8ff rgba(4, 6, 31, 0.4); scrollbar-width: thin; }
+    }
+
+    /* No masthead, no hero. The data summary goes too — its three numbers are the status window
+       now, and printing them twice on one screen is how you notice they came from one fetch. */
+    .ff-mode nav,
+    .ff-mode .hero,
+    .ff-mode .data-summary { display: none; }
+
+    .ff-mode #ff-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      z-index: 20;
+      font-size: 0.55rem;
+      letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    .ff-mode .ff-window { border-radius: 6px; padding: 0.95rem 0.8rem; }
+
+    .ff-mode .ff-commands ul { list-style: none; display: grid; gap: 0.95rem; align-content: start; }
+    .ff-mode .ff-commands a,
+    .ff-mode .ff-commands button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
       border: none;
-      box-shadow: 0 0 10px rgba(0,180,220,0.25);
+      font: inherit;
+      cursor: pointer;
+      color: #ffffff;
+      text-decoration: none;
+      text-shadow: 1px 1px 0 #0a1450;
+      padding-left: 1.15rem;
+      position: relative;
     }
-    body.ff-mode .try-run:hover { background: rgba(0,100,210,0.95); opacity: 1; }
-    body.ff-mode .data-summary strong { color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.35); }
-    body.ff-mode .route-param { color: #00c8e0; }
-    body.ff-mode .route-query { color: #486898; }
-    body.ff-mode footer { border-top-color: #2850b0; }
+    /* The cursor. Present but transparent at rest, so the label never shifts when it appears. */
+    .ff-mode .ff-commands a::before,
+    .ff-mode .ff-commands button::before {
+      content: '\25B6';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+    .ff-mode .ff-commands a:hover,
+    .ff-mode .ff-commands a:focus-visible,
+    .ff-mode .ff-commands button:hover,
+    .ff-mode .ff-commands button:focus-visible { color: var(--accent); }
+    .ff-mode .ff-commands a:hover::before,
+    .ff-mode .ff-commands a:focus-visible::before,
+    .ff-mode .ff-commands button:hover::before,
+    .ff-mode .ff-commands button:focus-visible::before { opacity: 1; }
+
+    /* The location plate. It names where you are, which on the original is a dungeon and here is
+       the site — the one place the wordmark still appears once the nav and hero are gone. */
+    .ff-mode .ff-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      text-align: center;
+      color: #ffffff;
+      text-shadow: 1px 1px 0 #0a1450;
+    }
+    .ff-mode .ff-title img { height: 1.6rem; width: auto; transform: rotate(-8deg); }
+
+    .ff-mode .ff-status { display: grid; gap: 0.75rem; }
+    .ff-mode .ff-status div { display: flex; justify-content: space-between; gap: 0.5rem; }
+    .ff-mode .ff-status span { color: var(--muted); text-shadow: 1px 1px 0 #0a1450; }
+    .ff-mode .ff-status b { color: var(--accent); font-weight: 400; text-shadow: 1px 1px 0 #0a1450; }
+
+    /* Rows in the list are separated by a rule, not boxed. The original's party entries sit
+       inside the one panel divided by thin lines, and nesting a window inside a window — which is
+       what the shared panel treatment would do here — is the single thing that stopped this
+       reading as a menu. */
+    .ff-mode a.endpoint,
+    .ff-mode .endpoint-static,
+    .ff-mode .stats {
+      background: none;
+      border: none;
+      border-bottom: 1px solid rgba(223, 232, 255, 0.35);
+      border-radius: 0;
+      box-shadow: none;
+      margin-bottom: 0;
+    }
+    .ff-mode a.endpoint:hover {
+      background: rgba(248, 208, 48, 0.12);
+      border-color: rgba(223, 232, 255, 0.35);
+      box-shadow: none;
+    }
+    .ff-mode .stats { padding: 1.25rem 0; }
+
+    /* Below two columns' worth of room the menu drops into ordinary flow above the content —
+       still three windows, just stacked, and the document scrolls again. */
+    @media (max-width: 999px) {
+      .ff-mode #ff-menu { margin: 1rem 1rem 2rem; }
+    }
 
     /* ── Footer ── */
     footer {
@@ -544,30 +828,31 @@
       font-size: 0.82rem;
     }
     footer a { color: var(--accent-2); text-decoration: none; transition: color 0.2s; }
-    footer a:hover { color: #fff; }
+    footer a:hover { color: var(--accent); text-decoration: underline; }
     .kupo-footer { font-size: 1.2rem; margin-bottom: 0.5rem; }
   </style>
 </head>
 <body>
 
+<!-- Everything that can be thrown around during the break-in. The starfield, the notify window
+     and the transition overlay are deliberately outside it — see the #page note in the CSS. -->
+<div id="page">
+
 <nav>
-  <a class="nav-brand" href="/"><img src="/moogle.png" alt="" style="height:1.4em;width:auto;vertical-align:middle;margin-right:0.4rem;transform:rotate(-8deg);display:inline-block;"> moogleAPI</a>
+  <a class="nav-brand" href="/"><img src="/assets/moogle.png" alt="" /> moogleAPI</a>
   <div class="nav-links">
-    <a href="#endpoints">Endpoints</a>
     <a href="/games">Games</a>
-    <a href="#try-it">Try It</a>
-    <a href="#stack">Stack</a>
     <a href="https://github.com/jackfperryjr/moogleapi" target="_blank">GitHub</a>
-    <a href="/scalar/v1" class="btn-docs">API Docs →</a>
+    <a href="/scalar/v1" class="btn-docs">Docs →</a>
   </div>
 </nav>
 
 <div class="hero">
-  <h1>m<img src="/moogle.png" class="moogle-letter" id="moogle-egg" alt="o" title="✦ Kupo? ✦">ogleAPI</h1>
+  <h1>m<img src="/assets/moogle.png" class="moogle-letter" id="moogle-egg" alt="o" title="✦ Kupo? ✦">ogleAPI</h1>
   <p>A free, open REST API for Final Fantasy data — characters, monsters, and games. Kupo!</p>
   <div class="hero-actions">
     <a href="#try-it" class="btn-primary">Try It Now</a>
-    <a href="/scalar/v1" class="btn-secondary">API Docs</a>
+    <a href="/scalar/v1" class="btn-secondary">Docs</a>
   </div>
 </div>
 
@@ -668,7 +953,7 @@
     </p>
     <div class="endpoint-group">
       <a class="endpoint" href="/games">
-        <div class="method" style="background:#2e7d52;">PLAY</div>
+        <div class="method method-play">PLAY</div>
         <div class="endpoint-info">
           <div class="route">/games</div>
           <div class="desc">Kupodle · Triple Triad · Kupo Climb · Battle Square</div>
@@ -713,7 +998,7 @@
       </div>
     </div>
     <div class="endpoint-static">
-      <div class="method" style="color:#bbdefb;border-color:rgba(187,222,251,0.3);background:rgba(187,222,251,0.1);">600/m</div>
+      <div class="method method-premium">600/m</div>
       <div class="endpoint-info">
         <div class="route">Premium <span class="route-query">— pass <code>X-Api-Key: your-key</code></span></div>
         <div class="desc">10× the limit for power users and project builders</div>
@@ -721,54 +1006,100 @@
     </div>
   </section>
 
-  <section id="stack">
-    <h2>Built With</h2>
-    <div class="stack-grid">
-      <div class="stack-card">
-        <div class="stack-icon">⚡</div>
-        <div class="stack-name">FastEndpoints v8</div>
-        <div class="stack-desc">REPR pattern — one folder per operation, zero controller bloat</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">🗄️</div>
-        <div class="stack-name">EF Core 10 + Neon</div>
-        <div class="stack-desc">Serverless PostgreSQL with automatic migrations on startup</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">⚙️</div>
-        <div class="stack-name">.NET 10 / C# 14</div>
-        <div class="stack-desc">Primary constructors, collection expressions, field-backed props</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">🔮</div>
-        <div class="stack-name">HybridCache</div>
-        <div class="stack-desc">L1 in-process + optional L2 Redis — stampede-proof</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">📖</div>
-        <div class="stack-name">Scalar</div>
-        <div class="stack-desc">Beautiful interactive API docs, replacing Swagger UI</div>
-      </div>
-      <div class="stack-card">
-        <div class="stack-icon">🤖</div>
-        <div class="stack-name">GitHub Actions</div>
-        <div class="stack-desc">Weekly scraper keeps data fresh</div>
-      </div>
-    </div>
-  </section>
 
 </main>
 
 <footer>
-  <img src="/moogle.png" class="kupo-footer" alt="Moogle" style="width:40px;height:auto;opacity:0.7;" />
+  <img src="/assets/moogle.png" class="kupo-footer" alt="Moogle" style="width:40px;height:auto;opacity:0.7;" />
   <p>Built with ♥ by <a href="https://github.com/jackfperryjr">jackfperryjr</a></p>
-  <p style="margin-top:0.4rem;">Not affiliated with Square Enix · <a href="/scalar/v1">API Docs</a></p>
+  <p style="margin-top:0.4rem;">Not affiliated with Square Enix · <a href="/scalar/v1">Docs</a></p>
   <p><a href="https://buy.stripe.com/aFafZj7YI6n06d3fxG0Fi00" target="_blank" rel="noopener">Buy me a coffee ☕</a></p>
 </footer>
 
-<canvas id="ff-stars"></canvas>
+</div><!-- /#page -->
+
+<!-- The FFIV command menu. display:none until ff-mode, so the silver page never sees it — these
+     are the section anchors the navbar dropped, which is the right content for a command list
+     even though it was the wrong content for a navbar. -->
+<!-- The FFIV menu: command list, title window, status window — the three panels down the right of
+     the party screen. display:none until ff-mode, so the silver page never sees it.
+
+     The Restore command is load-bearing, not decoration. FFIV mode hides the nav and the hero, and
+     the hero is where the moogle that turns it on lives, so without a way out from in here the
+     only exit would be the Konami code. -->
+<aside id="ff-menu" aria-hidden="true">
+  <div class="ff-window ff-commands">
+    <ul>
+      <li><a href="#endpoints">Endpoints</a></li>
+      <li><a href="#try-it">Try It</a></li>
+      <li><a href="#rate-limiting">Limits</a></li>
+      <li><a href="/games">Games</a></li>
+      <li><a href="/scalar/v1">Docs</a></li>
+      <li><button type="button" id="ff-restore">Restore</button></li>
+    </ul>
+  </div>
+  <div class="ff-window ff-title">
+    <img src="/assets/moogle.png" alt="" />
+    <span>moogleAPI</span>
+  </div>
+  <div class="ff-window ff-status">
+    <div><span>Characters</span><b id="ff-characters">—</b></div>
+    <div><span>Monsters</span><b id="ff-monsters">—</b></div>
+    <div><span>Games</span><b id="ff-games">—</b></div>
+  </div>
+</aside>
+
 <div id="ff-notify"></div>
-<div id="ff-transition"></div>
+
+<!-- The herd. Written out rather than built at runtime, so the markup is the thing you read and
+     tweak and there is no loop to run on every toggle.
+
+     The rules behind the numbers, if these are ever regenerated: lanes even from 2% to 90%; size
+     rising with the lane so the big birds run low and the small ones high, jittered so it is a
+     crowd and not a ramp; duration inverse to size, because a big chocobo covering the same
+     distance faster is what sells the depth; delays scattered under 0.6s so they stream past
+     instead of arriving as a wall. Nobody shares a size with the lane next to them.
+
+     If you add slower lanes, raise HERD in the script to match — the stage is torn down on that
+     timer and anything still running gets cut off mid-stride. -->
+
+<div id="choco-wipe">
+  <div id="choco-curtain"></div>
+  <div class="choco" style="--top:2.0%; --size:48px; --dur:1.58s; --delay:0.24s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:4.7%; --size:60px; --dur:1.49s; --delay:0.24s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:7.3%; --size:79px; --dur:1.43s; --delay:0.46s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:10.0%; --size:48px; --dur:1.62s; --delay:0.17s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:12.7%; --size:60px; --dur:1.49s; --delay:0.13s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:15.3%; --size:88px; --dur:1.36s; --delay:0.48s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:18.0%; --size:96px; --dur:1.24s; --delay:0.19s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:20.7%; --size:78px; --dur:1.43s; --delay:0.51s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:23.3%; --size:94px; --dur:1.25s; --delay:0.36s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:26.0%; --size:98px; --dur:1.26s; --delay:0.11s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:28.7%; --size:78px; --dur:1.36s; --delay:0.56s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:31.3%; --size:101px; --dur:1.24s; --delay:0.18s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:34.0%; --size:94px; --dur:1.3s; --delay:0.53s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:36.7%; --size:106px; --dur:1.2s; --delay:0.25s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:39.3%; --size:96px; --dur:1.27s; --delay:0.1s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:42.0%; --size:83px; --dur:1.4s; --delay:0.03s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:44.7%; --size:73px; --dur:1.45s; --delay:0.17s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:47.3%; --size:101px; --dur:1.23s; --delay:0.21s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:50.0%; --size:128px; --dur:1.01s; --delay:0.25s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:52.7%; --size:89px; --dur:1.34s; --delay:0.17s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:55.3%; --size:100px; --dur:1.27s; --delay:0.19s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:58.0%; --size:113px; --dur:1.19s; --delay:0.06s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:60.7%; --size:90px; --dur:1.29s; --delay:0.46s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:63.3%; --size:122px; --dur:1.06s; --delay:0.2s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:66.0%; --size:102px; --dur:1.23s; --delay:0.03s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:68.7%; --size:131px; --dur:1.06s; --delay:0.57s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:71.3%; --size:124px; --dur:1.12s; --delay:0.01s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:74.0%; --size:104px; --dur:1.26s; --delay:0.47s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:76.7%; --size:125px; --dur:1.11s; --delay:0.37s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:79.3%; --size:149px; --dur:0.87s; --delay:0.11s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:82.0%; --size:132px; --dur:0.98s; --delay:0.23s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:84.7%; --size:156px; --dur:0.82s; --delay:0.01s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:87.3%; --size:117px; --dur:1.09s; --delay:0.47s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+  <div class="choco" style="--top:90.0%; --size:136px; --dur:0.96s; --delay:0.06s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
+</div>
 
 <script>
   const BASE = window.location.origin;
@@ -869,51 +1200,6 @@
   loadGameOptions();
 
   // ── Final Fantasy Easter Egg ──
-  let ffFontLoaded = false;
-  let starsAnimId  = null;
-  const starField  = [];
-
-  function loadFFFont() {
-    if (ffFontLoaded) return;
-    const link = document.createElement('link');
-    link.rel  = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap';
-    document.head.appendChild(link);
-    ffFontLoaded = true;
-  }
-
-  function initStars() {
-    const canvas = document.getElementById('ff-stars');
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-    starField.length = 0;
-    for (let i = 0; i < 180; i++) {
-      starField.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 1.4 + 0.2,
-        phase: Math.random() * Math.PI * 2,
-        speed: Math.random() * 0.006 + 0.002,
-      });
-    }
-  }
-
-  function animateStars() {
-    const canvas = document.getElementById('ff-stars');
-    const ctx    = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    starField.forEach(s => {
-      s.phase += s.speed;
-      const alpha = 0.25 + 0.75 * Math.abs(Math.sin(s.phase));
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      const hue = s.r > 1.1 ? '180,230,255' : '210,225,255';
-      ctx.fillStyle = `rgba(${hue}, ${alpha})`;
-      ctx.fill();
-    });
-    starsAnimId = requestAnimationFrame(animateStars);
-  }
-
   function showNotify(html, duration = 3200) {
     const el = document.getElementById('ff-notify');
     el.innerHTML = html;
@@ -923,55 +1209,85 @@
 
   let ffTransitioning = false;
 
+  /* The chocobo run.
+   *
+   * One clock, shared with the CSS. The curtain is off-screen left, slides across, holds over the
+   * viewport between 42% and 58% of its travel, and carries on out to the right; the theme swaps
+   * inside that hold, which is the only window where nothing of either palette is visible. RUN and
+   * the keyframes on #choco-curtain have to agree — change one and change the other.
+   *
+   * aria-hidden comes off #ff-menu at the same time as the class goes on, so the command list is
+   * only in the accessibility tree while it is actually on screen. */
+  const RUN  = 1500;
+  const SWAP = Math.round(RUN * 0.5);
+
+  /* The stage stays up after the curtain has left, because the slowest of the herd is still on
+     it: the longest --dur plus the longest --delay comes to about 1.9s against the curtain's
+     1.5s. Tearing the stage down at RUN chopped those stragglers off mid-stride in the middle of
+     the screen. Letting them finish is also the better picture — the curtain goes, the new theme
+     is there, and the last few chocobos are still crossing it. Keep this above the slowest lane
+     in the markup. */
+  const HERD = 2100;
+
   function toggleFFMode() {
     if (ffTransitioning) return;
     ffTransitioning = true;
 
-    const overlay = document.getElementById('ff-transition');
-    const canvas  = document.getElementById('ff-stars');
-    const FADE    = 500; // ms — matches the CSS transition
+    const wipe = document.getElementById('choco-wipe');
+    const menu = document.getElementById('ff-menu');
 
-    // Phase 1: fade in the overlay
-    overlay.style.opacity      = '1';
-    overlay.style.pointerEvents = 'all';
+    // Fetched before the run rather than at the swap: arriving late would re-lay-out the page in
+    // Press Start 2P after the reveal, which looks like a bug rather than like an effect.
+    window.moogleTheme.preloadFont();
+
+    // Restarted from a clean slate, so a second toggle replays the animation instead of finding
+    // it already finished.
+    wipe.classList.remove('run');
+    void wipe.offsetWidth;
+    wipe.classList.add('run');
 
     setTimeout(() => {
-      // Phase 2: swap theme while hidden
-      const isFF = document.body.classList.toggle('ff-mode');
+      // moogleTheme owns the class and the localStorage write; this only picks the moment. The
+      // games hub and the API reference read the same key on load, so the choice follows you off
+      // this page — the four game pages deliberately do not, they keep their own palettes.
+      const isFF = window.moogleTheme.toggle();
+      menu.setAttribute('aria-hidden', String(!isFF));
 
-      if (isFF) {
-        loadFFFont();
-        initStars();
-        canvas.classList.add('show');
-        animateStars();
-      } else {
-        canvas.classList.remove('show');
-        cancelAnimationFrame(starsAnimId);
-      }
+      // The notify lands when the curtain clears, not when the last straggler does — waiting for
+      // the herd would leave the page silent for half a second after it already looks finished.
+      setTimeout(() => {
+        if (isFF) {
+          showNotify(
+            'FINAL FANTASY MODE<br><br>' +
+            '<span style="color:#f8d030;">Kupo!</span>',
+            4000
+          );
+        } else {
+          showNotify('Kweh!', 1800);
+        }
+      }, RUN - SWAP);
 
-      // Phase 3: two rAFs ensure the browser paints the new theme before revealing
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        overlay.style.opacity      = '0';
-        overlay.style.pointerEvents = 'none';
-
-        // Show the notify once the reveal is complete
-        setTimeout(() => {
-          ffTransitioning = false;
-          if (isFF) {
-            showNotify(
-              'FINAL FANTASY<br><br>' +
-              '<span style="color:#00c8e0;">Click Moogle to restore</span>',
-              4000
-            );
-          } else {
-            showNotify('GAME OVER', 1800);
-          }
-        }, FADE);
-      }));
-    }, FADE);
+      setTimeout(() => {
+        wipe.classList.remove('run');
+        ffTransitioning = false;
+      }, HERD - SWAP);
+    }, SWAP);
   }
 
   document.getElementById('moogle-egg').addEventListener('click', toggleFFMode);
+
+  // The way back out. FFIV mode hides the nav and the hero, and the moogle that turns the mode
+  // on lives in the hero — so from inside the menu this button is the only exit that is not the
+  // Konami code. It runs the full chocobo transition, same as the moogle does.
+  document.getElementById('ff-restore').addEventListener('click', toggleFFMode);
+
+  // theme.js set the class before paint, but what is not pure CSS still has to catch up on a page
+  // that loaded already in FFIV mode: the menu's aria-hidden and the pixel font. No transition
+  // here — the chocobos announce a change, and there was none.
+  if (window.moogleTheme.isFF()) {
+    window.moogleTheme.preloadFont();
+    document.getElementById('ff-menu').setAttribute('aria-hidden', 'false');
+  }
 
   // Konami code bonus trigger
   const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA'];
@@ -979,10 +1295,6 @@
   document.addEventListener('keydown', e => {
     konamiIdx = e.code === KONAMI[konamiIdx] ? konamiIdx + 1 : (e.code === KONAMI[0] ? 1 : 0);
     if (konamiIdx === KONAMI.length) { toggleFFMode(); konamiIdx = 0; }
-  });
-
-  window.addEventListener('resize', () => {
-    if (document.body.classList.contains('ff-mode')) initStars();
   });
 
   (async () => {
@@ -999,6 +1311,13 @@
       const fmt = n => Number(n).toLocaleString();
       document.getElementById('data-summary').innerHTML =
         `<strong>${fmt(charCount)}</strong> characters &amp; <strong>${fmt(monsterCount)}</strong> monsters across <strong>${fmt(gameCount)}</strong> mainline games`;
+
+      // The FFIV status window, where the original puts gil and time. Written whether or not
+      // that mode is on — the menu is behind display:none until then, and filling it on toggle
+      // instead would mean either holding the counts in a variable or fetching them twice.
+      document.getElementById('ff-characters').textContent = fmt(charCount);
+      document.getElementById('ff-monsters').textContent = fmt(monsterCount);
+      document.getElementById('ff-games').textContent = fmt(gameCount);
     } catch (e) {
       console.warn('[data-summary] failed:', e);
       document.getElementById('data-summary').textContent = '';

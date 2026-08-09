@@ -10,6 +10,11 @@
 
 const API = '/api/battle';
 
+/** Shown when a row has no artwork. The API reports that as a null imageUrl rather than
+ *  substituting anything, so that "which rows still need art?" stays answerable from the
+ *  catalogue itself; picking the stand-in is the client's job. */
+const NO_ART = '/assets/no-image.svg';
+
 /** The damage model arrives with the run rather than living here. The server vets every
  *  matchup as winnable using this same arithmetic, so a second copy of the constants in the
  *  browser would drift and quietly break that guarantee. These values are only a fallback for
@@ -105,7 +110,7 @@ function renderStarters(starters) {
     // reader reads the stats when the card takes focus instead of announcing a stray panel.
     card.setAttribute('aria-describedby', 'starter-tip');
     card.innerHTML = `
-      <img class="art-frame" alt="" loading="lazy" src="${escapeAttr(s.imageUrl ?? '')}" />
+      <img class="art-frame" alt="" loading="lazy" src="${escapeAttr(s.imageUrl ?? NO_ART)}" />
       <span class="starter-name">${escapeHtml(s.family)}</span>
       <span class="starter-games">${s.gameCount} games</span>`;
     card.addEventListener('click', () => startRun(s.family));
@@ -295,7 +300,7 @@ function renderInitiative() {
 /** One chocobo per retry. The strip carries its own label and aria-label, so each sprite is
  *  decorative and stays out of the accessibility tree. */
 const chocobo = (spent) =>
-  `<img class="chocobo${spent ? ' spent' : ''}" src="/assets/chocobo.png" alt="" aria-hidden="true" />`;
+  `<img class="chocobo${spent ? ' spent' : ''}" src="/assets/chocobo.png?v=20260809" alt="" aria-hidden="true" />`;
 
 function renderRetries() {
   const box = $('retries');
@@ -320,7 +325,7 @@ function fighterCard(combatant, role, isPlayer) {
   ].join('');
 
   return `
-    <img class="art-frame" alt="${escapeAttr(f.name)}" src="${escapeAttr(f.imageUrl ?? '')}" />
+    <img class="art-frame" alt="${escapeAttr(f.name)}" src="${escapeAttr(f.imageUrl ?? NO_ART)}" />
     <div class="fighter-head">
       <div>
         <div class="fighter-name">${escapeHtml(f.name)}</div>

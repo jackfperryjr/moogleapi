@@ -621,6 +621,14 @@
       singular: 'character',
       paged: true,
       hasArt: true,
+      // One picture, not two. A character's artwork is the generated house-style illustration —
+      // the copied wiki original is no longer something the row can fall back to, so offering it
+      // as a second editable slot only invites putting art back that the catalogue has retired.
+      // The server keeps ImageUrl equal to this column for characters, so what is uploaded here
+      // is what gets served. Monsters still carry both while that half is under review.
+      artSlots: [
+        { key: 'generatedImageUrl', label: 'Artwork', slot: 'generated', preview: true },
+      ],
       columns: [
         { label: '',          cls: 'thumb', art: true,                     px: 64, prio: 1 },
         { label: 'ID',        cls: 'id',   get: r => r.id,                 px: 54, prio: 2 },

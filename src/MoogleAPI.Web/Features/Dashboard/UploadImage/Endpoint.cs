@@ -148,7 +148,15 @@ public class Endpoint(AppDbContext db, HybridCache cache, ImageUploadStore store
         if (resource == "characters")
         {
             var row = await db.Characters.FirstAsync(c => c.Id == req.Id, ct);
-            if (slot == "generated") row.GeneratedImageUrl = url;
+            if (slot == "generated")
+            {
+                // Both columns, because a character has one picture. The editor shows a single
+                // artwork slot pointing here, and setting only GeneratedImageUrl would leave the
+                // upload staged behind a promote step that no longer runs across the library —
+                // the curator would upload a picture and the site would keep serving the old one.
+                row.GeneratedImageUrl = url;
+                row.ImageUrl = url;
+            }
             else { row.ImageUrl = url; row.ImageSourceUrl = provenance; }
         }
         else if (resource == "monsters")

@@ -19,6 +19,7 @@
     submit:  document.getElementById('submit'),
     sugg:    document.getElementById('suggestions'),
     status:  document.getElementById('status'),
+    frame:     document.getElementById('answer-frame'),
     guesses:   document.getElementById('guesses'),
     result:    document.getElementById('result'),
     stats:     document.getElementById('stats'),
@@ -235,6 +236,18 @@
     if (state.done) renderResult();
   }
 
+  /** Swaps the question mark for the answer's portrait. Idempotent: reloading a finished day
+   *  re-runs renderResult, and re-appending would stack a second image inside the frame. */
+  function revealInFrame(answer) {
+    const inner = el.frame.querySelector('.answer-frame-inner');
+    if (inner.querySelector('img')) return;
+
+    const img = document.createElement('img');
+    img.src = answer.imageUrl;
+    img.alt = answer.name;
+    inner.replaceChildren(img);
+  }
+
   function shareGrid() {
     // One row per guess, one square per attribute — the shape of the solve, not the answer.
     return state.guesses.map((res) =>
@@ -259,13 +272,11 @@
     el.result.appendChild(h);
 
     if (answer) {
-      if (answer.imageUrl) {
-        const img = document.createElement('img');
-        img.className = 'art-frame';
-        img.src = answer.imageUrl;
-        img.alt = answer.name;
-        el.result.appendChild(img);
-      }
+      // The portrait goes in the frame beside the input rather than here. The frame has been
+      // sitting there empty all game, so filling it is the reveal — and the input is only
+      // disabled at the end, never hidden, so it is still on screen to be looked at.
+      if (answer.imageUrl) revealInFrame(answer);
+
       const p = document.createElement('p');
       p.innerHTML = `The character was <strong>${escapeHtml(answer.name)}</strong> — ${escapeHtml(answer.gameName)} (${answer.releaseYear}).`;
       el.result.appendChild(p);

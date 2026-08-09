@@ -10,6 +10,11 @@
 
 const API = '/api/arena';
 
+/** Shown when a row has no artwork. The API reports that as a null imageUrl rather than
+ *  substituting anything, so that "which rows still need art?" stays answerable from the
+ *  catalogue itself; picking the stand-in is the client's job. */
+const NO_ART = '/assets/no-image.svg';
+
 /** The damage model arrives with the run rather than living here. The server picks every wave
  *  using this same arithmetic, so a second copy of the constants in the browser would drift and
  *  the difficulty ramp would stop describing the fights the player actually gets. These values
@@ -132,7 +137,7 @@ function renderRoster() {
     card.className = 'champ';
     card.setAttribute('aria-pressed', String(state.selected?.characterId === c.characterId));
     card.innerHTML =
-      `<img src="${escapeAttr(c.imageUrl ?? '')}" alt="" loading="lazy" />` +
+      `<img src="${escapeAttr(c.imageUrl ?? NO_ART)}" alt="" loading="lazy" />` +
       `<div class="champ-name">${escapeHtml(c.name)}</div>` +
       `<div class="champ-role">${escapeHtml(c.job || c.archetype)}</div>`;
 
@@ -367,7 +372,7 @@ function fighterCard(combatant, role, isPlayer) {
     `<span class="${value < baseValue ? 'cut' : ''}">${label} ${value.toLocaleString()}</span>`;
 
   return (
-    `<img src="${escapeAttr(f.imageUrl ?? '')}" alt="" />` +
+    `<img src="${escapeAttr(f.imageUrl ?? NO_ART)}" alt="" />` +
     `<div class="fighter-head">` +
       `<div>` +
         `<div class="fighter-name">${escapeHtml(f.name)}</div>` +
