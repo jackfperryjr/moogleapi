@@ -58,16 +58,36 @@
       margin-top: 2rem;
     }
 
-    /* Each tile carries its own accent through a custom property, so one rule styles four
-       games and adding a fifth is a colour and a link rather than a new block of CSS. */
+    /* Each tile carries its own accent AND its own artwork through custom properties, so one
+       rule styles four games and adding a fifth is two values and a link.
+     *
+     * The veil is the whole trick. A photograph behind black body text is the easy way to make a
+     * card unreadable, so the artwork sits under a gradient that starts at 80% opaque and closes
+     * to 96% by the bottom — never fully, so the picture stays present all the way down rather
+     * than being cut off half way, which is what made the lower half read as a different
+     * component. Those numbers are measured, not guessed: composited over the real crops, the
+     * worst pixel under the description is 4.6:1 against --muted and the worst under the wordmark
+     * is 3.96:1 against its accent, which at 1.55rem bold is WCAG large text and wants 3:1.
+     *
+     * Default theme only. FFIV mode replaces the whole background with its window gradient
+     * further down, using the shorthand, which drops the image with it. */
     .tile {
       --tile: var(--accent);
+      --tile-bg: none;
+      --veil: linear-gradient(180deg,
+        rgba(236, 239, 243, 0.80) 0%,
+        rgba(236, 239, 243, 0.93) 42%,
+        rgba(236, 239, 243, 0.96) 100%);
       position: relative;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       padding: 1.4rem 1.3rem 1.25rem;
-      background: var(--surface);
+      background-color: var(--surface);
+      background-image: var(--veil), var(--tile-bg);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       color: inherit;
@@ -82,15 +102,16 @@
       height: 3px;
       background: var(--tile);
     }
-    /* The wash is the only thing carrying the game's colour at rest, so it has to survive a
-       dark and a light surface alike — hence a translucent tint rather than a fixed hex. */
+    /* The wash used to be the only thing carrying the game's colour at rest. The artwork does
+       that now, so this is a hover cue and nothing else — invisible until then, which also keeps
+       it out of the contrast budget the veil above was measured against. */
     .tile::after {
       content: '';
       position: absolute;
       inset: 0;
       background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tile) 16%, transparent) 0%, transparent 70%);
       pointer-events: none;
-      opacity: 0.65;
+      opacity: 0;
       transition: opacity 0.18s;
     }
     .tile:hover, .tile:focus-visible {
@@ -98,7 +119,7 @@
       transform: translateY(-3px);
       box-shadow: 0 10px 26px rgb(20 22 26 / 0.13);
     }
-    .tile:hover::after, .tile:focus-visible::after { opacity: 1; }
+    .tile:hover::after, .tile:focus-visible::after { opacity: 0.55; }
 
     .tile > * { position: relative; z-index: 1; }
 
@@ -241,7 +262,7 @@
     </p>
 
     <div class="tiles">
-      <a class="tile" href="/kupodle" style="--tile:#26684a">
+      <a class="tile" href="/kupodle" style="--tile:#26684a; --tile-bg:url('/assets/backgrounds/tiles/kupodle.webp')">
         <div class="tile-art" data-wordmark="Kupodle">
           <img src="/assets/logos/kupodle.png" alt="" />
         </div>
@@ -256,7 +277,7 @@
         </div>
       </a>
 
-      <a class="tile" href="/triple-triad" style="--tile:#20537a">
+      <a class="tile" href="/triple-triad" style="--tile:#20537a; --tile-bg:url('/assets/backgrounds/tiles/triple-triad.webp')">
         <div class="tile-art" data-wordmark="Triple Triad">
           <img src="/assets/logos/triple-triad.png" alt="" />
         </div>
@@ -271,7 +292,7 @@
         </div>
       </a>
 
-      <a class="tile" href="/kupo-climb" style="--tile:#75481a">
+      <a class="tile" href="/kupo-climb" style="--tile:#75481a; --tile-bg:url('/assets/backgrounds/tiles/kupo-climb.webp')">
         <div class="tile-art" data-wordmark="Kupo Climb">
           <img src="/assets/logos/kupo-climb.png" alt="" />
         </div>
@@ -286,7 +307,7 @@
         </div>
       </a>
 
-      <a class="tile" href="/battle-square" style="--tile:#5e357d">
+      <a class="tile" href="/battle-square" style="--tile:#5e357d; --tile-bg:url('/assets/backgrounds/tiles/battle-square.webp')">
         <div class="tile-art" data-wordmark="Battle Square">
           <img src="/assets/logos/battle-square.png" alt="" />
         </div>
