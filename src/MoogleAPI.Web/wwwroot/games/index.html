@@ -61,44 +61,52 @@
     /* Each tile carries its own accent AND its own artwork through custom properties, so one
        rule styles four games and adding a fifth is two values and a link.
      *
-     * The veil is the whole trick, and it is shaped like the card rather than spread evenly. A
-     * flat veil strong enough to carry black body text also washed the picture out to a tint, so
-     * instead it is nearly clear across the art slot — 22%, enough to knock back the contrast of
-     * four pictures with wildly different brightness — and then closes hard to 93% right at the
-     * boundary where the text block begins, holding at 96% to the bottom. That reads as a card
-     * with a header image, which is what it is.
+     * The picture covers the whole card, which means the card is dark and its text is light —
+     * there is no veil strong enough to carry black copy over a full-bleed photograph without
+     * becoming the wash this replaced. The scrim instead deepens downward: 6% at the top, where
+     * the picture is the point, closing to 94% under the text block at the bottom. Four sources
+     * with wildly different brightness (Kupo Climb is a blue sky, Battle Square a night arena)
+     * all end up near-black under the copy, which is what lets one set of text colours work
+     * across the set.
      *
-     * The numbers are measured, not guessed. Composited over the real crops and sampled at both
-     * the darkest and the lightest pixel in each band of text: the description sits at 4.6:1
-     * against --muted, and the name at 5.6:1 against --text even if the tile is short enough to
-     * pull it up into the ramp. If the veil moves, re-measure rather than eyeballing it — a first
-     * attempt at this failed on all four tiles and looked fine.
+     * The text is bottom-aligned, so a taller tile grows its picture rather than its copy. That
+     * is also why the descriptions are one line each: every line of copy is a line of artwork
+     * covered up.
      *
-     * Default theme only. FFIV mode replaces the whole background with its window gradient
-     * further down, using the shorthand, which drops the image with it. */
+     * Measured, not guessed — composited over the real crops and sampled at the darkest and
+     * lightest pixel of each band of text. Worst case is the Battle Square footer link at 5.2:1;
+     * the name is 6.8:1 even when a wrapped description pushes it up. Re-measure if the scrim
+     * moves. Two earlier attempts at this looked fine and failed.
+     *
+     * background-color is dark rather than --surface so a tile with no artwork is still a dark
+     * card with readable light text, instead of light text on silver.
+     *
+     * Default theme only: FFIV mode replaces the background wholesale further down. */
     .tile {
       --tile: var(--accent);
       --tile-bg: none;
-      --veil: linear-gradient(180deg,
-        rgba(236, 239, 243, 0.22) 0%,
-        rgba(236, 239, 243, 0.26) 35%,
-        rgba(236, 239, 243, 0.93) 45%,
-        rgba(236, 239, 243, 0.96) 100%);
+      --scrim: linear-gradient(180deg,
+        rgba(9, 11, 15, 0.06) 0%,
+        rgba(9, 11, 15, 0.16) 34%,
+        rgba(9, 11, 15, 0.74) 50%,
+        rgba(9, 11, 15, 0.90) 62%,
+        rgba(9, 11, 15, 0.94) 100%);
       position: relative;
       display: flex;
       flex-direction: column;
+      min-height: 15.5rem;
       overflow: hidden;
       padding: 1.4rem 1.3rem 1.25rem;
-      background-color: var(--surface);
-      background-image: var(--veil), var(--tile-bg);
+      background-color: #12161c;
+      background-image: var(--scrim), var(--tile-bg);
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      color: inherit;
+      color: #ffffff;
       text-decoration: none;
-      box-shadow: 0 1px 1px rgb(20 22 26 / 0.03), 0 4px 12px rgb(20 22 26 / 0.04);
+      box-shadow: 0 1px 1px rgb(20 22 26 / 0.06), 0 6px 18px rgb(20 22 26 / 0.10);
       transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
     }
     .tile::before {
@@ -107,15 +115,16 @@
       inset: 0 0 auto 0;
       height: 3px;
       background: var(--tile);
+      z-index: 2;
     }
-    /* The wash used to be the only thing carrying the game's colour at rest. The artwork does
-       that now, so this is a hover cue and nothing else — invisible until then, which also keeps
-       it out of the contrast budget the veil above was measured against. */
+    /* A hover cue and nothing else — the artwork carries the game's colour at rest, and keeping
+       this invisible until hover keeps it out of the contrast budget the scrim was measured
+       against. */
     .tile::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tile) 16%, transparent) 0%, transparent 70%);
+      background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tile) 20%, transparent) 0%, transparent 70%);
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.18s;
@@ -123,7 +132,7 @@
     .tile:hover, .tile:focus-visible {
       border-color: var(--tile);
       transform: translateY(-3px);
-      box-shadow: 0 10px 26px rgb(20 22 26 / 0.13);
+      box-shadow: 0 12px 28px rgb(20 22 26 / 0.22);
     }
     .tile:hover::after, .tile:focus-visible::after { opacity: 0.55; }
 
@@ -144,7 +153,7 @@
       font-size: 1.55rem;
       font-weight: 700;
       letter-spacing: 0.06em;
-      color: var(--tile);
+      color: #ffffff;
       text-align: center;
       line-height: 1.15;
     }
@@ -154,9 +163,17 @@
       font-size: 1.15rem;
       font-weight: 700;
       letter-spacing: 0.04em;
+      margin-top: auto;
       margin-bottom: 0.35rem;
+      color: #ffffff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
     }
-    .tile-desc { font-size: 0.86rem; color: var(--muted); line-height: 1.55; flex: 1; }
+    .tile-desc {
+      font-size: 0.86rem;
+      color: #dfe4ea;
+      line-height: 1.55;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
 
     .tile-foot {
       display: flex;
@@ -170,8 +187,8 @@
       font-size: 0.66rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: var(--muted);
-      border: 1px solid var(--border);
+      color: #c3ccd6;
+      border: 1px solid rgba(255, 255, 255, 0.32);
       border-radius: 999px;
       padding: 0.18rem 0.6rem;
     }
@@ -243,6 +260,9 @@
        text is white anyway; the hue survives on the bar above it. */
     .ff-mode .tile-wordmark { font-size: 0.85rem; line-height: 1.5; color: #ffffff; }
     .ff-mode .tile-go { color: #f8d030; }
+    .ff-mode .tile-name,
+    .ff-mode .tile-desc { text-shadow: 1px 1px 0 #0a1450; }
+    .ff-mode .tile-desc { color: #dfe8ff; }
     .ff-mode .tile-tag { border-color: rgba(223, 232, 255, 0.5); }
     .ff-mode .page-sub,
     .ff-mode .tile-desc,
@@ -268,14 +288,13 @@
     </p>
 
     <div class="tiles">
-      <a class="tile" href="/kupodle" style="--tile:#26684a; --tile-bg:url('/assets/backgrounds/tiles/kupodle.webp')">
+      <a class="tile" href="/kupodle" style="--tile:#7cc4a4; --tile-bg:url('/assets/backgrounds/tiles/kupodle.webp')">
         <div class="tile-art" data-wordmark="Kupodle">
           <img src="/assets/logos/kupodle.png" alt="" />
         </div>
         <div class="tile-name">Kupodle</div>
         <div class="tile-desc">
-          Guess the daily Final Fantasy character in six tries. Every guess narrows it by game,
-          role, race, hometown and release year.
+          Guess the daily character in six tries.
         </div>
         <div class="tile-foot">
           <span class="tile-tag">Daily · Puzzle</span>
@@ -283,14 +302,13 @@
         </div>
       </a>
 
-      <a class="tile" href="/triple-triad" style="--tile:#20537a; --tile-bg:url('/assets/backgrounds/tiles/triple-triad.webp')">
+      <a class="tile" href="/triple-triad" style="--tile:#5b9bd5; --tile-bg:url('/assets/backgrounds/tiles/triple-triad.webp')">
         <div class="tile-art" data-wordmark="Triple Triad">
           <img src="/assets/logos/triple-triad.png" alt="" />
         </div>
         <div class="tile-name">Triple Triad</div>
         <div class="tile-desc">
-          The Final Fantasy VIII card game, with all 110 authentic cards and their real corner
-          values. Three-by-three, capture by the numbers.
+          All 110 authentic FFVIII cards, three by three.
         </div>
         <div class="tile-foot">
           <span class="tile-tag">Cards · Versus</span>
@@ -298,14 +316,13 @@
         </div>
       </a>
 
-      <a class="tile" href="/kupo-climb" style="--tile:#75481a; --tile-bg:url('/assets/backgrounds/tiles/kupo-climb.webp')">
+      <a class="tile" href="/kupo-climb" style="--tile:#c98b4b; --tile-bg:url('/assets/backgrounds/tiles/kupo-climb.webp')">
         <div class="tile-art" data-wordmark="Kupo Climb">
           <img src="/assets/logos/kupo-climb.png" alt="" />
         </div>
         <div class="tile-name">Kupo Climb</div>
         <div class="tile-desc">
-          Take one monster up through the series, a game per rung. Beat all three battles and it
-          evolves into that game's version of itself.
+          Take one monster up through the series, a game per rung.
         </div>
         <div class="tile-foot">
           <span class="tile-tag">Daily · Battle</span>
@@ -313,14 +330,13 @@
         </div>
       </a>
 
-      <a class="tile" href="/battle-square" style="--tile:#5e357d; --tile-bg:url('/assets/backgrounds/tiles/battle-square.webp')">
+      <a class="tile" href="/battle-square" style="--tile:#b07cc6; --tile-bg:url('/assets/backgrounds/tiles/battle-square.webp')">
         <div class="tile-art" data-wordmark="Battle Square">
           <img src="/assets/logos/battle-square.png" alt="" />
         </div>
         <div class="tile-name">Battle Square</div>
         <div class="tile-desc">
-          The Gold Saucer's arena, opened to the whole series. One character against eight
-          straight waves — and the slots take something away between each.
+          One character against eight straight waves of monsters.
         </div>
         <div class="tile-foot">
           <span class="tile-tag">Daily · Arena</span>
@@ -338,10 +354,10 @@
     // Logos are dropped in per game and may not exist yet. What replaces a missing one depends
     // on whether the tile has artwork behind it:
     //
-    //   with artwork    nothing. The slot becomes a window onto the picture, and the game's name
-    //                   is already the line directly beneath it — printing a wordmark here put
-    //                   the same word on the card twice, which is what every tile did while
-    //                   /assets/logos/ did not exist.
+    //   with artwork    the slot goes. The picture covers the whole card, so 88px of reserved
+    //                   space is 88px of artwork hidden, and the game's name is already the line
+    //                   at the bottom — printing a wordmark here put the same word on the card
+    //                   twice, which is what every tile did while /assets/logos/ did not exist.
     //   without         the name in the display face, as before, so a bare tile is not blank.
     for (const slot of document.querySelectorAll('.tile-art')) {
       const img = slot.querySelector('img');
@@ -352,7 +368,7 @@
 
         const tile = slot.closest('.tile');
         const art = tile && getComputedStyle(tile).getPropertyValue('--tile-bg').trim();
-        if (art && art !== 'none') return;
+        if (art && art !== 'none') { slot.hidden = true; return; }
 
         const mark = document.createElement('div');
         mark.className = 'tile-wordmark';
