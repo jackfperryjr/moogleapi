@@ -54,6 +54,11 @@
       --error:       #a4121e;
       --method-bg:   rgba(28, 107, 64, 0.09);
       --method-border: rgba(28, 107, 64, 0.28);
+      /* The premium rate-limit pill. Blue keeps it apart from the green tiers and the red
+         actions, which is the whole job — it is a label, not something you can click. */
+      --premium:        #17458f;
+      --premium-bg:     rgba(23, 69, 143, 0.09);
+      --premium-border: rgba(23, 69, 143, 0.3);
       /* The nav stays light. It sits over the top of the page gradient, which is nearly white
          there anyway, and dropping it to panel silver put the wordmark at 4.44:1 — fine for
          large text, thin for a brand mark. The white the eye reads as "unfinished" was the
@@ -305,6 +310,11 @@
       background: var(--accent-soft);
       color: var(--accent-2);
       border-color: rgba(208, 2, 27, 0.3);
+    }
+    .method-premium {
+      background: var(--premium-bg);
+      color: var(--premium);
+      border-color: var(--premium-border);
     }
     .route {
       font-family: 'JetBrains Mono', monospace;
@@ -696,6 +706,9 @@
     .ff-mode .try-bar input:focus { border-color: var(--accent); }
     .ff-mode .data-summary strong { color: var(--accent); text-shadow: 1px 1px 0 #0a1450; }
     .ff-mode .method-play { background: rgba(248, 208, 48, 0.18); color: var(--accent); border-color: rgba(248, 208, 48, 0.5); }
+    /* On a blue window a blue pill would vanish into it, so premium goes pale rather than deep —
+       the same inversion the greens and reds make in this mode. */
+    .ff-mode .method-premium { background: rgba(138, 180, 248, 0.16); color: #8ab4f8; border-color: rgba(138, 180, 248, 0.5); }
     .ff-mode .route-param { color: var(--accent); }
     .ff-mode .route-query { color: var(--muted); }
 
@@ -943,7 +956,7 @@
       </div>
     </div>
     <div class="endpoint-static">
-      <div class="method" style="color:#bbdefb;border-color:rgba(187,222,251,0.3);background:rgba(187,222,251,0.1);">600/m</div>
+      <div class="method method-premium">600/m</div>
       <div class="endpoint-info">
         <div class="route">Premium <span class="route-query">— pass <code>X-Api-Key: your-key</code></span></div>
         <div class="desc">10× the limit for power users and project builders</div>
