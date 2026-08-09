@@ -206,11 +206,15 @@ app.MapScalarApiReference(options =>
     options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
     options.WithFavicon("/favicon.ico");
 
-    // DeepSpace was close to the site's palette but never actually it. The reference is now
-    // themed from wwwroot/assets/scalar.css against the same tokens games.css uses — see that
-    // file for why no preset is loaded underneath it, and why the site is dark-only here.
+    // DeepSpace was close to the site's palette but never actually it. The reference is themed
+    // from wwwroot/assets/scalar.css against the landing page's tokens — see that file for why no
+    // preset is loaded underneath it, and why the site is single-mode here.
+    //
+    // Light, since the site went silver. The stylesheet sets the same tokens on both .dark-mode
+    // and .light-mode, so this only decides which class Scalar puts on the root; the toggle stays
+    // hidden because there is no second palette for it to switch to.
     options.Theme = ScalarTheme.None;
-    options.ForceThemeMode = ThemeMode.Dark;
+    options.ForceThemeMode = ThemeMode.Light;
     options.HideDarkModeToggle = true;
     options.AddHeadContent(
         """

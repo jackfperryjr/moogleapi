@@ -74,11 +74,17 @@ public class CharacterEndpoint(AppDbContext db, HybridCache cache)
         character.Popularity = f.Popularity;
         character.WikiPageLength = f.WikiPageLength;
         character.WikiBacklinks = f.WikiBacklinks;
-        character.ImageUrl = EditText.Clean(f.ImageUrl);
         character.ImageSourceUrl = EditText.Clean(f.ImageSourceUrl);
         character.GeneratedImageUrl = EditText.Clean(f.GeneratedImageUrl);
         character.ImageKind = EditText.Clean(f.ImageKind);
         character.GameId = game.Id;
+
+        // Derived, not edited. A character serves its house-style artwork and nothing else, so the
+        // editor offers one picture and this is the column behind it — keeping ImageUrl in step
+        // here is what makes that slot the served image rather than a staging column somebody
+        // still has to promote. Clearing the slot clears both, and the row falls through to the
+        // no-artwork placeholder.
+        character.ImageUrl = character.GeneratedImageUrl;
 
         await db.SaveChangesAsync(ct);
         await CatalogCache.InvalidateAsync(cache, ct);

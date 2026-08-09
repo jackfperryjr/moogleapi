@@ -5,16 +5,23 @@
  * path stays open. Scalar's own stylesheet keeps moving, and a rule written against one of its
  * class names is a rule that breaks on the next package bump.
  *
- * The palette is games.css's, deliberately not re-derived here. Two values differ, and only where
- * the site's usage doesn't transfer:
+ * The palette is the landing page's: silver, black and red. Text is near-black on a near-white
+ * page, and the one red is spent on links, the active sidebar row and the send button — the same
+ * restraint the landing page uses, where red marks the brand and the things you can click and
+ * nothing else.
  *
- *   --accent #4285f4 is a button background on the marketing page, always under white text. Scalar
- *   spends its accent on links and the active sidebar row — small text directly on --bg — where
- *   #4285f4 lands at about 3.6:1 and fails AA. #8ab4f8 is the same hue lifted to ~7:1. The solid
- *   blue is still here, as the button fill it already was.
+ * Two values are lifted from the landing page rather than reused verbatim:
  *
- *   The gold picks out the brand: the document title and the active sidebar item, matching the
- *   .nav-brand treatment on the landing page.
+ *   --accent #b8202a is the wordmark red. On a white background it lands at about 6.9:1 as text,
+ *   which carries links and the active row comfortably. It is also the button fill, under white
+ *   at ~6.9:1 — the one place the same value works both ways round.
+ *
+ *   --scalar-color-2 is a slate grey, not a tint of the red. Scalar spends its secondary colour
+ *   on descriptions and parameter names, which is body text in all but name; tinting that much
+ *   copy toward the accent would make the page look washed rather than neutral.
+ *
+ * Scalar ships a light mode and a dark mode and the site now has exactly one look, so both class
+ * hooks get the same tokens: whichever Scalar decides it is in, it comes out silver.
  *
  * Loaded via a <link> from Program.cs's Scalar head content rather than inlined into the page,
  * which keeps it a real stylesheet — editable, and covered by the no-cache rule UseStaticFiles
@@ -25,31 +32,31 @@
 
 .dark-mode,
 .light-mode {
-  --scalar-color-1: #ffffff;
-  --scalar-color-2: #90a4ae;
-  --scalar-color-3: rgba(144, 164, 174, 0.62);
-  --scalar-color-accent: #8ab4f8;
+  --scalar-color-1: #14161a;
+  --scalar-color-2: #5b626d;
+  --scalar-color-3: rgba(91, 98, 109, 0.66);
+  --scalar-color-accent: #b8202a;
 
-  --scalar-background-1: #25282c;
-  --scalar-background-2: #2f3d45;
-  --scalar-background-3: #37474f;
-  --scalar-background-accent: rgba(66, 133, 244, 0.14);
+  --scalar-background-1: #ffffff;
+  --scalar-background-2: #f4f5f7;
+  --scalar-background-3: #e9ebef;
+  --scalar-background-accent: rgba(184, 32, 42, 0.08);
 
-  --scalar-border-color: #455a64;
+  --scalar-border-color: #d3d7de;
   --scalar-code-language-color-supersede: var(--scalar-color-2);
 
-  /* HTTP methods, response codes and syntax highlighting. Pulled toward the games' feedback
-     colours — the greens and reds already used for hit/miss — so the docs and the boards read as
-     one site, then lightened where they had to sit on #25282c as text. */
-  --scalar-color-green: #7fd6a8;
-  --scalar-color-red: #e8a1ad;
-  --scalar-color-yellow: #ffecb3;
-  --scalar-color-blue: #8ab4f8;
-  --scalar-color-orange: #f0a35e;
-  --scalar-color-purple: #c5b3f2;
+  /* HTTP methods, response codes and syntax highlighting. Darkened from the landing page's
+     versions: these sit as small text on white, where the pastels the dark theme used dropped
+     under 4.5:1. The green and red are the same two the games use for hit and miss. */
+  --scalar-color-green: #1c6b40;
+  --scalar-color-red: #a4121e;
+  --scalar-color-yellow: #7a5a00;
+  --scalar-color-blue: #17458f;
+  --scalar-color-orange: #9a4a06;
+  --scalar-color-purple: #5a3ea8;
 
-  --scalar-button-1: #4285f4;
-  --scalar-button-1-hover: #5b95f6;
+  --scalar-button-1: #b8202a;
+  --scalar-button-1-hover: #8f161f;
   --scalar-button-1-color: #ffffff;
 
   /* Raleway for prose and Josefin Sans for headings, as everywhere else. JetBrains Mono is the
@@ -57,31 +64,31 @@
   --scalar-font: 'Raleway', system-ui, -apple-system, sans-serif;
   --scalar-font-code: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-  /* games.css rounds to 10px. Scalar scales everything off this base: 4px carries the small
-     controls, and the panels land at 16px, near enough that the two don't look unrelated. */
+  /* The landing page rounds to 10px. Scalar scales everything off this base: 4px carries the
+     small controls, and the panels land at 16px, near enough that the two don't look unrelated. */
   --scalar-radius: 4px;
 }
 
 .dark-mode .t-doc__sidebar,
 .light-mode .t-doc__sidebar {
-  --scalar-sidebar-background-1: #25282c;
+  --scalar-sidebar-background-1: #f4f5f7;
   --scalar-sidebar-color-1: var(--scalar-color-1);
   --scalar-sidebar-color-2: var(--scalar-color-2);
   --scalar-sidebar-border-color: var(--scalar-border-color);
 
   --scalar-sidebar-item-hover-color: var(--scalar-color-1);
-  --scalar-sidebar-item-hover-background: #2f3d45;
+  --scalar-sidebar-item-hover-background: #e9ebef;
 
-  --scalar-sidebar-item-active-background: #37474f;
-  --scalar-sidebar-color-active: #ffecb3;
+  --scalar-sidebar-item-active-background: #ffffff;
+  --scalar-sidebar-color-active: #b8202a;
 
-  --scalar-sidebar-search-background: #2f3d45;
+  --scalar-sidebar-search-background: #ffffff;
   --scalar-sidebar-search-border-color: var(--scalar-border-color);
   --scalar-sidebar-search-color: var(--scalar-color-2);
 }
 
 /* The two places tokens can't reach. Headings are a font swap Scalar has no variable for, and the
-   document title is the brand — the gold it is set in on every other page. */
+   document title is the wordmark — the red it is set in on every other page. */
 .markdown h1,
 .markdown h2,
 .markdown h3,
@@ -92,6 +99,6 @@
 }
 
 .t-editor__page-title h1 {
-  color: #ffecb3;
+  color: #b8202a;
   letter-spacing: 0.1em;
 }
