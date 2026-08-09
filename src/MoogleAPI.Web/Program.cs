@@ -216,11 +216,15 @@ app.MapScalarApiReference(options =>
     options.Theme = ScalarTheme.None;
     options.ForceThemeMode = ThemeMode.Light;
     options.HideDarkModeToggle = true;
+    // theme.js is synchronous and first on purpose: it stamps .ff-mode on <html> before the first
+    // paint, so a reader who switched the site to FFIV mode on another page does not watch this
+    // one load silver and then turn blue. scalar.css carries both palettes behind that class.
     options.AddHeadContent(
         """
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+        <script src="/assets/theme.js"></script>
         <link rel="stylesheet" href="/assets/scalar.css" />
         """);
     // FastEndpoints.Swagger (NSwag) serves the spec here, not the ASP.NET Core default

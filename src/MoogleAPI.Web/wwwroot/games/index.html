@@ -9,7 +9,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- Synchronous and before the stylesheets, so the first paint is already the right theme. -->
+  <script src="/assets/theme.js"></script>
   <link rel="stylesheet" href="/assets/games.css?v=20260802b" />
+  <link rel="stylesheet" href="/assets/ff4.css" />
   <style>
     /* The hub wears the landing page's palette, not the games'.
      *
@@ -22,20 +25,22 @@
      * --gold is what games.css sets .nav-brand in, so the wordmark comes out red here the same
      * way it does on the landing page. */
     :root {
-      --bg:        #f2f3f5;
-      --surface:   #ffffff;
-      --surface-2: #f7f8f9;
-      --border:    #d3d7de;
+      --bg:        #f4f6f8;
+      /* Panels sit a step DOWN from the page, not up — see the landing page for why white cards
+         on silver read as holes. */
+      --surface:   #e0e4ea;
+      --surface-2: #e8ebf0;
+      --border:    #c9cfd8;
       --accent:    #d0021b;
       --accent-2:  #a10214;
       --gold:      #d0021b;
       --text:      #14161a;
       --muted:     #5b626d;
-      --nav-bg:    rgba(248, 249, 250, 0.9);
+      --nav-bg:    rgba(250, 251, 252, 0.9);
     }
 
     body {
-      background-image: linear-gradient(180deg, #fafbfc 0%, var(--bg) 38%, #e3e5e9 100%);
+      background-image: linear-gradient(180deg, #fcfcfd 0%, var(--bg) 38%, #edeff3 100%);
       background-attachment: fixed;
     }
 
@@ -67,7 +72,7 @@
       border-radius: var(--radius);
       color: inherit;
       text-decoration: none;
-      box-shadow: 0 1px 2px rgb(20 22 26 / 0.04), 0 8px 24px rgb(20 22 26 / 0.05);
+      box-shadow: 0 1px 1px rgb(20 22 26 / 0.03), 0 4px 12px rgb(20 22 26 / 0.04);
       transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
     }
     .tile::before {
@@ -159,7 +164,7 @@
       font-size: 0.85rem;
       color: var(--muted);
     }
-    .hub-note a { color: var(--accent); }
+    .hub-note a { color: var(--accent-2); }
 
     /* Two columns need more room than the tiles' old 260px minimum implied — below this the
        description wraps to five or six lines and the pair stops reading as a row. */
@@ -171,6 +176,52 @@
       .tile { padding: 1.1rem 1rem; }
       .tile-art { height: 70px; }
     }
+
+    /* ── FFIV mode ──────────────────────────────────────────────────────────────
+     * ff4.css brings the palette and the chrome; the tiles are this page's own, so their window
+     * treatment is here. The per-game accent survives the swap — --tile is set inline on each
+     * tile and the four colours were picked for a dark surface in the first place, which is
+     * exactly what they are back on. */
+    .ff-mode .tile {
+      background: linear-gradient(180deg, #3358d8 0%, #17309c 55%, #0e1f70 100%);
+      border: 2px solid #dfe8ff;
+      box-shadow: inset 0 0 0 2px #0c1a60, 0 3px 0 rgba(4, 6, 31, 0.55);
+    }
+    .ff-mode .tile:hover,
+    .ff-mode .tile:focus-visible {
+      border-color: #f8d030;
+      transform: translateY(-3px);
+      box-shadow: inset 0 0 0 2px #0c1a60, 0 0 14px rgba(248, 208, 48, 0.35), 0 3px 0 rgba(4, 6, 31, 0.55);
+    }
+    /* The tint over a blue window would muddy it; the top bar carries the accent on its own.
+       Lightened, because the four --tile values are picked for a light surface — dropped straight
+       onto #17309c the green bar lands at 1.6:1 and simply is not there. */
+    .ff-mode .tile::after { opacity: 0; }
+    .ff-mode .tile::before {
+      height: 4px;
+      background: color-mix(in srgb, var(--tile) 45%, #ffffff);
+    }
+
+    .ff-mode .page-title,
+    .ff-mode .tile-name,
+    .ff-mode .tile-wordmark {
+      font-family: 'Press Start 2P', monospace;
+      text-shadow: 1px 1px 0 #0a1450;
+    }
+    .ff-mode .page-title { font-size: 1rem; letter-spacing: 0.08em; }
+    .ff-mode .tile-name { font-size: 0.6rem; letter-spacing: 0.05em; line-height: 1.6; }
+    /* White, not var(--tile). There is no assets/logos/ directory, so the wordmark is not a
+       fallback that rarely fires — it is what every tile actually renders, and the game accents
+       are chosen for a light surface: the Kupodle green sits at 1.63:1 on the window. FFIV menu
+       text is white anyway; the hue survives on the bar above it. */
+    .ff-mode .tile-wordmark { font-size: 0.85rem; line-height: 1.5; color: #ffffff; }
+    .ff-mode .tile-go { color: #f8d030; }
+    .ff-mode .tile-tag { border-color: rgba(223, 232, 255, 0.5); }
+    .ff-mode .page-sub,
+    .ff-mode .tile-desc,
+    .ff-mode .hub-note { text-shadow: 1px 1px 0 rgba(10, 20, 80, 0.9); }
+    .ff-mode .hub-note { border-top-color: #dfe8ff; }
+    .ff-mode .hub-note a { color: #f8d030; }
   </style>
 </head>
 <body>
@@ -190,7 +241,7 @@
     </p>
 
     <div class="tiles">
-      <a class="tile" href="/kupodle" style="--tile:#2c7a58">
+      <a class="tile" href="/kupodle" style="--tile:#26684a">
         <div class="tile-art" data-wordmark="Kupodle">
           <img src="/assets/logos/kupodle.png" alt="" />
         </div>
@@ -205,7 +256,7 @@
         </div>
       </a>
 
-      <a class="tile" href="/triple-triad" style="--tile:#26618f">
+      <a class="tile" href="/triple-triad" style="--tile:#20537a">
         <div class="tile-art" data-wordmark="Triple Triad">
           <img src="/assets/logos/triple-triad.png" alt="" />
         </div>
@@ -220,7 +271,7 @@
         </div>
       </a>
 
-      <a class="tile" href="/kupo-climb" style="--tile:#8a551f">
+      <a class="tile" href="/kupo-climb" style="--tile:#75481a">
         <div class="tile-art" data-wordmark="Kupo Climb">
           <img src="/assets/logos/kupo-climb.png" alt="" />
         </div>
@@ -235,7 +286,7 @@
         </div>
       </a>
 
-      <a class="tile" href="/battle-square" style="--tile:#6e3f92">
+      <a class="tile" href="/battle-square" style="--tile:#5e357d">
         <div class="tile-art" data-wordmark="Battle Square">
           <img src="/assets/logos/battle-square.png" alt="" />
         </div>
