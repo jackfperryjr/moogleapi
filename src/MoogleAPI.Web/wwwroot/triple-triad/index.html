@@ -102,8 +102,9 @@
 
     /* ── Card ── */
     .card {
-      /* Height reserved for the name strip. The value cluster is inset by exactly this much
-         so the bottom number can never be hidden behind the title. */
+      /* Height reserved for the name strip. The ranks used to be inset by exactly this much so
+         the bottom number cleared the title; they sit in the top-left corner now, but the strip
+         still needs its height reserved. */
       --name-h: 17px;
       width: 100%; aspect-ratio: 3 / 4; border-radius: 6px; position: relative;
       overflow: hidden; border: 2px solid transparent;
@@ -142,23 +143,44 @@
 
        The chip behind each digit is what makes them survive being over artwork instead of over a
        flat panel — a text shadow alone disappeared into a light subject. */
+    /* The ranks, in the corner cluster the games have always used: a diamond in the top left,
+       top over left-and-right over bottom. Large and white, and smoothed rather than redrawn —
+       the 1999 cards printed these into the art with a hard pixel outline, and this is the same
+       arrangement rendered as type, so it stays crisp at any size.
+
+       They are live DOM rather than paint, which is the whole reason the faces were regenerated
+       without them: the numbers come from the row, so they are correct by construction and no
+       model ever has to spell a digit.
+
+       The corner wash is what lets white sit on an unknown painting. A text shadow alone
+       disappeared into a light subject, and a chip behind each digit — which is where this
+       started — read as UI stuck on top of the art rather than as part of the card. It is a
+       background on .vals rather than a pseudo-element: an absolutely positioned ::before paints
+       above its in-flow siblings, so it covered the digits, and z-index:-1 sent it behind the
+       card entirely because nothing in this subtree creates a stacking context. */
     .card .vals {
-      position: absolute; inset: 0 0 var(--name-h) 0;
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 600; font-size: 0.72rem; color: var(--gold);
+      position: absolute;
+      top: 0; left: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1em);
+      grid-template-rows: repeat(3, 0.86em);
+      place-items: center;
+      /* Padding rather than an offset, so the wash below has somewhere to fade out into. The
+         cluster still sits 5px in from the corner. */
+      padding: 5px 16px 16px 5px;
+      background: radial-gradient(ellipse at top left, rgba(4,10,18,0.78) 0%, rgba(4,10,18,0.32) 54%, transparent 76%);
+      font-family: 'Raleway', sans-serif;
+      font-weight: 600;
+      font-size: 0.92rem;
+      line-height: 1;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.75);
     }
-    .card .vals span {
-      position: absolute; line-height: 1;
-      min-width: 15px; padding: 2px 1px;
-      text-align: center; border-radius: 4px;
-      background: rgba(6, 14, 26, 0.68);
-      box-shadow: inset 0 0 0 1px rgba(232, 217, 160, 0.34);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-    }
-    .card .v-top    { top: 3px;  left: 50%; transform: translateX(-50%); }
-    .card .v-bottom { bottom: 3px; left: 50%; transform: translateX(-50%); }
-    .card .v-left   { left: 3px;  top: 50%; transform: translateY(-50%); }
-    .card .v-right  { right: 3px; top: 50%; transform: translateY(-50%); }
+    .card .vals span { position: static; line-height: 1; }
+    .card .v-top    { grid-area: 1 / 2; }
+    .card .v-left   { grid-area: 2 / 1; }
+    .card .v-right  { grid-area: 2 / 3; }
+    .card .v-bottom { grid-area: 3 / 2; }
 
     .card .cname {
       position: absolute; bottom: 0; left: 0; right: 0;
