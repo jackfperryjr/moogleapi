@@ -91,12 +91,16 @@
     .combo-row input { flex: 1; }
 
     /* ── The answer frame ──────────────────────────────────────────────────────
-     * A picture frame on the study wall, holding nothing but a question mark until the puzzle is
-     * over. It is deliberately NOT a silhouette of the answer: the artwork is a full painted
-     * illustration with a scene behind it, so darkening it either leaves the character plainly
-     * recognisable — Vivi's hat, Cloud's sword — or turns it into a black rectangle, and the
-     * background alone would give away the game the character is from. A frame that fills in at
-     * the end keeps the reveal without leaking it.
+     * A picture frame on the study wall, holding the day's character in shadow until the puzzle
+     * is over, then lighting them up. It matches the wall behind the page — a gallery of framed
+     * portraits, every one of them a silhouette but the lit one.
+     *
+     * The shadow is a purpose-drawn picture, not the artwork dimmed. Dimming was tried and cannot
+     * work: the illustration is a full painted scene, so darkening it far enough to hide the
+     * character leaves a black rectangle, and not far enough leaves Vivi's hat and Cloud's sword
+     * plainly readable — and the background gives away the game before the first guess either
+     * way, which is half the puzzle. So each pool character has a second image, black on a pale
+     * field with nothing behind it, served by the byte from /characters/daily/silhouette.
      */
     .answer-frame {
       flex: none;
@@ -125,6 +129,16 @@
       background: linear-gradient(122deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.03) 38%, transparent 39%);
     }
     .answer-frame img { width: 100%; height: 100%; object-fit: cover; object-position: center 12%; display: block; }
+    /* The portrait is cropped to the head; the silhouette is already framed as it should be, so
+       it is fitted whole rather than pushed up and cut — the shape IS the clue, and a cropped
+       outline is a different outline. */
+    .answer-frame img.silhouette { object-fit: contain; object-position: center; }
+
+    /* The silhouette is stored as a transparent matte, so this well is what shows through it.
+       It cannot be the one the question mark sits on: #1a211e is near-black and a black figure
+       disappears into it. So the well lifts to the frame's own border tone while a shape is
+       hanging in it, and drops back to near-black for the question mark and the final portrait. */
+    .answer-frame-inner.has-silhouette { background: var(--border); }
     .answer-frame-q {
       font-family: 'Josefin Sans', sans-serif;
       font-size: 1.7rem;
@@ -253,8 +267,8 @@
 
     <section id="game" hidden>
       <div class="panel combo">
-        <!-- Empty until the puzzle ends, then it holds the character. Not a silhouette — see the
-             note on .answer-frame for why the artwork cannot supply one. -->
+        <!-- Holds the day's silhouette while the puzzle is on, then the character. The question
+             mark is the fallback for a pool row whose shape has not been drawn yet. -->
         <figure id="answer-frame" class="answer-frame">
           <div class="answer-frame-inner">
             <span class="answer-frame-q" aria-hidden="true">?</span>
@@ -285,6 +299,6 @@
   </main>
 
   <script src="/assets/stats.js?v=20260802b"></script>
-  <script src="/kupodle/game.js?v=20260809"></script>
+  <script src="/kupodle/game.js?v=20260810"></script>
 </body>
 </html>

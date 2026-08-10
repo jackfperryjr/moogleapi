@@ -4,6 +4,7 @@ using Amazon.S3.Model;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace MoogleAPI.Scraper;
@@ -280,5 +281,125 @@ public class ImageStore(ImageStoreOptions options, HttpClient http, ILogger<Imag
             logger.LogWarning("  ! could not store {Key}: {Message}", key, ex.Message);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Stores a two-tone picture as an alpha matte — the figure kept as black pixels, the flat
+    /// field behind it turned transparent.
+    /// </summary>
+    /// <remarks>
+    /// For silhouettes, so that what sits behind the shape is a decision the page makes rather
+    /// than one baked into the image. The model draws black on pale reliably and draws
+    /// transparency not at all, so the field is asked for and then removed here — which is free,
+    /// exact, and adjustable later without paying for the picture again.
+    /// <para>
+    /// Encoded lossless. The usual quality 82 is tuned for photographs and puts ringing along the
+    /// one edge this image consists of; two flat tones compress to a few kilobytes losslessly
+    /// anyway.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> UploadMatteAsync(string key, byte[] bytes, int maxEdge, CancellationToken ct)
+    {
+        try
+        {
+            using var image = Image.Load<Rgba32>(bytes);
+
+            if (image.Width > maxEdge || image.Height > maxEdge)
+                image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(maxEdge, maxEdge), Mode = ResizeMode.Max }));
+
+            KeyOutField(image, key, logger);
+
+            using var encoded = new MemoryStream();
+            await image.SaveAsync(encoded, new WebpEncoder { FileFormat = WebpFileFormatType.Lossless }, ct);
+            encoded.Position = 0;
+
+            await _s3.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = options.Bucket,
+                Key = key,
+                InputStream = encoded,
+                ContentType = "image/webp",
+                DisablePayloadSigning = true,
+            }, ct);
+
+            return PublicUrlFor(key);
+        }
+        catch (Exception ex) when (ex is ImageFormatException or AmazonS3Exception)
+        {
+            logger.LogWarning("  ! could not store {Key}: {Message}", key, ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Replaces a black-on-pale picture with a black-on-nothing one, in place.
+    /// </summary>
+    /// <remarks>
+    /// Alpha is inverted luminance stretched between the picture's own two tones, rather than a
+    /// threshold. A threshold would key the field out just as well and throw away the antialiasing
+    /// with it, leaving a staircase down every edge — and the edge is the entire content of a
+    /// silhouette. Partial alpha along the boundary is what keeps hair and cloth looking drawn.
+    /// </remarks>
+    internal static void KeyOutField(Image<Rgba32> image, string key, ILogger logger)
+    {
+        var histogram = new int[256];
+        image.ProcessPixelRows(rows =>
+        {
+            for (var y = 0; y < rows.Height; y++)
+            {
+                var row = rows.GetRowSpan(y);
+                for (var x = 0; x < row.Length; x++) histogram[Luminance(row[x])]++;
+            }
+        });
+
+        var total = (long)image.Width * image.Height;
+        var dark = Percentile(histogram, total, 0.05);
+        var light = Percentile(histogram, total, 0.95);
+
+        // Not two tones, so there is no field to key. The model returned something other than a
+        // silhouette — a shaded figure, a scene, a near-empty frame — and keying it would produce
+        // a smear that looks deliberate. Left opaque, it is visibly wrong and gets caught.
+        if (light - dark < 60)
+        {
+            logger.LogWarning(
+                "  ! {Key} is not two-tone (5th–95th percentile is {Dark}–{Light}); left opaque.",
+                key, dark, light);
+            return;
+        }
+
+        // A 256-entry lookup rather than the arithmetic per pixel, against a quarter-million of them.
+        var span = light - dark;
+        var alpha = new byte[256];
+        for (var v = 0; v < 256; v++) alpha[v] = (byte)Math.Clamp((light - v) * 255 / span, 0, 255);
+
+        image.ProcessPixelRows(rows =>
+        {
+            for (var y = 0; y < rows.Height; y++)
+            {
+                var row = rows.GetRowSpan(y);
+                for (var x = 0; x < row.Length; x++) row[x] = new Rgba32(0, 0, 0, alpha[Luminance(row[x])]);
+            }
+        });
+    }
+
+    /// <summary>Rec. 601 luma, which is what "how dark is this" means for a greyscale decision.</summary>
+    private static byte Luminance(Rgba32 p) => (byte)((p.R * 299 + p.G * 587 + p.B * 114) / 1000);
+
+    /// <summary>
+    /// The tone at which <paramref name="fraction"/> of the picture is darker. Taken at the 5th
+    /// and 95th rather than the extremes, so one stray pixel cannot set the range.
+    /// </summary>
+    private static int Percentile(int[] histogram, long total, double fraction)
+    {
+        var target = (long)(total * fraction);
+        long seen = 0;
+
+        for (var v = 0; v < histogram.Length; v++)
+        {
+            seen += histogram[v];
+            if (seen >= target) return v;
+        }
+
+        return histogram.Length - 1;
     }
 }

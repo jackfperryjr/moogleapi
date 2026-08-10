@@ -56,13 +56,14 @@ if (imageOptions is null)
     return 1;
 }
 
-// --only=x,y   restrict the run to named stages (images, audit, generate, promote, unpromote,
-//              recrop, uncrop)
+// --only=x,y   restrict the run to named stages (images, audit, generate, silhouettes, promote,
+//              unpromote, recrop, uncrop)
 // --force      re-copy or re-classify rows that have already been done
 // --kinds=x,y  which classes of bad image the generate stage replaces
 // --max=N      hard ceiling on images generated in one run, so a mistake cannot empty a budget
 // --ids=m1,c2  confine generate and unpromote to named rows; --ids=@file reads a long list
 // --describe   write a brief from the reference and draw from that, without the picture
+// --min-popularity=N  the silhouette stage's notability floor — which characters Kupodle can ask
 var force = args.Contains("--force", StringComparer.OrdinalIgnoreCase);
 var describe = args.Contains("--describe", StringComparer.OrdinalIgnoreCase);
 
@@ -79,6 +80,16 @@ var kindsArg = args.FirstOrDefault(a => a.StartsWith("--kinds=", StringCompariso
 var maxImages = int.TryParse(
     args.FirstOrDefault(a => a.StartsWith("--max=", StringComparison.OrdinalIgnoreCase))?["--max=".Length..],
     out var parsedMax) ? parsedMax : 25;
+
+// The silhouette stage's pool. Defaulted rather than required, because the default is a fact
+// about the game — it is PUZZLE.minPopularity in wwwroot/kupodle/game.js, and the two have to
+// agree or the frame comes up empty on the days they disagree about. Defaulting to 0 would have
+// been the other option and it is the expensive one: it selects every character holding art,
+// which is 1,860 rows rather than 245.
+var minPopularity = int.TryParse(
+    args.FirstOrDefault(a => a.StartsWith("--min-popularity=", StringComparison.OrdinalIgnoreCase))
+        ?["--min-popularity=".Length..],
+    out var parsedFloor) ? parsedFloor : 85;
 
 // Parsed before anything runs, and allowed to stop the run. A malformed entry in a list of
 // hundreds must not be read as "no restriction" — that is the difference between withdrawing
@@ -155,6 +166,16 @@ if (generating)
             logger.LogError(ex, "Promote failed after generation. Rerun with --only=promote --ids=… — it is free and idempotent.");
         }
     }
+}
+
+// Draws the flat black shapes Kupodle's answer frame holds while a puzzle is unsolved. Costs
+// money per image like generate, and is asked for by name for the same reason — but there is no
+// promote after it, and there must never be one: a silhouette is a second picture of a row that
+// already has art, and promoting one would hang a character's own shadow in place of its portrait.
+if (stages is not null && stages.Contains("silhouettes"))
+{
+    await scope.ServiceProvider.GetRequiredService<ImageGenerator>()
+        .GenerateSilhouettesAsync(minPopularity, maxImages, force, ids);
 }
 
 // Promotion on its own, for art from a run that predates the automatic promote above. It has to
