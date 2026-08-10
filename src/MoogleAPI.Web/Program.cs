@@ -89,6 +89,15 @@ builder.Services.AddHttpClient<WikiClient>(c =>
     c.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// Reading our own bucket back. Only Kupodle's silhouette endpoint needs this: it answers with the
+// image bytes instead of the URL, because the URL is keyed by row id and would name the very
+// character the puzzle is withholding. Short timeout — a slow bucket must not hold a page open.
+builder.Services.AddHttpClient("images", c =>
+{
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("MoogleAPI/1.0");
+    c.Timeout = TimeSpan.FromSeconds(10);
+});
+
 // Image uploads. Optional by design: with no R2 credentials the upload endpoint answers 503 and
 // every other part of the site — including the rest of the dashboard — runs. The options are
 // captured here rather than registered, because "not configured" is a legitimate state and a

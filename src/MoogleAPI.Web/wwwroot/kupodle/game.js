@@ -8,7 +8,12 @@
 (() => {
   'use strict';
 
-  const PUZZLE = { minPopularity: 90, requireImage: true };
+  /* minPopularity is the difficulty dial and it is also the series selector — the server folds it
+     into the puzzle's seed scope, so changing it remaps every date to a different character. It
+     went 90 → 85 on 2026-08-10, taking the answer pool from 108 characters to 245, which is about
+     eight months of puzzles before a repeat instead of three and a half. Bump STORE_VERSION with
+     it: boards saved under the old value were scored against a different answer. */
+  const PUZZLE = { minPopularity: 85, requireImage: true };
   const MAX_GUESSES = 6;
   const API = '/api';
 
@@ -34,12 +39,12 @@
 
   const qs = (o) => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 
-  /* Versioned twice over: once because the day boundary moved from UTC to Central (an evening
-     game was filed under the *next* UTC date), and again because the server's seed was
-     reshuffled, so any board saved earlier was scored against a different answer. Neither can
-     be migrated — the old entries have to be dropped. Must be bumped whenever
-     PuzzleFilters.SeedVersion changes. */
-  const STORE_VERSION = 'v3';
+  /* Versioned three times over: the day boundary moved from UTC to Central (an evening game was
+     filed under the *next* UTC date), the server's seed was reshuffled, and the popularity floor
+     dropped to 85. Each one means a saved board was scored against a different answer than the
+     one that date now resolves to, and none of them can be migrated — the old entries have to be
+     dropped. Must be bumped whenever PuzzleFilters.SeedVersion or PUZZLE changes. */
+  const STORE_VERSION = 'v4';
   const storeKey = (d) => `kupodle:${STORE_VERSION}:${d}`;
 
   /** Drops every Kupodle entry not written by the current store version. */
@@ -236,15 +241,44 @@
     if (state.done) renderResult();
   }
 
-  /** Swaps the question mark for the answer's portrait. Idempotent: reloading a finished day
-   *  re-runs renderResult, and re-appending would stack a second image inside the frame. */
-  function revealInFrame(answer) {
+  /** Hangs the day's shape in the frame: the answer's outline with no face, no colour and no
+   *  scene behind it. The image comes back as bytes from an endpoint keyed by date — never as a
+   *  URL, which would carry the character's row id and hand over the answer. */
+  function showSilhouette(date) {
     const inner = el.frame.querySelector('.answer-frame-inner');
-    if (inner.querySelector('img')) return;
+    if (state.done || inner.querySelector('img')) return;
 
     const img = document.createElement('img');
+    img.className = 'silhouette';
+    img.alt = "Silhouette of today's character";
+    // Not every character in the pool has a shape drawn yet; that answers 404 and the frame is
+    // left holding its question mark, which is what it did before silhouettes existed.
+    img.addEventListener('error', () => img.remove());
+    img.addEventListener('load', () => {
+      // The matte is transparent, so the well behind it becomes the picture's background — and
+      // it has to lift off near-black or the black figure is invisible. Only once the image has
+      // actually arrived: a lifted well behind a question mark would just look like a bug.
+      inner.classList.add('has-silhouette');
+      inner.querySelector('.answer-frame-q')?.remove();
+    });
+    img.src = `${API}/characters/daily/silhouette?${qs({ date, ...PUZZLE })}`;
+    inner.appendChild(img);
+  }
+
+  /** Swaps the silhouette for the answer's portrait — the same figure, finally lit. Idempotent:
+   *  reloading a finished day re-runs renderResult, and the guard has to name the portrait rather
+   *  than any image, or the silhouette sitting there would be mistaken for one. */
+  function revealInFrame(answer) {
+    const inner = el.frame.querySelector('.answer-frame-inner');
+    if (inner.querySelector('img.portrait')) return;
+
+    const img = document.createElement('img');
+    img.className = 'portrait';
     img.src = answer.imageUrl;
     img.alt = answer.name;
+    // The portrait is opaque and fills the frame, so the lifted well goes back to near-black —
+    // otherwise it shows as a pale seam wherever the artwork does not quite reach the edge.
+    inner.classList.remove('has-silhouette');
     inner.replaceChildren(img);
   }
 
@@ -479,7 +513,9 @@
     el.input.addEventListener('blur', () => setTimeout(closeSuggestions, 120));
     el.submit.addEventListener('click', submitGuess);
 
+    // After renderAll, which is what fills the frame with the portrait on a day already finished.
     renderAll();
+    showSilhouette(date);
     renderCountdown();
     setInterval(renderCountdown, 30000);
     renderYesterday(date);

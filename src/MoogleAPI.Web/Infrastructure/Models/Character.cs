@@ -18,6 +18,23 @@ public class Character
     public string? GeneratedImageUrl { get; set; }
 
     /// <summary>
+    /// A flat black silhouette of the served artwork, drawn for Kupodle's answer frame.
+    /// </summary>
+    /// <remarks>
+    /// Generated separately rather than derived from <see cref="ImageUrl"/>, because the artwork
+    /// cannot produce one: it is a full painted illustration with a scene behind the figure, so
+    /// thresholding it catches the scenery too, and darkening it either leaves the character
+    /// plainly recognisable or leaves a black rectangle. The background is the worse half of the
+    /// problem — Kupodle is narrowed by guessing the game, and an FFVII street behind the shape
+    /// answers that before the first guess.
+    /// <para>
+    /// It never touches <see cref="ImageUrl"/>. Nothing is promoted, nothing falls back to it,
+    /// and a null here simply leaves the frame holding its question mark.
+    /// </para>
+    /// </remarks>
+    public string? SilhouetteImageUrl { get; set; }
+
+    /// <summary>
     /// What the artwork actually is — cutout, flat, line-art, screenshot, busy-background.
     /// Recorded so the regeneration pass can select its batch with a query instead of
     /// re-downloading the whole library to work it out again.

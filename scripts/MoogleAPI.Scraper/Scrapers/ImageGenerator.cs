@@ -64,6 +64,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     /// <summary>Generated art is the hero image now, so it keeps more resolution than a sprite needs.</summary>
     private const int MaxEdge = 1024;
 
+    /// <summary>
+    /// Silhouettes are one flat colour in a thumbnail-sized frame, and the endpoint that serves
+    /// them streams the bytes through the API rather than handing out a URL — so every kilobyte
+    /// is one the origin pays for. Half the resolution costs them nothing visible.
+    /// </summary>
+    private const int SilhouetteEdge = 512;
+
     private static readonly string Model =
         Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? "gemini-3.1-flash-lite-image";
 
@@ -106,18 +113,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                                     IdSelection? only = null, bool describe = false,
                                     CancellationToken ct = default)
     {
-        var key = Environment.GetEnvironmentVariable("GEMINI_KEY");
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            logger.LogError("GEMINI_KEY is not set — nothing to do.");
-            return;
-        }
-
-        if (store.PublicBaseUrl is null)
-        {
-            logger.LogError("R2_PUBLIC_BASE_URL is not set; generated art would have nowhere readable to live.");
-            return;
-        }
+        if (!Configured()) return;
 
         logger.LogInformation(
             "Generating for {Selection} via {Model}, at most {Max} images{Described}.",
@@ -134,6 +130,81 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 "and generation reads them rather than re-examining every image.");
             return;
         }
+
+        await RunAsync(candidates, ArtKind.Illustration, max, describe, ct);
+    }
+
+    /// <summary>
+    /// Draws a flat black silhouette of each character's served artwork, for Kupodle's answer
+    /// frame.
+    /// </summary>
+    /// <remarks>
+    /// A stage of its own rather than another kind of illustration, because nearly everything
+    /// differs: the reference is our own finished art instead of a wiki sprite, the prompt asks
+    /// for the opposite of the house style, and the objects live under their own prefix.
+    /// <para>
+    /// The part that matters is that nothing is promoted. A silhouette is a second picture of a
+    /// row that already has one, so a stage able to write <c>ImageUrl</c> would be a stage able to
+    /// replace a character's portrait with its own shadow — and this project has already had two
+    /// bugs where the blast radius of an image stage was the whole library.
+    /// </para>
+    /// </remarks>
+    /// <param name="minPopularity">
+    /// The notability floor of the Kupodle pool, which is what decides who is worth drawing. It
+    /// must match <c>PUZZLE.minPopularity</c> in <c>wwwroot/kupodle/game.js</c>: a silhouette below
+    /// that line is paid for and never shown, and one above it that was never drawn leaves the
+    /// frame empty on the day that character comes up.
+    /// </param>
+    public async Task GenerateSilhouettesAsync(int minPopularity, int max, bool force,
+                                               IdSelection? only = null,
+                                               CancellationToken ct = default)
+    {
+        if (!Configured()) return;
+
+        logger.LogInformation(
+            "Drawing silhouettes for {Selection} via {Model}, at most {Max} images.",
+            only is null ? $"characters at popularity >= {minPopularity}" : $"{only} named by --ids",
+            Model, max);
+
+        var candidates = await LoadSilhouetteCandidatesAsync(minPopularity, force, only, ct);
+        logger.LogInformation("{Count} characters are in the pool and have no silhouette.", candidates.Count);
+
+        if (candidates.Count == 0) return;
+
+        // Never with a brief. The reference is our own artwork rather than a sprite, so there is
+        // no blockiness to break the anchor on — and the whole job is to copy that picture's pose
+        // and outline, which is exactly what an anchor is for.
+        await RunAsync(candidates, ArtKind.Silhouette, max, describe: false, ct);
+    }
+
+    /// <summary>The credentials every stage here needs. Says what is missing, and answers false.</summary>
+    private bool Configured()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GEMINI_KEY")))
+        {
+            logger.LogError("GEMINI_KEY is not set — nothing to do.");
+            return false;
+        }
+
+        if (store.PublicBaseUrl is null)
+        {
+            logger.LogError("R2_PUBLIC_BASE_URL is not set; generated art would have nowhere readable to live.");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Buys the pictures. Shared by both stages, because the part worth sharing is not the prompt
+    /// but everything around it — the serial pacing, the two 429s that mean different things, the
+    /// flush that keeps what a killed run already paid for, and adopting an object the bucket
+    /// already holds instead of buying it twice.
+    /// </summary>
+    private async Task RunAsync(List<Candidate> candidates, ArtKind art, int max, bool describe,
+                                CancellationToken ct)
+    {
+        var key = Environment.GetEnvironmentVariable("GEMINI_KEY")!;
 
         var http = new HttpClient { Timeout = TimeSpan.FromMinutes(4) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; MoogleAPI-Scraper/1.0)");
@@ -183,12 +254,16 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                     {
                         var character = await db.Characters.FirstOrDefaultAsync(c => c.Id == row.Id, ct);
                         if (character is null) { WarnVanished(row); continue; }
-                        character.GeneratedImageUrl = row.Url;
+
+                        if (art == ArtKind.Silhouette) character.SilhouetteImageUrl = row.Url;
+                        else character.GeneratedImageUrl = row.Url;
                     }
 
                     // Recorded inside the gate, alongside the column it corresponds to, so the
-                    // promote list cannot drift from what was actually written.
-                    _recorded.Add((row.Folder, row.Id));
+                    // promote list cannot drift from what was actually written. A silhouette is
+                    // never in it: the list exists to say which rows may have ImageUrl repointed
+                    // at their generated art, and a silhouette run wrote no generated art.
+                    if (art == ArtKind.Illustration) _recorded.Add((row.Folder, row.Id));
                     written++;
                 }
 
@@ -230,7 +305,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
                 Interlocked.Increment(ref considered);
 
-                var objectKey = $"gen/{candidate.Folder}/{candidate.Id}.webp";
+                var objectKey = $"{Prefix(art)}{candidate.Folder}/{candidate.Id}.webp";
 
                 // Adopt rather than re-generate. Keys are derived from the row id, so art a
                 // previous run produced is already at its final address — and an interrupted
@@ -249,7 +324,7 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                 var reference = await DownloadAsync(http, candidate.ImageUrl, ct);
                 if (reference is null) { Interlocked.Decrement(ref generated); return; }
 
-                byte[]? art;
+                byte[]? picture;
                 try
                 {
                     // The brief is written first and the picture then drawn without the reference.
@@ -257,8 +332,8 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                     // odds on the blockiness, but an image either way.
                     var brief = describe ? await DescribeAsync(http, key, candidate, reference, ct) : null;
 
-                    art = await RequestArtAsync(
-                        http, key, candidate, brief is null ? reference : null, brief, ct);
+                    picture = await RequestArtAsync(
+                        http, key, candidate, brief is null ? reference : null, brief, art, ct);
                 }
                 catch (GenerationHaltedException ex)
                 {
@@ -276,9 +351,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
                     return;
                 }
 
-                if (art is null) { Interlocked.Decrement(ref generated); return; }
+                if (picture is null) { Interlocked.Decrement(ref generated); return; }
 
-                var url = await store.UploadAsync(objectKey, art, MaxEdge, ct);
+                // A silhouette is stored as a matte, not a picture: the pale field it was drawn on
+                // is keyed out so the frame it hangs in supplies its own background.
+                var url = art == ArtKind.Silhouette
+                    ? await store.UploadMatteAsync(objectKey, picture, SilhouetteEdge, ct)
+                    : await store.UploadAsync(objectKey, picture, MaxEdge, ct);
                 if (url is null) { Interlocked.Decrement(ref generated); return; }
 
                 await RecordAsync(candidate.Folder, candidate.Id, url);
@@ -400,6 +479,36 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
 
         return [.. monsters, .. characters];
     }
+
+    /// <summary>
+    /// The Kupodle answer pool: characters notable enough to be a puzzle answer, that have art to
+    /// take a silhouette from, and that do not have one yet.
+    /// </summary>
+    /// <remarks>
+    /// Selected on <c>ImageUrl</c> rather than <c>GeneratedImageUrl</c> on purpose. <c>ImageUrl</c>
+    /// is what the game reveals in the frame when the puzzle ends, and it is what the pool's own
+    /// <c>RequireImage</c> filter tests — so a row this query skips is a row the puzzle cannot pick
+    /// anyway, and a silhouette drawn from anything else could end the game by fading into a
+    /// different picture than the one it was the shadow of.
+    /// </remarks>
+    private async Task<List<Candidate>> LoadSilhouetteCandidatesAsync(
+        int minPopularity, bool force, IdSelection? only, CancellationToken ct)
+    {
+        return await db.Characters
+            .Where(c => c.ImageUrl != null
+                        && (only == null
+                            ? c.Popularity >= minPopularity
+                            : only.Characters.Contains(c.Id))
+                        && (force || c.SilhouetteImageUrl == null))
+            .Include(c => c.Game)
+            .Select(c => new Candidate("characters", c.Id, c.Name, c.Game.Name, "character",
+                                       c.ImageKind, c.Description, c.Hometown, c.ImageUrl!))
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Where a kind of picture is stored. Separate prefixes so the two never collide.</summary>
+    private static string Prefix(ArtKind art) =>
+        art == ArtKind.Silhouette ? "gen-silhouette/" : "gen/";
 
     /// <summary>Retries a transient TLS or timeout failure before abandoning a reference.</summary>
     private static async Task<byte[]?> DownloadAsync(HttpClient http, string url, CancellationToken ct)
@@ -612,9 +721,13 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
     }
 
     private async Task<byte[]?> RequestArtAsync(
-        HttpClient http, string key, Candidate c, byte[]? reference, Brief? brief, CancellationToken ct)
+        HttpClient http, string key, Candidate c, byte[]? reference, Brief? brief, ArtKind art,
+        CancellationToken ct)
     {
-        var promptParts = new List<object> { new { text = BuildPrompt(c, brief) } };
+        var promptParts = new List<object>
+        {
+            new { text = art == ArtKind.Silhouette ? BuildSilhouettePrompt(c) : BuildPrompt(c, brief) },
+        };
 
         if (reference is not null)
         {
@@ -1088,6 +1201,83 @@ public class ImageGenerator(AppDbContext db, ImageStore store, ILogger<ImageGene
             FORMAT: portrait, 3:4.
             """;
     }
+
+    /// <summary>
+    /// Asks for the answer's shape and nothing else — the picture Kupodle's frame holds while the
+    /// puzzle is unsolved.
+    /// </summary>
+    /// <remarks>
+    /// Everything here is aimed at one of the two ways a silhouette leaks its answer, both of
+    /// which were measured on the real artwork before this stage existed:
+    /// <list type="bullet">
+    /// <item>
+    /// <b>Interior detail.</b> Darkening the illustration far enough to hide the character leaves
+    /// a black rectangle, and not far enough leaves Vivi's hat, Cloud's sword and Lightning's cape
+    /// plainly readable. So the fill is stated as one uniform black with no face and no seams,
+    /// several ways over — a diffusion model will happily shade "a silhouette".
+    /// </item>
+    /// <item>
+    /// <b>The background.</b> Worse than the first, and the reason a threshold filter could never
+    /// have done this job. Kupodle is narrowed by guessing the game, and an FFVII street or FFXIII
+    /// architecture behind the shape answers that attribute before the first guess. The reference
+    /// is a full painted scene, so discarding it has to be an instruction rather than an omission.
+    /// </item>
+    /// </list>
+    /// <para>
+    /// The outline is the whole puzzle value, so it is asked for as a copy: same pose, same crop,
+    /// same silhouette-breaking hair, horns and weapons. A silhouette redrawn in a new pose is a
+    /// picture of somebody else.
+    /// </para>
+    /// </remarks>
+    internal static string BuildSilhouettePrompt(Candidate c) => $"""
+        Reduce the attached illustration to a flat silhouette.
+
+        SUBJECT: "{c.Name}" — a {c.Kind} from {c.Game}.
+
+        COPY THE SHAPE: the attached image is the only reference, and the silhouette must be its
+        outline. Same pose, same crop, same framing, same proportions, same size in frame, facing
+        the same way. Every part that breaks the figure's edge there breaks it here in the same
+        place — hair, horns, ears, tail, cloak, cape, wings, staff, sword and scabbard all keep
+        their exact shape. Do not redraw, restyle, straighten, simplify or re-pose the figure, and
+        do not invent anything that is not in the reference.
+
+        FILL: the figure is ONE solid, uniform, opaque black shape. No face, no eyes, no mouth, no
+        hair strands, no clothing, no armour seams, no linework, no outline in another colour, no
+        interior edges, no shading, no highlights, no gradient, no texture, no transparency and no
+        lighter or darker patch anywhere inside it. Skin, hair, cloth, metal and weapon are all the
+        same single flat black. Nothing inside the shape identifies who it is.
+
+        FIELD: behind the figure, one flat, even, very pale warm grey, edge to edge. Nothing else
+        whatsoever — no scene, no room, no sky, no horizon, no ground, no floor, no cast shadow, no
+        vignette, no gradient, no pattern, no spotlight, no border and no frame.
+        THE REFERENCE'S BACKGROUND IS DISCARDED ENTIRELY: do not carry over its scenery, buildings,
+        landscape, weather, props or colours, not even faintly. Exactly two tones appear in the
+        picture, the black of the figure and the pale grey behind it.
+
+        EDGES: the outline is crisp and clean, with true curves and true diagonals — no visible
+        pixels, no stair-stepping, no blocky steps, no feathering, no glow and no blur.
+
+        DO NOT INCLUDE: any text, letters, numbers, words, logos, signatures, watermarks or UI.
+        No glyph of any kind appears anywhere in the picture.
+
+        ONE FIGURE: a single silhouette. Never two versions, never a turnaround, never a study
+        page, and never a margin around the picture.
+
+        FORMAT: portrait, 3:4.
+        """;
+}
+
+/// <summary>
+/// What a run is drawing. It decides four things — which rows are selected, which prompt is sent,
+/// which bucket prefix the object lands under, and which column records it.
+/// </summary>
+public enum ArtKind
+{
+    /// <summary>The catalogue's house-style artwork, and the only kind that is ever promoted.</summary>
+    Illustration,
+
+    /// <summary>A flat black shape of a character, for Kupodle's answer frame.</summary>
+    Silhouette,
 }
 
 /// <summary>
