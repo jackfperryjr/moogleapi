@@ -32,6 +32,14 @@ not from cutting.
 drawn once per relief layer. Beads are `<circle>` elements now and relief is two layers: 29 KB,
 no visible difference.
 
+## Bump the ?v= stamp when you change it
+
+This file is served with a thirty-day `max-age`, so replacing it at a stable name leaves everyone
+who has already loaded the page looking at the previous carving for a month. That is not
+hypothetical — it happened on the first replacement, and Cloudflare reported `HIT` with an age of
+twenty-four minutes while the new file sat one cache-busted request away. The reference in
+`kupodle/index.html` carries a `?v=` for this reason, the same as `game.js` does.
+
 ## Regenerating
 
 Generated rather than hand-drawn, from one geometry description that emits both this SVG and a
