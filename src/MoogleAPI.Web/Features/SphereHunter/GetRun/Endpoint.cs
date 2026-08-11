@@ -1,6 +1,5 @@
 using FastEndpoints;
 using MoogleAPI.Web.Features.SphereHunter.Shared;
-using MoogleAPI.Web.Infrastructure.Puzzles;
 using MoogleAPI.Web.Infrastructure.SphereHunter;
 
 namespace MoogleAPI.Web.Features.SphereHunter.GetRun;
@@ -10,7 +9,11 @@ namespace MoogleAPI.Web.Features.SphereHunter.GetRun;
 /// rather than stored: the site has no player accounts, so the party lives in the browser and is
 /// handed back on each request.
 /// </param>
-public record GetRunRequest(string Spheres, DateOnly? Date);
+/// <param name="Run">
+/// The run token, as handed to <c>/sphere-hunter/draft</c>. The same token and the same party
+/// always rebuild the same tower, which is what lets a player refresh mid-climb.
+/// </param>
+public record GetRunRequest(string Spheres, string Run);
 
 /// <param name="Capture">The fiend offered for sealing once the floor is cleared.</param>
 public record FloorView(
@@ -20,7 +23,7 @@ public record FloorView(
 public record SkippedView(int GameId, string GameName, string Reason);
 
 public record GetRunResponse(
-    DateOnly Date,
+    string Run,
     IReadOnlyList<SphereView> Party,
     IReadOnlyList<FloorView> Floors,
     IReadOnlyList<SkippedView> Skipped,
@@ -44,10 +47,9 @@ public class Endpoint(TowerBuilder tower) : Endpoint<GetRunRequest, GetRunRespon
 
     public override async Task HandleAsync(GetRunRequest req, CancellationToken ct)
     {
-        var date = req.Date ?? DailyPuzzle.Today;
         var ids = ParseIds(req.Spheres);
 
-        var run = await tower.BuildAsync(ids, date, ct);
+        var run = await tower.BuildAsync(ids, req.Run, ct);
         if (run is null)
         {
             await Send.NotFoundAsync(ct);
@@ -55,7 +57,7 @@ public class Endpoint(TowerBuilder tower) : Endpoint<GetRunRequest, GetRunRespon
         }
 
         await Send.OkAsync(new GetRunResponse(
-            run.Date,
+            run.Run,
             [.. run.Party.Select(SphereView.Of)],
             [.. run.Floors.Select(f => new FloorView(
                 f.Number, f.GameId, f.GameName, f.Level,

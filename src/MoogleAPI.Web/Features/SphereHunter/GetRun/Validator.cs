@@ -1,6 +1,5 @@
 using FastEndpoints;
 using FluentValidation;
-using MoogleAPI.Web.Infrastructure.Puzzles;
 using MoogleAPI.Web.Infrastructure.SphereHunter;
 
 namespace MoogleAPI.Web.Features.SphereHunter.GetRun;
@@ -9,9 +8,9 @@ public class Validator : Validator<GetRunRequest>
 {
     public Validator()
     {
-        RuleFor(x => x.Date)
-            .Must(d => d is null || !DailyPuzzle.IsInFuture(d.Value))
-            .WithMessage("Cannot request a run for a future date.");
+        RuleFor(x => x.Run)
+            .NotEmpty().WithMessage("A run token is required, e.g. run=7f3a9c21.")
+            .MaximumLength(GetDraft.Validator.MaxRunLength);
 
         // Checked here rather than in the builder so a malformed party is a 400 explaining itself
         // rather than a 404 that reads as "no such run".
