@@ -12,6 +12,9 @@ public class SphereMathTests
 {
     private const int Level = 50;
 
+    /// <summary>One per battle-ready game — see <see cref="BattlePool.GameIds"/>.</summary>
+    private const int Floors = 11;
+
     private static Sphere Fighter(
         int hp = 55, int atk = 55, int def = 55, int mag = 55, int mdf = 55, int spd = 55,
         Element? affinity = null, Element[]? weak = null, Element[]? absorbs = null,
@@ -20,7 +23,7 @@ public class SphereMathTests
         var ratings = new SphereScale.Ratings(hp, atk, def, mag, mdf, spd);
 
         return new Sphere(
-            1, "Test", "Final Fantasy VI", null, null, affinity, ratings, ratings.MaxHealth,
+            1, "Test", 6, "Final Fantasy VI", null, null, affinity, ratings,
             SphereMoves.MagicPointsFor(mag), weak ?? [], absorbs ?? [],
             moves ?? [Physical()]);
     }
@@ -87,6 +90,36 @@ public class SphereMathTests
         var turns = SphereMath.TurnsToKill(Fighter(atk: atk), Fighter(hp: hp, def: 55), Level);
 
         Assert.InRange(turns, lower, upper);
+    }
+
+    /// <summary>
+    /// The one this model got wrong first time, and the mistake is invisible at any single level.
+    /// </summary>
+    /// <remarks>
+    /// Damage carries a <c>(2 × level / 5 + 2)</c> term and grows roughly tenfold across the tower.
+    /// With health held fixed that made the ground floor a twenty-turn slog and the top floor a
+    /// three-turn blitz — difficulty running backwards. Health scales with level for exactly this
+    /// reason, and the whole climb has to sit inside a couple of turns of itself.
+    /// </remarks>
+    [Fact]
+    public void A_fight_is_about_as_long_on_every_floor_of_the_tower()
+    {
+        var lengths = Enumerable.Range(1, Floors)
+            .Select(floor => SphereMath.TurnsToKill(Fighter(), Fighter(), SphereFactory.LevelForFloor(floor, Floors)))
+            .ToList();
+
+        Assert.InRange(lengths.Min(), 3, 8);
+        Assert.InRange(lengths.Max(), 3, 8);
+        Assert.True(lengths.Max() - lengths.Min() <= 2,
+                    $"fight length drifts across the tower: {string.Join(", ", lengths)}");
+    }
+
+    [Fact]
+    public void Health_grows_with_level()
+    {
+        var sphere = Fighter(hp: 55);
+
+        Assert.True(sphere.HealthAt(SphereFactory.MaxLevel) > sphere.HealthAt(SphereFactory.MinLevel) * 3);
     }
 
     // ---- effectiveness -------------------------------------------------------------------------
@@ -170,12 +203,12 @@ public class SphereMathTests
     {
         var sphere = Fighter();
 
-        Assert.True(SphereMath.TickDamage(sphere, Status.Poison, 3)
-                  > SphereMath.TickDamage(sphere, Status.Poison, 1));
+        Assert.True(SphereMath.TickDamage(sphere, Status.Poison, 3, Level)
+                  > SphereMath.TickDamage(sphere, Status.Poison, 1, Level));
 
         Assert.Equal(
-            SphereMath.TickDamage(sphere, Status.Sap, 1),
-            SphereMath.TickDamage(sphere, Status.Sap, 3));
+            SphereMath.TickDamage(sphere, Status.Sap, 1, Level),
+            SphereMath.TickDamage(sphere, Status.Sap, 3, Level));
     }
 
     [Fact]
@@ -184,7 +217,7 @@ public class SphereMathTests
         var sphere = Fighter();
 
         foreach (var status in new[] { Status.None, Status.Blind, Status.Silence, Status.Sleep, Status.Paralyze })
-            Assert.Equal(0, SphereMath.TickDamage(sphere, status, 1));
+            Assert.Equal(0, SphereMath.TickDamage(sphere, status, 1, Level));
     }
 
     [Fact]
@@ -283,10 +316,10 @@ public class SphereMathTests
     public void Losing_most_of_your_health_fills_the_gauge()
     {
         var sphere = Fighter(hp: 55);
-        var mostOfIt = (int)(sphere.MaxHealth * 0.72);
+        var mostOfIt = (int)(sphere.HealthAt(Level) * 0.72);
 
-        Assert.True(SphereMath.LimitGained(sphere, mostOfIt) >= SphereMath.LimitFull);
-        Assert.True(SphereMath.LimitGained(sphere, sphere.MaxHealth / 4) < SphereMath.LimitFull);
+        Assert.True(SphereMath.LimitGained(sphere, mostOfIt, Level) >= SphereMath.LimitFull);
+        Assert.True(SphereMath.LimitGained(sphere, sphere.HealthAt(Level) / 4, Level) < SphereMath.LimitFull);
     }
 
     [Fact]
@@ -327,11 +360,11 @@ public class SphereMathTests
     [Fact]
     public void The_tower_climbs_from_five_to_eighty()
     {
-        Assert.Equal(SphereFactory.MinLevel, SphereFactory.LevelForFloor(1, 16));
-        Assert.Equal(SphereFactory.MaxLevel, SphereFactory.LevelForFloor(16, 16));
+        Assert.Equal(SphereFactory.MinLevel, SphereFactory.LevelForFloor(1, Floors));
+        Assert.Equal(SphereFactory.MaxLevel, SphereFactory.LevelForFloor(Floors, Floors));
 
         // And monotonically in between, so a floor is never easier than the one below it.
-        var levels = Enumerable.Range(1, 16).Select(f => SphereFactory.LevelForFloor(f, 16)).ToList();
+        var levels = Enumerable.Range(1, Floors).Select(f => SphereFactory.LevelForFloor(f, Floors)).ToList();
         Assert.Equal(levels.OrderBy(l => l), levels);
     }
 
@@ -341,8 +374,8 @@ public class SphereMathTests
         var attacker = Fighter();
         var defender = Fighter();
 
-        var low = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForFloor(1, 16), Status.None);
-        var high = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForFloor(16, 16), Status.None);
+        var low = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForFloor(1, Floors), Status.None);
+        var high = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForFloor(Floors, Floors), Status.None);
 
         Assert.True(high > low * 2);
     }

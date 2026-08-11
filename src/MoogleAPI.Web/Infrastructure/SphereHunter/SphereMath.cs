@@ -13,18 +13,25 @@ namespace MoogleAPI.Web.Infrastructure.SphereHunter;
 public record Sphere(
     int Id,
     string Name,
+    int GameId,
     string GameName,
     string? Category,
     string? ImageUrl,
     Element? Affinity,
     SphereScale.Ratings Ratings,
-    int MaxHealth,
     int MaxMagic,
     IReadOnlyList<Element> Weaknesses,
     IReadOnlyList<Element> Absorbs,
     IReadOnlyList<SphereMove> Moves)
 {
     public bool IsBoss => Category == "Boss";
+
+    /// <summary>
+    /// The sphere's health on a given floor. A function of level rather than a stored number,
+    /// because damage grows with level and a fixed pool would make the tower get faster as it got
+    /// harder — see <see cref="SphereScale.Ratings.HealthAt"/>.
+    /// </summary>
+    public int HealthAt(int level) => Ratings.HealthAt(level);
 }
 
 /// <summary>
@@ -195,10 +202,10 @@ public static class SphereMath
 
     /// <summary>Health lost at the end of a turn to a lingering condition.</summary>
     /// <param name="turnsHeld">How many turns the condition has already been up, from 1.</param>
-    public static int TickDamage(Sphere sphere, Status status, int turnsHeld) => status switch
+    public static int TickDamage(Sphere sphere, Status status, int turnsHeld, int level) => status switch
     {
-        Status.Poison => Math.Max(1, (int)Math.Round(sphere.MaxHealth * PoisonShare * turnsHeld)),
-        Status.Sap => Math.Max(1, (int)Math.Round(sphere.MaxHealth * SapShare)),
+        Status.Poison => Math.Max(1, (int)Math.Round(sphere.HealthAt(level) * PoisonShare * turnsHeld)),
+        Status.Sap => Math.Max(1, (int)Math.Round(sphere.HealthAt(level) * SapShare)),
         _ => 0,
     };
 
@@ -221,8 +228,8 @@ public static class SphereMath
     /// carrying the party's damage is the one that earns the payoff — and because the gauge
     /// survives a switch, a battered sphere on the bench is a loaded gun rather than a liability.
     /// </summary>
-    public static int LimitGained(Sphere sphere, int damage) =>
-        (int)Math.Round(LimitFull * LimitFillRate * damage / Math.Max(1, sphere.MaxHealth));
+    public static int LimitGained(Sphere sphere, int damage, int level) =>
+        (int)Math.Round(LimitFull * LimitFillRate * damage / Math.Max(1, sphere.HealthAt(level)));
 
     /// <summary>Effective speed, which decides who moves first.</summary>
     public static int Speed(Sphere sphere, Status status) =>
@@ -253,6 +260,6 @@ public static class SphereMath
             .DefaultIfEmpty(0)
             .Max();
 
-        return best <= 0 ? int.MaxValue : (int)Math.Ceiling(defender.MaxHealth / best);
+        return best <= 0 ? int.MaxValue : (int)Math.Ceiling(defender.HealthAt(level) / best);
     }
 }

@@ -9,11 +9,16 @@ namespace MoogleAPI.Web.Infrastructure.SphereHunter;
 public static class SphereFactory
 {
     /// <summary>
-    /// The floor a level is quoted at, and the ceiling. The tower runs sixteen floors, so a party
-    /// climbing it grows from five to eighty — the shape of a real playthrough, and wide enough
-    /// that the same move visibly changes value on the way up.
+    /// The level the ground floor is fought at, and the level at the top.
     /// </summary>
-    public const int MinLevel = 5;
+    /// <remarks>
+    /// The floor is 15 rather than something rounder because damage carries a
+    /// <c>(2 × level / 5 + 2)</c> term whose <c>+ 2</c> is a large share of a very low level and a
+    /// rounding error at a high one. Health scales cleanly with level, that constant does not, and
+    /// starting at 5 left the first floor's fights visibly shorter than the rest of the tower's.
+    /// From 15 the whole climb sits inside a turn or two of itself.
+    /// </remarks>
+    public const int MinLevel = 15;
     public const int MaxLevel = 80;
 
     /// <summary>The level everything on a given floor fights at.</summary>
@@ -39,12 +44,12 @@ public static class SphereFactory
         return new Sphere(
             fighter.Id,
             fighter.Name,
+            fighter.GameId,
             fighter.GameName,
             fighter.Category,
             fighter.ImageUrl,
             affinity,
             ratings,
-            ratings.MaxHealth,
             SphereMoves.MagicPointsFor(ratings.MagicAttack),
             [.. Elements.Parse(Elements.Split(fighter.Weaknesses)).Distinct()],
             [.. Elements.Parse(Elements.Split(fighter.Absorbs)).Distinct()],

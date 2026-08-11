@@ -105,11 +105,32 @@ public sealed class SphereScale
             Rate(game.Speed, fighter.Speed));
     }
 
+    /// <summary>
+    /// The level the <see cref="HealthPerRating"/> figure is quoted at. Health at this level is
+    /// what the constant was tuned against; every other level is scaled from it.
+    /// </summary>
+    public const int ReferenceLevel = 50;
+
     public record Ratings(
         int HitPoints, int Attack, int Defense, int MagicAttack, int MagicDefense, int Speed)
     {
-        /// <summary>What the health rating is worth as an actual pool of hit points.</summary>
-        public int MaxHealth => Math.Max(1, (int)Math.Round(HitPoints * HealthPerRating));
+        /// <summary>
+        /// What the health rating is worth as an actual pool of hit points, at a given level.
+        /// </summary>
+        /// <remarks>
+        /// Health has to grow with level, and it is worth being explicit about why, because the
+        /// first version of this did not and the mistake is invisible at any single level.
+        /// <para>
+        /// Damage carries a <c>(2 × level / 5 + 2)</c> term, so it grows roughly tenfold from the
+        /// bottom of the tower to the top. Against a fixed pool of health that turns the first
+        /// floor into a twenty-turn slog and the last into a three-turn blitz — the opposite of a
+        /// difficulty curve. The source material scales its health stat by level for exactly this
+        /// reason, and the two growths are meant to cancel: what a level changes is the size of
+        /// the numbers, not the length of the fight.
+        /// </para>
+        /// </remarks>
+        public int HealthAt(int level) =>
+            Math.Max(1, (int)Math.Round(HitPoints * HealthPerRating * level / (double)ReferenceLevel));
     }
 
     /// <summary>Where a value sits in its game's distribution, as a rating in the band.</summary>
