@@ -408,6 +408,7 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
     public static MonsterStats ParseMonsterStats(string wikitext)
     {
         var (weaknesses, absorbs) = ParseElementalAffinities(wikitext);
+        var release = ParseReleaseTag(wikitext);
 
         return new MonsterStats(
             HitPoints: ParseStatNumber(wikitext, "hp", "hp min"),
@@ -417,16 +418,59 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
             Gil: ParseStatNumber(wikitext, "gil"),
             Weaknesses: weaknesses,
             Absorbs: absorbs,
-            Attack: ParseStatNumber(wikitext, "attack", "attack power", "strength", "str"),
-            Defense: ParseStatNumber(wikitext, "defense", "defence"),
-            MagicAttack: ParseStatNumber(wikitext, "magic", "magic atk", "magick power", "magic power"),
-            MagicDefense: ParseStatNumber(wikitext, "magic defense", "magic def", "magick resist", "magic defence"),
+            Attack: ParseStatNumber(wikitext, "attack", "attack power", "strength", "str",
+                "attack min", "attack power min", "strength min"),
+            Defense: ParseStatNumber(wikitext, DefenseFields(release)),
+            MagicAttack: ParseStatNumber(wikitext, "magic", "magic atk", "magick power", "magic power",
+                "magic power min", "magick power min", "magic min"),
+            MagicDefense: ParseStatNumber(wikitext, MagicDefenseFields(release)),
             Speed: ParseStatNumber(wikitext, "speed", "agility", "dexterity"),
             Evasion: ParseStatNumber(wikitext, "evasion", "evade"),
-            Abilities: ParseFieldList(wikitext, AbilityFields),
+            Abilities: ParseAbilities(wikitext),
             Drops: ParseFieldList(wikitext, DropFields),
             Steals: ParseFieldList(wikitext, StealFields)
         );
+    }
+
+    // The bare field name comes first in every list so that an article which states the stat
+    // outright still wins; the "min" forms are the level-banded fallback, matching the
+    // convention "hp min"/"level min"/"exp min" already set above.
+    private static readonly string[] BaseDefenseFields =
+        ["defense", "defence", "defense min", "defence min"];
+
+    private static readonly string[] BaseMagicDefenseFields =
+        ["magic defense", "magic def", "magick resist", "magic defence",
+         "magick resist min", "magic defense min", "magic resistance", "magic resist"];
+
+    /// <summary>
+    /// Which field names mean "defence" for the game this article is about.
+    /// </summary>
+    /// <remarks>
+    /// These two stats are the reason the alias lists cannot be entirely global. Final Fantasy
+    /// XV's enemy template carries only strength/vitality/spirit, so there <c>vitality</c> is
+    /// the defence stat and <c>spirit</c> the magic defence — but Final Fantasy XII lists both
+    /// of those as stats in their own right *alongside* a real <c>defense min</c>, and Final
+    /// Fantasy IX does the same next to <c>magic defense</c>. Reading them everywhere gives an
+    /// FFXII Banshee a defence of 46 when the article says 17.
+    /// </remarks>
+    private static string[] DefenseFields(string? release) =>
+        release == "FFXV" ? [.. BaseDefenseFields, "vitality"] : BaseDefenseFields;
+
+    private static string[] MagicDefenseFields(string? release) =>
+        release == "FFXV" ? [.. BaseMagicDefenseFields, "spirit"] : BaseMagicDefenseFields;
+
+    // Which game the article is about, from the infobox's own "| release = FFXV" line. Read off
+    // the page rather than passed in so that the parser stays a pure function of the wikitext.
+    private static string? ParseReleaseTag(string wikitext)
+    {
+        var match = Regex.Match(wikitext, @"^\|\s*release\s*=\s*(.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+        return match.Success
+            ? Regex.Match(match.Groups[1].Value.ToUpperInvariant(), @"FF[IVX]+").Value is { Length: > 0 } code
+                ? code
+                : null
+            : null;
     }
 
     // What the enemy does in battle. The FFX pair "weapon abilities" / "armor abilities" is
@@ -434,13 +478,46 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
     // this enemy's drops, not moves the enemy has — and since StatPrefix admits only version
     // numbers and platforms, "weapon"/"armor" can never sneak in as a prefix either.
     private static readonly string[] AbilityFields =
-        ["abilities", "special attack", "other abilities", "technicks", "magicks", "attacks"];
+        ["abilities", "special attack", "other abilities", "technicks", "magicks", "attacks",
+         "blue magic", "special technique", "enemy abilities", "spells", "skills"];
 
+    // "element drop" is deliberately absent. Final Fantasy XV's is the elemental deposit an
+    // enemy yields for magic crafting — "Ice", "Fire" — not an item, and reading it as one put
+    // "Garula Sirloin, Ice" in the column.
     private static readonly string[] DropFields =
-        ["drop 1", "drop 2", "drop", "common drop", "rare drop", "item dropped"];
+        ["drop 1", "drop 2", "drop", "common drop", "rare drop", "item dropped",
+         "drop 3", "drop 4", "uncommon drop", "special drop", "primary drop", "item drop", "drops"];
 
     private static readonly string[] StealFields =
-        ["steal 1", "steal 2", "steal", "common steal", "rare steal"];
+        ["steal 1", "steal 2", "steal", "common steal", "rare steal",
+         "steal 3", "steal 4", "steals"];
+
+    // Final Fantasy XII numbers its moves one field at a time — "| magickname1 = Aero",
+    // "| technickname3 = Souleater" — rather than listing them in one field.
+    private static readonly Regex NumberedAbility = new(
+        @"^\|\s*(?:magickname|technickname|abilityname|attackname)\s*\d+\s*=\s*(.+)$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+    private static string? ParseAbilities(string wikitext)
+    {
+        var listed = ParseFieldList(wikitext, AbilityFields);
+        var numbered = NumberedAbility.Matches(wikitext)
+            .Select(m => CleanFieldValue(m.Groups[1].Value))
+            .OfType<string>()
+            .ToList();
+
+        if (numbered.Count == 0) return listed;
+
+        var all = new List<string>();
+        foreach (var entry in (listed?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+                     .Concat(numbered))
+        {
+            if (entry.Length < 2 || IsPlaceholder(entry)) continue;
+            if (!all.Contains(entry, StringComparer.OrdinalIgnoreCase)) all.Add(entry);
+        }
+
+        return all.Count == 0 ? null : string.Join(", ", all);
+    }
 
     /// <summary>
     /// Collects every value across a set of related fields into one comma-separated list.
@@ -504,7 +581,7 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         foreach (var field in fieldNames)
         {
             foreach (Match match in Regex.Matches(wikitext,
-                         $@"^\|\s*{prefixPattern}{Regex.Escape(field)}\s*=\s*(.+)$",
+                         $@"^\|\s*{prefixPattern}{FieldPattern(field)}\s*=\s*(.+)$",
                          RegexOptions.IgnoreCase | RegexOptions.Multiline))
             {
                 var cleaned = CleanFieldValue(match.Groups[1].Value);
@@ -535,14 +612,27 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
     // the article covers more than one version, and the two can stack ("| 1 max hp ="). Anything
     // else in front of the field name means it's a different stat ("| bribe gil = 17,000" is
     // what an FFX enemy costs to bribe), so the prefix list stays closed.
-    private const string StatPrefix = @"(?:(?:\d+|snes|nes|ps|psx|psp|gba|ios|android|pc|pr|3d|mobile|max)\s+){0,2}";
+    // A tag may be joined by a hyphen rather than a space: the Final Fantasy V template writes
+    // "| ps-abilities =", not "| ps abilities =".
+    private const string StatPrefix =
+        @"(?:(?:\d+|snes|nes|ps|psx|psp|gba|ios|android|pc|pr|3d|mobile|max" +
+        @"|dsop|ds|wsc|gb|n3ds|switch|steam)[\s\-_]+){0,2}";
+
+    /// <summary>
+    /// A field name as it may actually be written: the space in "magic defense" is a hyphen or
+    /// an underscore on some templates. Final Fantasy V's enemy infobox was migrated to
+    /// "magic-defense" / "drop-1" / "steal-1" in 2026, which is why every one of its enemies
+    /// read as having no magic defence, no drops and nothing to steal.
+    /// </summary>
+    private static string FieldPattern(string field) =>
+        string.Join(@"[\s\-_]+", field.Split(' ').Select(Regex.Escape));
 
     private static int? ParseStatNumber(string wikitext, params string[] fieldNames)
     {
         foreach (var field in fieldNames)
         {
             var match = Regex.Match(wikitext,
-                $@"^\|\s*{StatPrefix}{Regex.Escape(field)}\s*=\s*([\d,]+)",
+                $@"^\|\s*{StatPrefix}{FieldPattern(field)}\s*=\s*([\d,]+)",
                 RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
             if (match.Success && int.TryParse(match.Groups[1].Value.Replace(",", ""), out var value))
@@ -581,7 +671,7 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         foreach (var (field, element) in ElementFields)
         {
             var match = Regex.Match(wikitext,
-                $@"^\|\s*{StatPrefix}{Regex.Escape(field)}\s*=\s*(.+)$",
+                $@"^\|\s*{StatPrefix}{FieldPattern(field)}\s*=\s*(.+)$",
                 RegexOptions.IgnoreCase | RegexOptions.Multiline);
             if (!match.Success) continue;
 
@@ -842,9 +932,13 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         // "File:Tripletriad-fire.png Fire").
         value = Regex.Replace(value, @"\[\[\s*(?:File|Image)\s*:[^\]]*\]\]", " ", RegexOptions.IgnoreCase);
 
-        // [[Link|Display]] → Display, [[Link]] → Link (including unclosed links cut at EOL)
-        value = Regex.Replace(value, @"\[\[(?:[^\]|]+\|)?([^\]|]+)\]\]", "$1");
-        value = Regex.Replace(value, @"\[\[(?:[^\]|]+\|)?([^\]|]+)", "$1");
+        // [[Link|Display]] → Display, [[Link]] → Link (including unclosed links cut at EOL).
+        // The target is matched greedily up to the *last* pipe so that a malformed link still
+        // reduces to its display text: the Final Fantasy VI article for Abaddon writes
+        // "[[Hi-Ether (Final Fantasy VI)||Hi-Ether]]" with a doubled pipe, and a pattern that
+        // allowed only one left the whole thing in the value, brackets stripped but pipes intact.
+        value = Regex.Replace(value, @"\[\[(?:[^\]]*\|)?([^\]|]*)\]\]", "$1");
+        value = Regex.Replace(value, @"\[\[(?:[^\]\[]*\|)?([^\]|]*)", "$1");
         value = value.Replace("[[", "").Replace("]]", "");
 
         // Strip single-bracket content: [external links] and [editorial placeholder notes]
@@ -857,7 +951,10 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         // far more often than "|gba drop =". Without allowing it this rule never fired, and an
         // FFII enemy's abilities came through as "| gba drop = Wing Sword, Ice Shield": its
         // equipment drops, presented to a battle as moves.
-        value = Regex.Replace(value, @"\s*\|\s*[a-zA-Z_][a-zA-Z_ ]*\s*=.*", "").Trim();
+        // Digits and hyphens have to be admitted for the same reason: a platform-tagged name
+        // does not start with a letter, so Final Fantasy III's "| 3d common drop =" survived
+        // this rule and came out the far side as a stolen item called "| 3d common drop =".
+        value = Regex.Replace(value, @"\s*\|\s*[a-zA-Z0-9_][a-zA-Z0-9_ \-]*\s*=.*", "").Trim();
 
         // Strip refs and HTML tags
         value = Regex.Replace(value, @"<ref\b[^>]*/?>.*?</ref>", "", RegexOptions.Singleline);

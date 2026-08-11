@@ -489,6 +489,181 @@ public class MonsterParsingTests
         Assert.Equal("Tonic, Hi-Potion", stats.Steals);
     }
 
+    // Final Fantasy V's enemy infobox was rewritten in 2026 to hyphenate its field names and
+    // to tag per-platform values with a hyphen too ("ps-abilities"). Nothing in the template
+    // changed meaning — but every FFV enemy read as having no magic defence, no drops and
+    // nothing to steal until the field matcher accepted the hyphen.
+    private const string GoblinV = """
+        {{infobox enemy
+        | name = Goblin
+        | release = FFV
+        }}
+        ==Stats==
+        {{Infobox enemy info FFV
+        |lv=6
+        |hp=16
+        |strength=5
+        |defense=0
+        |magic=0
+        |magic-defense=5
+        |magic-evasion=0
+        |agility=10
+        |attack-multiplier=1
+        |gil=20
+        |exp=10
+        |steal-1=[[Potion (Final Fantasy V)|Potion]]
+        |steal-2=Nothing
+        |drop-1=Nothing
+        |drop-2=[[Leather Shoes (Final Fantasy V)|Leather Shoes]]
+        |abilities=!Attack
+        |ps-abilities=!Fight
+        }}
+        """;
+
+    [Fact]
+    public void ReadsHyphenatedFieldNames()
+    {
+        var stats = WikiClient.ParseMonsterStats(GoblinV);
+
+        Assert.Equal(5, stats.MagicDefense);
+        Assert.Equal("Leather Shoes", stats.Drops);
+        Assert.Equal("Potion", stats.Steals);
+    }
+
+    [Fact]
+    public void ReadsHyphenatedPlatformTags()
+    {
+        Assert.Equal("!Attack, !Fight", WikiClient.ParseMonsterStats(GoblinV).Abilities);
+    }
+
+    /// <summary>
+    /// The level-banded games state defence and attack the same way they state HP, so the
+    /// "min" form is read for those too.
+    /// </summary>
+    [Fact]
+    public void FallsBackToMinimumValuesForBandedCombatStats()
+    {
+        var stats = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFXII
+            | release = FFXII
+            | attack power min = 63
+            | attack power max = 69
+            | defense min = 17
+            | defense max = 21
+            | magick power min = 21
+            | magick resist min = 30
+            }}
+            """);
+
+        Assert.Equal(63, stats.Attack);
+        Assert.Equal(17, stats.Defense);
+        Assert.Equal(21, stats.MagicAttack);
+        Assert.Equal(30, stats.MagicDefense);
+    }
+
+    /// <summary>
+    /// Vitality and spirit are only the defence stats in Final Fantasy XV, whose enemy template
+    /// carries nothing else. Final Fantasy XII lists both as stats of their own next to a real
+    /// defence, and reading them there reports 46 where the article says 17.
+    /// </summary>
+    [Fact]
+    public void ReadsVitalityAndSpiritAsDefencesOnlyForFinalFantasyXV()
+    {
+        var xv = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFXV
+            | release = FFXV
+            | 1 strength = 700
+            | 1 vitality = 66
+            | 1 spirit = 51
+            }}
+            """);
+
+        Assert.Equal(66, xv.Defense);
+        Assert.Equal(51, xv.MagicDefense);
+
+        var xii = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFXII
+            | release = FFXII
+            | defense min = 17
+            | magick resist min = 30
+            | vitality = 46
+            }}
+            """);
+
+        Assert.Equal(17, xii.Defense);
+        Assert.Equal(30, xii.MagicDefense);
+    }
+
+    [Fact]
+    public void ReadsFinalFantasyXIIsNumberedMoveFields()
+    {
+        var stats = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFXII
+            | release = FFXII
+            | magickname1 = Aero
+            | magickcond1 = HP <50%
+            | magickname2 = Cura
+            | technickname1 = Souleater
+            }}
+            """);
+
+        Assert.Equal("Aero, Cura, Souleater", stats.Abilities);
+    }
+
+    /// <summary>
+    /// Final Fantasy XV's "element drop" is the elemental deposit an enemy yields for magic
+    /// crafting, not an item it leaves behind.
+    /// </summary>
+    [Fact]
+    public void DoesNotReadAnElementalDepositAsAnItemDrop()
+    {
+        var stats = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFXV
+            | release = FFXV
+            | 1 primary drop = [[Garula Sirloin]]
+            | 1 element drop = Ice
+            | 1 element drop quantity = 4
+            }}
+            """);
+
+        Assert.Equal("Garula Sirloin", stats.Drops);
+    }
+
+    /// <summary>
+    /// A field assignment that leaks onto the value's line is stripped even when its name
+    /// starts with a platform tag rather than a letter.
+    /// </summary>
+    [Fact]
+    public void StripsLeakedFieldAssignmentsNamedWithADigit()
+    {
+        var stats = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFIII
+            | release = FFIII
+            | 3d steal = | 3d common drop = | 3d uncommon drop =
+            | nes steal = [[Potion (item)|Potion]]
+            }}
+            """);
+
+        Assert.Equal("Potion", stats.Steals);
+        Assert.Null(stats.Drops);
+    }
+
+    /// <summary>
+    /// Articles are hand-written and occasionally malformed. A wikilink with a doubled pipe
+    /// still reduces to its display text rather than leaving markup in the stored value.
+    /// </summary>
+    [Theory]
+    [InlineData("[[Hi-Ether (Final Fantasy VI)||Hi-Ether]]", "Hi-Ether")]
+    [InlineData("[[Hi-Ether (Final Fantasy VI)|Hi-Ether]]", "Hi-Ether")]
+    [InlineData("[[Hi-Ether]]", "Hi-Ether")]
+    public void ReducesAMalformedWikilinkToItsDisplayText(string link, string expected)
+    {
+        var stats = WikiClient.ParseMonsterStats(
+            "{{infobox enemy stats FFVI\n| gba steal 2 = " + link + "\n}}");
+
+        Assert.Equal(expected, stats.Steals);
+    }
+
     [Theory]
     [InlineData("| abilities = None")]
     [InlineData("| abilities = N/A")]
