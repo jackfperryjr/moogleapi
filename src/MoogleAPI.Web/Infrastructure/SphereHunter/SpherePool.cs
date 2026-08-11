@@ -42,7 +42,47 @@ public class SpherePool(BattlePool pool, HybridCache cache)
             cancellationToken: ct) ?? [];
     }
 
-    /// <summary>The spheres a player may be offered, as opposed to the ones they may meet.</summary>
+    /// <summary>
+    /// How many of each game's best-known monsters may be drafted.
+    /// </summary>
+    /// <remarks>
+    /// Per game rather than a single popularity threshold across the library, and the difference
+    /// matters. Notability in the battle pool has a median of 60 — requiring health and art already
+    /// selects for well-written articles — so the useful thresholds bunch around the middle, and a
+    /// global line falls very unevenly: at 60 Final Fantasy XII keeps 362 monsters and Final
+    /// Fantasy III keeps 7, and at 65 the third game is down to a single one. The draft deals one
+    /// sphere per game, so the thinnest game is what binds, and a global line either guts it or is
+    /// too low to do anything.
+    /// <para>
+    /// Taking each game's top 40 makes every bestiary equally deep by construction. It also drops
+    /// the poor picks for the right reason: a deep game's fortieth-best is genuinely notable, so
+    /// Final Fantasy XII's Axebeak falls out while Final Fantasy III's Bahamut stays. A flat floor
+    /// could not do that — Axebeak scores 58 and Final Fantasy IV's Dark Knight scores 55.
+    /// </para>
+    /// </remarks>
+    public const int DraftablePerGame = 40;
+
+    /// <summary>
+    /// The spheres a player may be offered, as opposed to the ones they may meet.
+    /// </summary>
+    /// <remarks>
+    /// Opponents are deliberately not filtered this way, on either count. Dull to pilot and fine to
+    /// fight are different tests, a bestiary needs its rank and file, and restricting opponents to
+    /// the notable ones would turn every floor into a boss rush.
+    /// </remarks>
     public async Task<IReadOnlyList<Sphere>> DraftableAsync(CancellationToken ct) =>
-        [.. (await GetAsync(ct)).Where(s => s.Moves.Count >= MinDraftableMoves)];
+        Draftable(await GetAsync(ct));
+
+    internal static IReadOnlyList<Sphere> Draftable(IEnumerable<Sphere> all) =>
+    [
+        .. all
+            .Where(s => s.Moves.Count >= MinDraftableMoves)
+            .GroupBy(s => s.GameId)
+            .SelectMany(game => game
+                .OrderByDescending(s => s.Popularity)
+                // Ties broken by id so the pool is the same list on every request. Whole bestiaries
+                // share a notability score, and fortieth place is usually inside such a tie.
+                .ThenBy(s => s.Id)
+                .Take(DraftablePerGame))
+    ];
 }

@@ -53,6 +53,7 @@ public static class SphereFactory
             SphereMoves.MagicPointsFor(ratings.MagicAttack),
             [.. Elements.Parse(Elements.Split(fighter.Weaknesses)).Distinct()],
             [.. Elements.Parse(Elements.Split(fighter.Absorbs)).Distinct()],
-            SphereMoves.For(fighter.Abilities, fighter.Name, affinity));
+            SphereMoves.For(fighter.Abilities, fighter.Name, affinity),
+            fighter.Popularity);
     }
 }

@@ -265,10 +265,21 @@ app.MapMethods("/health", [HttpMethods.Get, HttpMethods.Head],
    .DisableRateLimiting()
    .ExcludeFromDescription();
 
-// The Gauntlet was renamed to Kupo Climb. The old path is in shared results and whatever people
-// bookmarked, so it moves permanently rather than 404ing — the page itself is gone, not the game.
-app.MapGet("/the-gauntlet", () => Results.Redirect("/kupo-climb", permanent: true))
-   .ExcludeFromDescription();
+// Two renames' worth of old paths. The Gauntlet became Kupo Climb, and Kupo Climb has now been
+// replaced outright by Sphere Hunter — a different game on a different combat model, not a
+// reskin. Both still redirect rather than 404: they are in shared results and in whatever people
+// bookmarked, and landing on the current game is a better answer than landing on nothing.
+//
+// Deleting wwwroot/kupo-climb is what actually makes this fire. UseStaticFiles and
+// UseDefaultFiles answer "/kupo-climb/" from disk before routing is reached, so with the old page
+// still present the redirect would have been shadowed and it would have looked like the
+// switchover simply had not happened.
+//
+// One registration each, not two. Route templates ignore a trailing slash, so "/kupo-climb" and
+// "/kupo-climb/" are the same template — registering both is two identical endpoints and every
+// request to either throws AmbiguousMatchException. The single form matches both.
+foreach (var retired in new[] { "/the-gauntlet", "/kupo-climb" })
+    app.MapGet(retired, () => Results.Redirect("/sphere-hunter", permanent: true)).ExcludeFromDescription();
 
 // ── Private pages ─────────────────────────────────────────────────────────────
 // Served through protected endpoints rather than static files so auth is enforced, and all

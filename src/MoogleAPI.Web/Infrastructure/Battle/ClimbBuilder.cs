@@ -18,7 +18,14 @@ public record Fighter(
     string? Weaknesses,
     string? Absorbs,
     string? Abilities,
-    string? ImageUrl
+    string? ImageUrl,
+
+    /// <summary>
+    /// Notability, 0-100. Defaulted because not every fighter is a catalogue row — Battle Square
+    /// builds champions out of a level curve, and "how much did the wiki write about this" is not
+    /// a question those have an answer to.
+    /// </summary>
+    int Popularity = 0
 )
 {
     public bool IsBoss => Category == "Boss";

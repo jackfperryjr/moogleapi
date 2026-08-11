@@ -4,7 +4,7 @@
  * the marketing pages and the API reference. What it is not is a theme for the four games: those
  * have their own palettes (Kupodle green, Triple Triad blue, Kupo Climb bronze, Battle Square's
  * Gold Saucer purple), and overriding them would erase the thing that makes each cabinet its own.
- * Nothing under /kupodle, /triple-triad, /kupo-climb or /battle-square loads this file.
+ * Nothing under /kupodle, /triple-triad, /sphere-hunter or /battle-square loads this file.
  *
  * ── The hook is on <html>, not <body> ────────────────────────────────────────────────────────
  * Every selector here is `.ff-mode …` where .ff-mode sits on the root element, because that is
