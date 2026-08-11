@@ -12,6 +12,7 @@ using MoogleAPI.Web.Infrastructure.Images;
 using MoogleAPI.Web.Infrastructure.Middleware;
 using MoogleAPI.Web.Infrastructure.Puzzles;
 using MoogleAPI.Web.Infrastructure.RateLimiting;
+using MoogleAPI.Web.Infrastructure.SphereHunter;
 using MoogleAPI.Web.Infrastructure.Wiki;
 using Scalar.AspNetCore;
 using System.Security.Claims;
@@ -79,6 +80,11 @@ builder.Services.AddScoped<DailyCharacterSelector>();
 builder.Services.AddScoped<BattlePool>();
 builder.Services.AddScoped<ClimbBuilder>();
 builder.Services.AddScoped<ArenaBuilder>();
+
+// Sphere Hunter. Its pool wraps BattlePool rather than replacing it, so both battle games agree
+// on what a battle-ready monster is.
+builder.Services.AddScoped<SpherePool>();
+builder.Services.AddScoped<TowerBuilder>();
 
 // ── Dashboard support ─────────────────────────────────────────────────────────
 // Final Fantasy Wiki, now reachable one page at a time through the dashboard's import. The

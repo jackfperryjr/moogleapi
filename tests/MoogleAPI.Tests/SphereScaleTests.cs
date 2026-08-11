@@ -130,7 +130,21 @@ public class SphereScaleTests
     {
         var ratings = new SphereScale.Ratings(HitPoints: 55, 50, 50, 50, 50, 50);
 
-        Assert.Equal((int)Math.Round(55 * SphereScale.HealthPerRating), ratings.MaxHealth);
+        Assert.Equal((int)Math.Round(55 * SphereScale.HealthPerRating),
+                     ratings.HealthAt(SphereScale.ReferenceLevel));
+    }
+
+    /// <summary>
+    /// Health is quoted at the reference level and scaled from there, because damage grows with
+    /// level too and the two are meant to cancel.
+    /// </summary>
+    [Fact]
+    public void Health_scales_linearly_with_level()
+    {
+        var ratings = new SphereScale.Ratings(HitPoints: 55, 50, 50, 50, 50, 50);
+
+        Assert.Equal(ratings.HealthAt(SphereScale.ReferenceLevel) * 2,
+                     ratings.HealthAt(SphereScale.ReferenceLevel * 2), tolerance: 1);
     }
 
     /// <summary>A game the pool has never heard of rates mid-band rather than throwing.</summary>
