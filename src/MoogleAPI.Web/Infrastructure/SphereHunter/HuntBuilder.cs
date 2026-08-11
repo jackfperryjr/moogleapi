@@ -148,12 +148,34 @@ public class HuntBuilder(SpherePool pool)
             }
 
             hunts.Add(new HuntStage(
-                hunts.Count + 1, gameId, opponents[0].GameName, level, opponents,
+                hunts.Count + 1, gameId, opponents[0].GameName, level,
+                Opponents: [.. opponents.Select(Disarm)],
+                // The mark keeps its Limit: sealing it puts it in the party, and a sphere you
+                // play has one. It is only the fighting copy that goes without.
                 Capture: opponents[^1]));
         }
 
         return new Expedition(run, party, hunts, skipped);
     }
+
+    /// <summary>
+    /// Takes the Limit off a sphere that is being fought rather than played.
+    /// </summary>
+    /// <remarks>
+    /// Jack, 2026-08-11: <em>"It's hard enough getting through their attacks."</em> The gauge was
+    /// built as the player's way back into a fight they are losing — it fills on damage taken and
+    /// survives a switch, so a battered sphere on the bench is worth keeping. Handing the same
+    /// thing to the opponent inverts it: the sphere winning a fight hands its opponent the means
+    /// to end it, and a run that is going well is punished for going well.
+    /// <para>
+    /// Done here rather than in the client so the payload is honest about what an opponent can do.
+    /// It costs the vetting nothing: <see cref="SphereMath.TurnsToKill"/> already ignores Limits,
+    /// on the grounds that a hunt should not be rated winnable on a resource that may never
+    /// arrive.
+    /// </para>
+    /// </remarks>
+    private static Sphere Disarm(Sphere sphere) =>
+        sphere with { Moves = [.. sphere.Moves.Where(m => !m.IsLimit)] };
 
     /// <summary>
     /// Two of the game's rank and file, then one of its bosses — each of them a fight the party can
