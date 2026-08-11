@@ -20,8 +20,19 @@ public class BattlePool(AppDbContext db, HybridCache cache)
     /// only playable when both sides come from the same one.
     /// </summary>
     /// <remarks>
-    /// Absent for want of stats: VIII, whose enemy articles give HP as level-scaling
-    /// coefficients rather than a number, and XI, XIV and XVI, which publish almost none.
+    /// Absent for want of stats: XI, XIV and XVI. The first two publish none at all — not one
+    /// of their 419 articles carries an enemy stats infobox, because most of those rows are
+    /// races and family pages rather than single enemies, and the specialist wikis leave the
+    /// same fields blank.
+    /// <para>
+    /// VIII is a different case and no longer a data one. Its articles give stats as
+    /// coefficients of a level curve rather than numbers, so nothing could be read off the
+    /// wikitext; 85 of its 118 enemies now hold the values the wiki's own table renders at
+    /// level 50, and 68% of those have an elemental weakness — between VI and V, so the bar
+    /// II fails is comfortably cleared. What it does not have is moves: 14 of the 85 list an
+    /// ability, against a pool where most do. Adding it is a gameplay decision rather than a
+    /// blocked one.
+    /// </para>
     /// <para>
     /// II is absent for a different reason. It has HP and art for 166 monsters, so it looks
     /// playable — but exactly one of them has a listed elemental weakness, against 31–91% in

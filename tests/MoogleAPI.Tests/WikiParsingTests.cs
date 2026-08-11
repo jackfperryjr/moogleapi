@@ -183,6 +183,82 @@ public class InfoboxFieldTests
             WikiClient.ParseCharacterFieldList("{{infobox character\n" + line + "\n}}", "abilities", "ability"));
     }
 
+    /// <summary>
+    /// One article covers a character's whole career, so a spin-off's fields sit right beside
+    /// the numbered entry's. Only a mainline tag counts.
+    /// </summary>
+    [Fact]
+    public void IgnoresFieldsBelongingToADifferentTitle()
+    {
+        const string vaan = """
+            {{infobox character
+            |name=Vaan
+            |xiirw job=Sky Pirate
+            |ffta2 job=Sky Pirate
+            }}
+            """;
+
+        Assert.Null(WikiClient.ParseCharacterField(vaan, "job", "class"));
+
+        const string auron = """
+            {{infobox character
+            |name=Auron
+            |ffx limit break=[[Bushido (Final Fantasy X)|Bushido]]
+            |x2 cc abilities=[[Full Break]], [[Dragon Fang (Bushido)|Dragon Fang]]
+            }}
+            """;
+
+        Assert.Equal("Bushido",
+            WikiClient.ParseCharacterFieldList(auron, "abilities", "ability", "limit break"));
+    }
+
+    /// <summary>
+    /// A remake of the numbered entry is still that entry — Cloud's arms are stated only under
+    /// the per-release tags.
+    /// </summary>
+    [Theory]
+    [InlineData("ffvii")]
+    [InlineData("ffviir")]
+    [InlineData("ffviir2")]
+    [InlineData("")]
+    public void ReadsAMainlineOrRemakeTag(string tag)
+    {
+        var line = $"|{tag}{(tag.Length > 0 ? " " : "")}weapon=Broadswords";
+
+        Assert.Equal("Broadswords",
+            WikiClient.ParseCharacterField("{{infobox character\n" + line + "\n}}", "weapon"));
+    }
+
+    [Theory]
+    [InlineData("|ultimate weapon=Ultima Weapon")]
+    [InlineData("|ffvii ultimate weapon=Ultima Weapon")]
+    [InlineData("|viicc weapon=SOLDIER Sword")]
+    [InlineData("|ivtay weapon=Spears")]
+    public void RejectsAQualifiedOrSpinOffWeapon(string line)
+    {
+        Assert.Null(WikiClient.ParseCharacterField("{{infobox character\n" + line + "\n}}", "weapon"));
+    }
+
+    /// <summary>
+    /// An editor's comment usually opens on the field's line and closes further down the
+    /// article, so the value arrives here with the comment unterminated.
+    /// </summary>
+    [Theory]
+    [InlineData("|occupation=<!--Physical desc.", null)]
+    [InlineData("|occupation=<!-- fill this in --> Florist", "Florist")]
+    [InlineData("|occupation=Florist<!--per the ultimania-->", "Florist")]
+    public void StripsEditorComments(string line, string? expected)
+    {
+        Assert.Equal(expected,
+            WikiClient.ParseInfoboxField("{{infobox character\n" + line + "\n}}", "occupation"));
+    }
+
+    [Fact]
+    public void TreatsAStatedNoneAsNoValue()
+    {
+        Assert.Null(WikiClient.ParseCharacterField("{{infobox character\n|job=None\n}}", "job"));
+    }
+
     [Fact]
     public void UnwrapsWikilinksToTheirDisplayText()
     {

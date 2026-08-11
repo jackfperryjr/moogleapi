@@ -529,10 +529,21 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
     internal static string? ParseFieldList(string wikitext, params string[] fieldNames) =>
         ParseFieldList(wikitext, StatPrefix, fieldNames);
 
-    // Character infoboxes name an ability field per release — "ffviir abilities",
-    // "ffviir2 abilities" — so the closed platform list that guards the enemy stat fields is
-    // too strict here. Character infoboxes have no equivalent of "bribe gil" to guard against.
-    private const string ReleasePrefix = @"(?:[a-z0-9]+\s+){0,2}";
+    /// <summary>
+    /// A tag naming a numbered entry, or a remake of one: <c>ffvii</c>, <c>ffviir</c>,
+    /// <c>ffviir2</c>. Written longest-first so that <c>ffxiii</c> cannot match as <c>ffxi</c>.
+    /// </summary>
+    private const string MainlineTag =
+        @"ff(?:xvi|xv|xiv|xiii|xii|xi|x|ix|viii|vii|vi|v|iv|iii|ii|i)r?2?";
+
+    // Character infoboxes name a field per release — "ffviir abilities", "ffviir2 abilities" —
+    // so the closed platform list that guards the enemy stat fields is too strict here. It
+    // cannot be an open wildcard either: one article covers a character's whole career, and a
+    // spin-off's fields sit right beside the numbered entry's. Reading any tag is what gave
+    // Ashe and Penelo their Revenant Wings jobs ("xiirw job"), Auron the ability list from
+    // X-2's Creature Creator ("x2 cc abilities"), and Zack a weapon out of Crisis Core
+    // ("viicc weapon") for a game he is not playable in.
+    private const string ReleasePrefix = $@"(?:{MainlineTag}\s+)?";
 
     internal static string? ParseCharacterFieldList(string wikitext, params string[] fieldNames) =>
         ParseFieldList(wikitext, ReleasePrefix, fieldNames);
@@ -549,7 +560,8 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
     /// The prefix cannot be allowed to swallow a qualifier, though — every one of these
     /// articles also carries <c>|ultimate weapon=</c>, naming a specific late-game item rather
     /// than the class of arms the character uses. Matching it would call Cloud's weapon "Ultima
-    /// Weapon" instead of "Broadswords".
+    /// Weapon" instead of "Broadswords". Admitting only <see cref="MainlineTag"/> rejects it
+    /// along with every other title's fields.
     /// </para>
     /// </remarks>
     internal static string? ParseCharacterField(string wikitext, params string[] fieldNames)
@@ -557,13 +569,13 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         foreach (var field in fieldNames)
         {
             foreach (Match match in Regex.Matches(wikitext,
-                         $@"^\|\s*((?:[a-z0-9]+\s+){{0,2}}){Regex.Escape(field)}\s*=\s*(.+)$",
+                         $@"^\|\s*({ReleasePrefix}){Regex.Escape(field)}\s*=\s*(.+)$",
                          RegexOptions.IgnoreCase | RegexOptions.Multiline))
             {
                 if (QualifiedField.IsMatch(match.Groups[1].Value)) continue;
 
                 var cleaned = CleanFieldValue(match.Groups[2].Value);
-                if (cleaned is not null) return cleaned;
+                if (cleaned is not null && !IsPlaceholder(cleaned)) return cleaned;
             }
         }
 
@@ -959,6 +971,12 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
         // Strip refs and HTML tags
         value = Regex.Replace(value, @"<ref\b[^>]*/?>.*?</ref>", "", RegexOptions.Singleline);
         value = Regex.Replace(value, @"<ref\b[^>]*/?>", "");
+        // Editor notes. The unterminated form is not a typo to tolerate but the normal case
+        // here: the comment opens on the field's line and closes several lines later, and this
+        // value was cut at the line end long before it got here. Final Fantasy XV's Y'jhimei
+        // had an occupation of "<!--Physical desc." for want of this.
+        value = Regex.Replace(value, @"<!--.*?-->", "", RegexOptions.Singleline);
+        value = Regex.Replace(value, @"<!--.*", "");
         // <br> separates multiple values in an infobox field. Dropping it like any other tag
         // fuses them together ("First Shield of RosariaMarquess of Rosaria"), so it has to
         // become a real separator before the generic tag strip runs.
