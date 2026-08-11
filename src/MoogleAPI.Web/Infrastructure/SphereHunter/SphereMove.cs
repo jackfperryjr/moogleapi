@@ -110,7 +110,7 @@ public static class SphereMoves
     /// <summary>
     /// Magic points per point of magic-attack rating. A caster gets roughly ten casts of an
     /// ordinary spell and a brawler gets four, which is enough to make "can I afford this?" a
-    /// question without making a mage run dry mid-floor.
+    /// question without making a mage run dry mid-hunt.
     /// </summary>
     private const double MagicPointsPerRating = 0.5;
 

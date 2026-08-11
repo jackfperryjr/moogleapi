@@ -5,10 +5,10 @@ using MoogleAPI.Web.Infrastructure.SphereHunter;
 namespace MoogleAPI.Tests;
 
 /// <summary>
-/// Floor construction. The part worth pinning is the vetting: a floor the party cannot win is a
-/// dead run, and a floor it wins in one click is not a floor.
+/// Hunt construction. The part worth pinning is the vetting: a hunt the party cannot win is a
+/// dead run, and a hunt it wins in one click is not a hunt.
 /// </summary>
-public class TowerBuilderTests
+public class HuntBuilderTests
 {
     private const int Level = 50;
 
@@ -24,7 +24,7 @@ public class TowerBuilderTests
     public void An_even_opponent_is_kept()
     {
         var party = new[] { Monster(1) };
-        var kept = TowerBuilder.Winnable([Monster(2)], party, Level, band: 18);
+        var kept = HuntBuilder.Winnable([Monster(2)], party, Level, band: 18);
 
         Assert.Single(kept);
     }
@@ -35,8 +35,8 @@ public class TowerBuilderTests
     {
         var party = new[] { Monster(1, atk: 100) };
 
-        // Frail and defenceless: the party kills it well inside the minimum, so it is not a floor.
-        var vetted = TowerBuilder.Winnable([Monster(2, hp: 10, def: 10, atk: 10)], party, Level, band: 100);
+        // Frail and defenceless: the party kills it well inside the minimum, so it is not a hunt.
+        var vetted = HuntBuilder.Winnable([Monster(2, hp: 10, def: 10, atk: 10)], party, Level, band: 100);
 
         // It comes back only through the least-bad fallback, never as a genuinely winnable pick.
         Assert.True(vetted.Count <= 1);
@@ -44,7 +44,7 @@ public class TowerBuilderTests
     }
 
     /// <summary>
-    /// Nothing here is beatable, and the floor is still built. The party has two more members, a
+    /// Nothing here is beatable, and the hunt is still built. The party has two more members, a
     /// Limit the estimate ignores, and the estimate itself is deliberately pessimistic.
     /// </summary>
     [Fact]
@@ -53,14 +53,14 @@ public class TowerBuilderTests
         var party = new[] { Monster(1, hp: 20, atk: 10, def: 10) };
         var monsters = Enumerable.Range(2, 10).Select(i => Monster(i, hp: 100, atk: 100, def: 100)).ToList();
 
-        var vetted = TowerBuilder.Winnable(monsters, party, Level, band: 100);
+        var vetted = HuntBuilder.Winnable(monsters, party, Level, band: 100);
 
         Assert.NotEmpty(vetted);
     }
 
     /// <summary>
     /// Vetted against the party's best answer, not an average — the player gets to switch, so a
-    /// floor is fair if any of the three can handle it.
+    /// hunt is fair if any of the three can handle it.
     /// </summary>
     [Fact]
     public void One_capable_party_member_is_enough_to_make_a_floor_fair()
@@ -69,7 +69,7 @@ public class TowerBuilderTests
         var passengers = new[] { Monster(2, atk: 12, def: 12, hp: 15), Monster(3, atk: 12, def: 12, hp: 15) };
         var party = new[] { specialist }.Concat(passengers).ToArray();
 
-        Assert.NotEmpty(TowerBuilder.Winnable([Monster(9, hp: 70, atk: 55, def: 55)], party, Level, band: 60));
+        Assert.NotEmpty(HuntBuilder.Winnable([Monster(9, hp: 70, atk: 55, def: 55)], party, Level, band: 60));
     }
 
     // ---- the party parameter ---------------------------------------------------------------------
@@ -89,17 +89,17 @@ public class TowerBuilderTests
     [Fact]
     public void The_tower_has_one_floor_per_battle_ready_game()
     {
-        Assert.Equal(11, TowerBuilder.FloorGameIds.Length);
+        Assert.Equal(11, HuntBuilder.HuntGameIds.Length);
     }
 
     /// <summary>
-    /// Below what a floor costs, or the run stops trending downward and stops being a run — the
+    /// Below what a hunt costs, or the run stops trending downward and stops being a run — the
     /// same trap Battle Square's wave recovery documents.
     /// </summary>
     [Fact]
     public void Recovery_between_floors_is_partial()
     {
-        Assert.InRange(TowerBuilder.FloorRecovery, 0.1, 0.5);
+        Assert.InRange(HuntBuilder.RecoveryBetweenHunts, 0.1, 0.5);
     }
 
     // ---- runs, not days ----------------------------------------------------------------------
@@ -107,7 +107,7 @@ public class TowerBuilderTests
     /// <summary>
     /// Jack, 2026-08-11: "If I lose, I want to try again." A run is identified by a token rather
     /// than by the date, so a loss costs a token. Two tokens must not agree, or "try again" deals
-    /// the same nine spheres and the same tower.
+    /// the same nine spheres and the same expedition.
     /// </summary>
     [Fact]
     public void Two_runs_are_different_runs()
@@ -126,16 +126,16 @@ public class TowerBuilderTests
     }
 
     /// <summary>
-    /// The draft and the tower draw from independent streams, so adding a floor cannot reshuffle
+    /// The draft and the expedition draw from independent streams, so adding a hunt cannot reshuffle
     /// which spheres were offered.
     /// </summary>
     [Fact]
     public void The_draft_and_the_tower_do_not_share_a_stream()
     {
-        Assert.NotEqual(Seed("run-one", "draft"), Seed("run-one", "tower:1,2,3"));
+        Assert.NotEqual(Seed("run-one", "draft"), Seed("run-one", "expedition:1,2,3"));
     }
 
-    /// <summary>Mirrors TowerBuilder.SeedFor, which is private — the behaviour is what matters.</summary>
+    /// <summary>Mirrors HuntBuilder.SeedFor, which is private — the behaviour is what matters.</summary>
     private static ulong Seed(string run, string scope) =>
         (ulong)$"spherehunter:v1:{run}:{scope}".GetDeterministicHash();
 }

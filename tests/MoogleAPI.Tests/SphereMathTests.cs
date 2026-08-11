@@ -13,7 +13,7 @@ public class SphereMathTests
     private const int Level = 50;
 
     /// <summary>One per battle-ready game — see <see cref="BattlePool.GameIds"/>.</summary>
-    private const int Floors = 11;
+    private const int Hunts = 11;
 
     private static Sphere Fighter(
         int hp = 55, int atk = 55, int def = 55, int mag = 55, int mdf = 55, int spd = 55,
@@ -96,22 +96,22 @@ public class SphereMathTests
     /// The one this model got wrong first time, and the mistake is invisible at any single level.
     /// </summary>
     /// <remarks>
-    /// Damage carries a <c>(2 × level / 5 + 2)</c> term and grows roughly tenfold across the tower.
-    /// With health held fixed that made the ground floor a twenty-turn slog and the top floor a
+    /// Damage carries a <c>(2 × level / 5 + 2)</c> term and grows roughly tenfold across the expedition.
+    /// With health held fixed that made the ground hunt a twenty-turn slog and the top hunt a
     /// three-turn blitz — difficulty running backwards. Health scales with level for exactly this
     /// reason, and the whole climb has to sit inside a couple of turns of itself.
     /// </remarks>
     [Fact]
     public void A_fight_is_about_as_long_on_every_floor_of_the_tower()
     {
-        var lengths = Enumerable.Range(1, Floors)
-            .Select(floor => SphereMath.TurnsToKill(Fighter(), Fighter(), SphereFactory.LevelForFloor(floor, Floors)))
+        var lengths = Enumerable.Range(1, Hunts)
+            .Select(hunt => SphereMath.TurnsToKill(Fighter(), Fighter(), SphereFactory.LevelForHunt(hunt, Hunts)))
             .ToList();
 
         Assert.InRange(lengths.Min(), 3, 8);
         Assert.InRange(lengths.Max(), 3, 8);
         Assert.True(lengths.Max() - lengths.Min() <= 2,
-                    $"fight length drifts across the tower: {string.Join(", ", lengths)}");
+                    $"fight length drifts across the expedition: {string.Join(", ", lengths)}");
     }
 
     [Fact]
@@ -243,9 +243,9 @@ public class SphereMathTests
         var defender = Fighter();
 
         var first = SphereMath.Resolve(attacker, defender, Physical(accuracy: 80), Level, Status.None,
-                                       DeterministicRandom.ForScope(42, "floor", 3));
+                                       DeterministicRandom.ForScope(42, "hunt", 3));
         var second = SphereMath.Resolve(attacker, defender, Physical(accuracy: 80), Level, Status.None,
-                                        DeterministicRandom.ForScope(42, "floor", 3));
+                                        DeterministicRandom.ForScope(42, "hunt", 3));
 
         Assert.Equal(first, second);
     }
@@ -263,7 +263,7 @@ public class SphereMathTests
 
         static int NextAfter(Sphere a, Sphere d, int accuracy)
         {
-            var rng = DeterministicRandom.ForScope(7, "floor", 1);
+            var rng = DeterministicRandom.ForScope(7, "hunt", 1);
             SphereMath.Resolve(a, d, Physical(accuracy: accuracy), Level, Status.None, rng);
             return rng.Next(1_000_000);
         }
@@ -335,7 +335,7 @@ public class SphereMathTests
 
     /// <summary>
     /// Excluded from the estimate because it fires once and the gauge may never fill — counting it
-    /// would rate a floor as winnable on a resource the player might not get.
+    /// would rate a hunt as winnable on a resource the player might not get.
     /// </summary>
     [Fact]
     public void The_estimate_ignores_the_limit_and_the_suicide_move()
@@ -360,11 +360,11 @@ public class SphereMathTests
     [Fact]
     public void The_tower_climbs_from_five_to_eighty()
     {
-        Assert.Equal(SphereFactory.MinLevel, SphereFactory.LevelForFloor(1, Floors));
-        Assert.Equal(SphereFactory.MaxLevel, SphereFactory.LevelForFloor(Floors, Floors));
+        Assert.Equal(SphereFactory.MinLevel, SphereFactory.LevelForHunt(1, Hunts));
+        Assert.Equal(SphereFactory.MaxLevel, SphereFactory.LevelForHunt(Hunts, Hunts));
 
-        // And monotonically in between, so a floor is never easier than the one below it.
-        var levels = Enumerable.Range(1, Floors).Select(f => SphereFactory.LevelForFloor(f, Floors)).ToList();
+        // And monotonically in between, so a hunt is never easier than the one below it.
+        var levels = Enumerable.Range(1, Hunts).Select(f => SphereFactory.LevelForHunt(f, Hunts)).ToList();
         Assert.Equal(levels.OrderBy(l => l), levels);
     }
 
@@ -374,8 +374,8 @@ public class SphereMathTests
         var attacker = Fighter();
         var defender = Fighter();
 
-        var low = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForFloor(1, Floors), Status.None);
-        var high = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForFloor(Floors, Floors), Status.None);
+        var low = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForHunt(1, Hunts), Status.None);
+        var high = SphereMath.Deterministic(attacker, defender, Physical(), SphereFactory.LevelForHunt(Hunts, Hunts), Status.None);
 
         Assert.True(high > low * 2);
     }

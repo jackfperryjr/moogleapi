@@ -28,8 +28,8 @@ public record Sphere(
     public bool IsBoss => Category == "Boss";
 
     /// <summary>
-    /// The sphere's health on a given floor. A function of level rather than a stored number,
-    /// because damage grows with level and a fixed pool would make the tower get faster as it got
+    /// The sphere's health on a given hunt. A function of level rather than a stored number,
+    /// because damage grows with level and a fixed pool would make the expedition get faster as it got
     /// harder — see <see cref="SphereScale.Ratings.HealthAt"/>.
     /// </summary>
     public int HealthAt(int level) => Ratings.HealthAt(level);
@@ -46,7 +46,7 @@ public record Sphere(
 /// <para>
 /// Battles resolve in the browser, but the rules live here and ship inside the run payload — the
 /// same arrangement as the old model and for the same reason: the server uses this arithmetic to
-/// decide whether a floor is winnable, and a client with its own copy of the constants would drift
+/// decide whether a hunt is winnable, and a client with its own copy of the constants would drift
 /// until the vetting stopped describing the fight the player actually gets.
 /// </para>
 /// </remarks>
@@ -97,8 +97,8 @@ public static class SphereMath
     /// Damage before the rolls — what the move is worth on paper.
     /// </summary>
     /// <remarks>
-    /// The standard formula, on ratings rather than on published stats. Level comes from the floor,
-    /// so the tower is progression: the same move is worth more on floor sixteen than on floor one,
+    /// The standard formula, on ratings rather than on published stats. Level comes from the hunt,
+    /// so the expedition is progression: the same move is worth more on the eleventh hunt than the first,
     /// against opponents who have grown by the same curve.
     /// <para>
     /// Note what this does that the old model could not: <b>health is a real stat</b>. Damage no
@@ -240,7 +240,7 @@ public static class SphereMath
 
     /// <summary>
     /// Turns the attacker needs to finish the defender with its best sustainable move, used to
-    /// vet a floor rather than to play one.
+    /// vet a hunt rather than to play one.
     /// </summary>
     /// <remarks>
     /// Deterministic on purpose: no crit, no variance, no status, and accuracy folded in as an

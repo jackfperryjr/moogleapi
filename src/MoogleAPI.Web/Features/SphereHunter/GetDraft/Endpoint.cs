@@ -22,7 +22,7 @@ public record GetDraftResponse(
 /// only ever grows and never gets a second read; the expensive part — the sphere pool itself — is
 /// already cached behind <see cref="SpherePool"/>.
 /// </remarks>
-public class Endpoint(TowerBuilder tower) : Endpoint<GetDraftRequest, GetDraftResponse>
+public class Endpoint(HuntBuilder expedition) : Endpoint<GetDraftRequest, GetDraftResponse>
 {
     public override void Configure()
     {
@@ -38,8 +38,8 @@ public class Endpoint(TowerBuilder tower) : Endpoint<GetDraftRequest, GetDraftRe
     {
         await Send.OkAsync(new GetDraftResponse(
             req.Run,
-            TowerBuilder.PartySize,
-            [.. (await tower.DraftAsync(req.Run, ct)).Select(SphereView.Of)],
+            HuntBuilder.PartySize,
+            [.. (await expedition.DraftAsync(req.Run, ct)).Select(SphereView.Of)],
             BattleRules.Current), ct);
     }
 }

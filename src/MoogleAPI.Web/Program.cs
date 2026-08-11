@@ -84,7 +84,7 @@ builder.Services.AddScoped<ArenaBuilder>();
 // Sphere Hunter. Its pool wraps BattlePool rather than replacing it, so both battle games agree
 // on what a battle-ready monster is.
 builder.Services.AddScoped<SpherePool>();
-builder.Services.AddScoped<TowerBuilder>();
+builder.Services.AddScoped<HuntBuilder>();
 
 // ── Dashboard support ─────────────────────────────────────────────────────────
 // Final Fantasy Wiki, now reachable one page at a time through the dashboard's import. The

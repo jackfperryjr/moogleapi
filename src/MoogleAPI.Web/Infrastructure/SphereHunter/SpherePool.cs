@@ -9,7 +9,7 @@ namespace MoogleAPI.Web.Infrastructure.SphereHunter;
 /// <remarks>
 /// Built on <see cref="BattlePool"/> so the two games agree on what a battle-ready monster is, and
 /// cached whole for the same reason that one is: it is a few thousand small records, and holding
-/// them keeps a tower build to one query rather than one per floor.
+/// them keeps a expedition build to one query rather than one per hunt.
 /// </remarks>
 public class SpherePool(BattlePool pool, HybridCache cache)
 {
@@ -48,7 +48,7 @@ public class SpherePool(BattlePool pool, HybridCache cache)
     /// <remarks>
     /// Per game rather than one line across the library. The draft deals one sphere per game, so
     /// the thinnest bestiary is what binds, and any global cut either guts it or does nothing: a
-    /// popularity floor of 60 leaves Final Fantasy XII with 362 monsters and Final Fantasy III with
+    /// popularity hunt of 60 leaves Final Fantasy XII with 362 monsters and Final Fantasy III with
     /// 7, and at 65 the third game is down to one. Forty per game makes every bestiary equally deep
     /// by construction.
     /// </remarks>
@@ -88,7 +88,7 @@ public class SpherePool(BattlePool pool, HybridCache cache)
     /// <remarks>
     /// Opponents are deliberately not filtered this way, on either count. Dull to pilot and fine to
     /// fight are different tests, a bestiary needs its rank and file, and restricting opponents to
-    /// the notable ones would turn every floor into a boss rush.
+    /// the notable ones would turn every hunt into a boss rush.
     /// </remarks>
     public async Task<IReadOnlyList<Sphere>> DraftableAsync(CancellationToken ct) =>
         Draftable(await GetAsync(ct));
