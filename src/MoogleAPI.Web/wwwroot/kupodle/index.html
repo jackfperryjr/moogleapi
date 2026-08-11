@@ -110,17 +110,22 @@
      * from the panel behind it, and it throws the black silhouette forward instead of letting it
      * sit flat in a green rectangle.
      *
-     * Three layers make it read as moulding rather than as a coloured border, and all three are
-     * needed at this size — 5.4rem is small enough that a single gradient just looks brown:
-     *   1. reeding, fine carved ridges catching the same light as the bevel;
+     * Four layers make it read as carved moulding rather than as a coloured border, and each is
+     * doing a different job — a single gradient at this size just looks brown:
+     *   1. reeding, fine ridges catching the same light as the bevel;
      *   2. a bevel, light off the top-left shoulder and shade into the bottom-right;
-     *   3. a rebate and corner bosses, below.
+     *   3. a rebate, the step down from the moulding to the glass;
+     *   4. the ornament itself — chocobo scrollwork and corner moogles, below.
      */
     .answer-frame {
       position: relative;
       flex: none;
-      width: 5.4rem;
-      padding: 11px;
+      /* 8rem with a 20px moulding, which is what the ornament costs. Below about twenty pixels a
+         moogle's pom merges with its head and a chocobo becomes a lump — tested at 12, 16, 20 and
+         26 before settling here. The picture grew with it rather than shrinking to pay for the
+         carving, so the reveal at the end of a puzzle lands harder than it did. */
+      width: 8rem;
+      padding: 20px;
       margin: 0;
       border-radius: 4px;
       background:
@@ -142,7 +147,7 @@
     .answer-frame::before {
       content: '';
       position: absolute;
-      inset: 6px;
+      inset: 15px;
       border-radius: 2px;
       pointer-events: none;
       box-shadow:
@@ -150,27 +155,46 @@
         inset 0 0 0 1px rgba(255, 224, 170, 0.26);
     }
 
-    /* Corner bosses. Four studs is the cheapest ornament that still reads as ornament, and they
-       sit inside the padding so they never cover any of the picture.
-
-       Painted after .answer-frame-inner rather than before it — both are positioned with an auto
-       z-index, so document order decides, and ::after comes last. */
+    /* Chocobo scrollwork down every side, a moogle at each corner.
+     *
+     * Separate SVG files rather than data URIs. This stylesheet is inline in the page and the page
+     * is served no-cache, so 40 KB of encoded SVG would have been paid for on every single load;
+     * as files they fall under the static-asset rule and are cached for thirty days. A missing one
+     * simply does not paint, and the frame degrades to plain bronze.
+     *
+     * The corners are listed FIRST because CSS paints background layers front to back — so the
+     * moogles sit over the running scroll and hide the point where each repeat is cut off.
+     *
+     * All five are generated from one geometry description, so the four edges are the same drawing
+     * rotated and mirrored rather than four drawings kept in step by hand. See
+     * assets/frames/README.md.
+     */
     .answer-frame::after {
       content: '';
       position: absolute;
       inset: 0;
       border-radius: 4px;
       pointer-events: none;
-      background:
-        radial-gradient(circle 3.5px at 7px 7px,
-          rgba(255, 236, 198, 0.8), rgba(120, 80, 34, 0.9) 62%, transparent 72%),
-        radial-gradient(circle 3.5px at calc(100% - 7px) 7px,
-          rgba(255, 236, 198, 0.8), rgba(120, 80, 34, 0.9) 62%, transparent 72%),
-        radial-gradient(circle 3.5px at 7px calc(100% - 7px),
-          rgba(255, 236, 198, 0.62), rgba(96, 63, 26, 0.9) 62%, transparent 72%),
-        radial-gradient(circle 3.5px at calc(100% - 7px) calc(100% - 7px),
-          rgba(255, 236, 198, 0.62), rgba(96, 63, 26, 0.9) 62%, transparent 72%);
+      background-image:
+        url('/assets/frames/moogle-corner.svg'),
+        url('/assets/frames/moogle-corner.svg'),
+        url('/assets/frames/moogle-corner.svg'),
+        url('/assets/frames/moogle-corner.svg'),
+        url('/assets/frames/chocobo-top.svg'),
+        url('/assets/frames/chocobo-bottom.svg'),
+        url('/assets/frames/chocobo-left.svg'),
+        url('/assets/frames/chocobo-right.svg');
+      background-position:
+        left top, right top, left bottom, right bottom,
+        20px top, 20px bottom, left 20px, right 20px;
+      background-size:
+        20px 20px, 20px 20px, 20px 20px, 20px 20px,
+        32px 20px, 32px 20px, 20px 32px, 20px 32px;
+      background-repeat:
+        no-repeat, no-repeat, no-repeat, no-repeat,
+        repeat-x, repeat-x, repeat-y, repeat-y;
     }
+
     .answer-frame-inner {
       position: relative;
       aspect-ratio: 3 / 4;
@@ -207,14 +231,17 @@
       line-height: 1;
     }
 
-    @media (max-width: 420px) {
-      /* The moulding thins with the frame. Left at 11px it eats most of a 4.2rem frame and the
-         picture inside stops being legible — the ornament would be the whole thing. */
-      .answer-frame { width: 4.2rem; padding: 8px; }
-      .answer-frame::before { inset: 4px; }
-      /* And the bosses go. At 4.2rem they are the same 3.5px they were on a frame half again as
-         wide, which stops reading as ornament and starts reading as debris. */
-      .answer-frame::after { display: none; }
+    /* Narrow screens stack rather than shrink.
+     *
+     * Beside the input a frame this size would leave the guess field a stub, and shrinking the
+     * frame instead — which is what this rule used to do — thins the moulding until the carving
+     * reads as grit. Stacked, both get the full width and the ornament survives at full size.
+     * This is the better mobile layout irrespective of the frame: a full-width guess field is what
+     * a phone wants. */
+    @media (max-width: 560px) {
+      .combo { flex-direction: column; align-items: center; }
+      .combo-fields { width: 100%; }
+      .answer-frame { width: 9rem; }
     }
 
     .suggestions {
