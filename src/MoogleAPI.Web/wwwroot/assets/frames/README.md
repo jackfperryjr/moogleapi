@@ -32,6 +32,17 @@ not from cutting.
 drawn once per relief layer. Beads are `<circle>` elements now and relief is two layers: 29 KB,
 no visible difference.
 
+## Tone
+
+Pitched deliberately below the silhouette's own contrast. The first version was a bright gilt and
+read as a lamp on a dark page — the frame was the first thing the eye went to, ahead of the puzzle
+it surrounds.
+
+The lit layer is filled with a `linearGradient` rather than being split into a second and third
+copy of every polygon. That buys the same tonal range across the carving for a couple of hundred
+bytes instead of another twenty-five kilobytes of points, and it is what gives the frame a
+lit-from-the-top-left reading.
+
 ## Bump the ?v= stamp when you change it
 
 This file is served with a thirty-day `max-age`, so replacing it at a stable name leaves everyone
