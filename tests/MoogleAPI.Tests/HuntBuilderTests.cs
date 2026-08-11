@@ -102,6 +102,41 @@ public class HuntBuilderTests
         Assert.InRange(HuntBuilder.RecoveryBetweenHunts, 0.1, 0.5);
     }
 
+    // ---- the Limit is the player's alone -------------------------------------------------------
+
+    /// <summary>
+    /// Jack, 2026-08-11: "It's hard enough getting through their attacks." The gauge fills on
+    /// damage taken, so giving it to the opponent inverts what it is for — the sphere winning a
+    /// fight hands its opponent the means to end it.
+    /// </summary>
+    [Fact]
+    public void An_opponent_is_served_without_its_limit()
+    {
+        var withLimit = SphereMoves.For("Blizzara", "Marilith", Element.Ice);
+        Assert.Contains(withLimit, m => m.IsLimit);      // the sphere itself still has one
+
+        var fought = Disarm(Monster(9) with { Moves = withLimit });
+
+        Assert.DoesNotContain(fought.Moves, m => m.IsLimit);
+        Assert.Contains(fought.Moves, m => m.Name == "Attack");
+    }
+
+    /// <summary>
+    /// And the mark keeps its Limit, because sealing it puts it in the party. Only the fighting
+    /// copy goes without.
+    /// </summary>
+    [Fact]
+    public void The_mark_you_seal_still_has_one()
+    {
+        var sphere = Monster(9) with { Moves = SphereMoves.For("Blizzara", "Marilith", Element.Ice) };
+
+        Assert.Contains(sphere.Moves, m => m.IsLimit);
+    }
+
+    /// <summary>Mirrors HuntBuilder.Disarm, which is private — the behaviour is what matters.</summary>
+    private static Sphere Disarm(Sphere sphere) =>
+        sphere with { Moves = [.. sphere.Moves.Where(m => !m.IsLimit)] };
+
     // ---- runs, not days ----------------------------------------------------------------------
 
     /// <summary>

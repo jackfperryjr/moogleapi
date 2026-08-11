@@ -249,7 +249,10 @@
 
       // The gauge fills on damage taken, so the sphere carrying the party earns the payoff — and
       // it survives a switch, which is what makes a battered sphere on the bench worth something.
-      if (strike.damage > 0 && !defender.limitSpent) {
+      //
+      // Only for something that can spend it. Opponents are served without a Limit, so filling
+      // theirs would light a "Limit ready" badge over a move they do not have.
+      if (strike.damage > 0 && !defender.limitSpent && defender.sphere.moves.some((m) => m.isLimit)) {
         defender.limit = Math.min(rules.limitFull,
           defender.limit + Math.round(rules.limitFull * rules.limitFillRate * strike.damage / defender.max));
       }
