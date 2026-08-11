@@ -115,15 +115,16 @@
      *   1. reeding, fine ridges catching the same light as the bevel;
      *   2. a bevel, light off the top-left shoulder and shade into the bottom-right;
      *   3. a rebate, the step down from the moulding to the glass;
-     *   4. the ornament itself — chocobo scrollwork and corner moogles, below.
+     *   4. the carving itself — acanthus clusters at the corners and midpoints, below.
      */
     .answer-frame {
       position: relative;
       flex: none;
-      /* 8rem with a 20px moulding, which is what the ornament costs. Below about twenty pixels a
-         moogle's pom merges with its head and a chocobo becomes a lump — tested at 12, 16, 20 and
-         26 before settling here. The picture grew with it rather than shrinking to pay for the
-         carving, so the reveal at the end of a puzzle lands harder than it did. */
+      /* 8rem with a 20px moulding, which is what the carving costs. Acanthus at this scale needs
+         about twenty pixels of band before the blades of a fan stop merging into one blob — below
+         that the ornament is texture rather than ornament. The picture grew with the moulding
+         rather than shrinking to pay for it, so the reveal at the end of a puzzle lands harder
+         than it did. */
       width: 8rem;
       padding: 20px;
       margin: 0;
@@ -155,7 +156,7 @@
         inset 0 0 0 1px rgba(255, 224, 170, 0.26);
     }
 
-    /* The carving: a baroque gilt surround with a moogle head at each corner.
+    /* The carving: a baroque gilt surround, replicating a reference frame.
      *
      * One SVG for the whole frame rather than repeating tiles, because baroque composition cannot
      * be tiled — it is plain rails with everything happening at the corners and the midpoint of
@@ -163,11 +164,11 @@
      * edge would be.
      *
      * That projection is what the negative inset buys. The pseudo-element is 14px larger than the
-     * frame on every side, which is the room the scrolls and the moogles' poms need to break the
+     * frame on every side, which is the room the corner fans and the crests need to break the
      * rectangle; the flex gap beside it is 0.9rem, so it clears the guess field.
      *
      * A missing file simply does not paint and the frame degrades to plain bronze moulding. See
-     * assets/frames/README.md for what is in the drawing and why the heads are all upright.
+     * assets/frames/README.md for what is in the drawing and what constrains editing it.
      */
     .answer-frame::after {
       content: '';

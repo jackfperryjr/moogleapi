@@ -1,37 +1,40 @@
 # Frame ornament
 
-The carving on Kupodle's answer frame: a baroque gilt surround with a moogle head at each corner.
+`kupodle-frame.svg` — the carving on Kupodle's answer frame: a baroque gilt surround, built as a
+replica of a reference frame.
 
-`kupodle-frame.svg` is the whole overlay in one file, not a set of repeating tiles. Baroque
-composition is the reason — plain rails with everything happening at the corners and the midpoint
-of each side, and an outer silhouette broken by scrollwork that projects past where the frame's
-edge would be. None of that survives being cut into tiles.
-
-The file's box is 14px larger than the frame on every side, which is the room that projection
-needs; the CSS gives it back with `inset: -14px` on the pseudo-element.
+One file for the whole thing, not repeating tiles. Baroque composition cannot be tiled: it is
+plain rails with everything concentrated at the corners and the midpoint of each side, and an
+outer silhouette broken by carving that projects past where the frame's edge would be. The file's
+box is 14px larger than the frame on every side to give that projection somewhere to go, and the
+CSS hands it back with `inset: -14px`.
 
 ## What is in it
 
 | | |
 |---|---|
-| beading | the small regular course on the inner lip — the detail that most says "gilt frame" |
-| corner cartouches | acanthus running inboard along each rail, mirrored into all four corners |
-| moogle heads | one per corner, drawn separately from the cartouches |
-| centre crests | a palmette at the midpoint of all four sides, projecting outward |
+| two bead courses | the reference steps down twice on the way in, the inner course finer than the outer |
+| corner clusters | a fan of acanthus thrown out along the diagonal, a volute answering it, leaves running inboard down each rail and diminishing, berries beside them |
+| centre crests | a fan projecting outward at the midpoint of all four sides, two scrolls turning back under it |
+| plain flats | the long runs between, left bare — this is what makes the clusters read |
 
-## Two things that were learned the hard way
+## Things worth knowing before editing it
 
-**The heads are upright in all four corners.** The foliage mirrors; the faces do not. Mirroring
-them vertically leaves two moogles upside down, and carved frames never invert a face.
+**Everything must stay on the moulding.** Anything further from a corner than the moulding's width
+in *both* axes is over the picture, not the frame. An early version put berry clusters at (27, 27)
+on a 20px moulding and they sat on the artwork. The generator now asserts this: it counts points
+falling inside the picture rectangle and the answer has to be zero.
 
-**The eyes are cut, not drawn.** A moogle head in flat silhouette reads as a bow or a bat — a
-round shape, two points and a bobble. Carving two eyes into it in the shadow tone is what makes it
-a face, and it is the only element in the frame that needs the treatment; a leaf is legible as a
-leaf.
+**Piercing is free.** The gaps between blades are the whole look and they come from not filling,
+not from cutting.
+
+**Size is easy to lose.** The first emission was 116 KB, because ~100 beads were ten-point polygons
+drawn once per relief layer. Beads are `<circle>` elements now and relief is two layers: 29 KB,
+no visible difference.
 
 ## Regenerating
 
 Generated rather than hand-drawn, from one geometry description that emits both this SVG and a
-raster preview — there is no SVG rasteriser on the machine this was made on, so without that
-shared source the artwork could not be seen before it shipped. A missing file simply does not
-paint, and the frame degrades to plain bronze moulding.
+raster preview. There is no SVG rasteriser on the machine this was made on, so without that shared
+source the artwork could not be seen before it shipped. A missing file simply does not paint, and
+the frame degrades to plain bronze moulding.
