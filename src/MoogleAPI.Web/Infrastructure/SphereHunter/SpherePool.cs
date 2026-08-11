@@ -19,8 +19,8 @@ public class SpherePool(BattlePool pool, HybridCache cache)
     /// <remarks>
     /// Every sphere has at least two — the basic attack and its Limit — because both are granted
     /// rather than scraped. A sphere on exactly two has no abilities on its article at all, which
-    /// is 685 of the 2,959 in the pool, and it is a bad thing to hand a player: two buttons, one of
-    /// which is unavailable until a gauge fills. Three leaves 2,274 to choose from.
+    /// is 548 of the 2,961 in the pool, and it is a bad thing to hand a player: two buttons, one of
+    /// which is unavailable until a gauge fills. Three leaves 2,413 to choose from.
     /// <para>
     /// Opponents are not filtered this way. A two-button monster is dull to pilot and perfectly
     /// fine to fight, and excluding them would thin some bestiaries badly.

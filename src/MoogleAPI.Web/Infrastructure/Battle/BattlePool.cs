@@ -91,15 +91,44 @@ public class BattlePool(AppDbContext db, HybridCache cache)
             var magicDefense = Median(game, r => r.MagicDefense, r => r.MagicAttack);
             var speed = Median(game, r => r.Speed, r => r.Speed);
 
+            var defenseScale = Commensurate(attack, defense);
+            var magicDefenseScale = Commensurate(magicAttack, magicDefense);
+
             fighters.AddRange(game.Select(r => new Fighter(
                 r.Id, r.Name, r.GameId, r.GameName, r.Category, r.HitPoints,
-                r.Attack ?? attack, r.Defense ?? defense,
-                r.MagicAttack ?? magicAttack, r.MagicDefense ?? magicDefense, r.Speed ?? speed,
+                r.Attack ?? attack, Rescale(r.Defense ?? defense, defenseScale),
+                r.MagicAttack ?? magicAttack, Rescale(r.MagicDefense ?? magicDefense, magicDefenseScale),
+                r.Speed ?? speed,
                 r.Weaknesses, r.Absorbs, r.Abilities, r.ImageUrl, r.Popularity)));
         }
 
         return fighters.OrderBy(f => f.Id).ToList();
     }
+
+    /// <summary>
+    /// What to multiply a game's guard stat by to put it on the same scale as the offence it is
+    /// measured against, so that the median pairing in every game sits at parity.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="BattleMath.Ratio"/> divides offence by guard, which assumes the two are
+    /// comparable numbers. Across this series they frequently aren't, because they are not the
+    /// same stat in each game. Final Fantasy XV's articles give strength a median of 4,080 and
+    /// vitality a median of 107, so a median enemy reads as having a forty-to-one advantage over
+    /// another median enemy and kills it in two turns. Final Fantasy VI runs the other way — a
+    /// small attack against a 0–255 defence — and pinned every fight at the
+    /// <see cref="BattleMath.MinRatio"/> floor for seventeen turns.
+    /// <para>
+    /// Scaling is monotonic, so it changes nothing about which monsters are tougher than which
+    /// within a game; it only fixes where the pair as a whole sits. A game that publishes no
+    /// guard stat at all already borrows the offence median, which makes this factor exactly 1
+    /// and leaves that behaviour untouched.
+    /// </para>
+    /// </remarks>
+    internal static double Commensurate(int offenceMedian, int guardMedian) =>
+        guardMedian <= 0 ? 1 : offenceMedian / (double)guardMedian;
+
+    private static int Rescale(int value, double factor) =>
+        Math.Max(1, (int)Math.Round(value * factor));
 
     /// <summary>
     /// Median of the values a game publishes for a stat, falling back to its opposing stat's
