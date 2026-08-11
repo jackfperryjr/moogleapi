@@ -46,7 +46,7 @@ public sealed class SphereScale
     /// between two median monsters deals about 28, and a median health rating of 55 gives 143
     /// health — a little over five hits. The band that produces runs from roughly two hits for the
     /// frailest thing in a bestiary to fifteen for the bulkiest, which is the spread that makes
-    /// bulk worth drafting for. Measured against the real bestiary: 2,959 monsters rate a median
+    /// bulk worth drafting for. Measured against the real bestiary: 2,961 monsters rate a median
     /// health of 143, and near-parity matchups run a median of four turns and a p90 of nine.
     /// </remarks>
     public const double HealthPerRating = 2.6;
