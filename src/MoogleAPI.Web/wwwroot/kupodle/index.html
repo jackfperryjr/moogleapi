@@ -167,6 +167,11 @@
      * frame on every side, which is the room the corner fans and the crests need to break the
      * rectangle; the flex gap beside it is 0.9rem, so it clears the guess field.
      *
+     * The ?v= stamp is load-bearing, not decoration. This file is served with a thirty-day
+     * max-age, so replacing it at a stable name leaves every previous visitor looking at the old
+     * carving for a month — which is exactly what happened when it was first replaced. Bump the
+     * stamp whenever the drawing changes.
+     *
      * A missing file simply does not paint and the frame degrades to plain bronze moulding. See
      * assets/frames/README.md for what is in the drawing and what constrains editing it.
      */
@@ -175,7 +180,7 @@
       position: absolute;
       inset: -14px;
       pointer-events: none;
-      background: url('/assets/frames/kupodle-frame.svg') center / 100% 100% no-repeat;
+      background: url('/assets/frames/kupodle-frame.svg?v=20260811b') center / 100% 100% no-repeat;
     }
 
     .answer-frame-inner {
