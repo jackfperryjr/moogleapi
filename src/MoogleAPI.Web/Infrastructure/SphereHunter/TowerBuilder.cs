@@ -83,13 +83,24 @@ public class TowerBuilder(SpherePool pool, DailyPuzzle puzzle)
             .ToList();
 
         var hand = new List<Sphere>();
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Walk the games in a shuffled order and take one from each, so which games appear varies
         // by day while no game ever appears twice.
-        foreach (var game in Shuffle(byGame, rng).Take(DraftSize))
+        foreach (var game in Shuffle(byGame, rng))
         {
-            var members = game.ToList();
-            hand.Add(members[rng.Next(members.Count)]);
+            if (hand.Count == DraftSize) break;
+
+            // No two spheres in a hand share a name. The pool is ranked by how many games a
+            // monster appears in, so the top of every bestiary is the same recurring cast — Bomb
+            // is in ten of them — and without this a hand offers Bomb from Final Fantasy IV beside
+            // Bomb from Final Fantasy IX, which reads as a bug rather than as a choice.
+            var members = game.Where(s => !names.Contains(s.Name)).ToList();
+            if (members.Count == 0) continue;
+
+            var pick = members[rng.Next(members.Count)];
+            hand.Add(pick);
+            names.Add(pick.Name);
         }
 
         return [.. hand.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
