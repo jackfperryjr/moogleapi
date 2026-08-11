@@ -1,23 +1,28 @@
 using FastEndpoints;
-using Microsoft.Extensions.Caching.Hybrid;
 using MoogleAPI.Web.Features.SphereHunter.Shared;
-using MoogleAPI.Web.Infrastructure.Data;
-using MoogleAPI.Web.Infrastructure.Puzzles;
 using MoogleAPI.Web.Infrastructure.SphereHunter;
 
 namespace MoogleAPI.Web.Features.SphereHunter.GetDraft;
 
-/// <param name="Date">Which day's hand to deal. Defaults to today; future dates are rejected.</param>
-public record GetDraftRequest(DateOnly? Date);
+/// <param name="Run">
+/// An opaque token identifying this run, made up by the client. Everything about the run is derived
+/// from it, so the same token always deals the same nine spheres — which is what lets a player
+/// refresh mid-climb — and a new token is a new run.
+/// </param>
+public record GetDraftRequest(string Run);
 
 public record GetDraftResponse(
-    DateOnly Date, int PartySize, IReadOnlyList<SphereView> Spheres, BattleRules Rules);
+    string Run, int PartySize, IReadOnlyList<SphereView> Spheres, BattleRules Rules);
 
 /// <summary>
-/// The hand a party is drafted from — nine spheres, one per game, the same for everyone that day.
+/// The nine spheres a party is drafted from.
 /// </summary>
-public class Endpoint(TowerBuilder tower, HybridCache cache)
-    : Endpoint<GetDraftRequest, GetDraftResponse>
+/// <remarks>
+/// Not cached. The response is unique per run token, so a cache here would be a dictionary that
+/// only ever grows and never gets a second read; the expensive part — the sphere pool itself — is
+/// already cached behind <see cref="SpherePool"/>.
+/// </remarks>
+public class Endpoint(TowerBuilder tower) : Endpoint<GetDraftRequest, GetDraftResponse>
 {
     public override void Configure()
     {
@@ -25,24 +30,16 @@ public class Endpoint(TowerBuilder tower, HybridCache cache)
         AllowAnonymous();
         Description(b => b
             .WithName("GetSphereDraft")
-            .WithSummary("Get the day's nine draftable spheres")
+            .WithSummary("Get nine draftable spheres for a run")
             .WithTags("Sphere Hunter"));
     }
 
     public override async Task HandleAsync(GetDraftRequest req, CancellationToken ct)
     {
-        var date = req.Date ?? DailyPuzzle.Today;
-
-        var response = await cache.GetOrCreateAsync(
-            $"spherehunter:draft:{date:yyyy-MM-dd}",
-            async token => new GetDraftResponse(
-                date,
-                TowerBuilder.PartySize,
-                [.. (await tower.DraftAsync(date, token)).Select(SphereView.Of)],
-                BattleRules.Current),
-            tags: CatalogCache.Tags,
-            cancellationToken: ct);
-
-        await Send.OkAsync(response, ct);
+        await Send.OkAsync(new GetDraftResponse(
+            req.Run,
+            TowerBuilder.PartySize,
+            [.. (await tower.DraftAsync(req.Run, ct)).Select(SphereView.Of)],
+            BattleRules.Current), ct);
     }
 }

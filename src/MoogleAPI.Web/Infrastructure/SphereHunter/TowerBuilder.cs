@@ -1,5 +1,4 @@
 using MoogleAPI.Web.Infrastructure.Battle;
-using MoogleAPI.Web.Infrastructure.Puzzles;
 
 namespace MoogleAPI.Web.Infrastructure.SphereHunter;
 
@@ -19,15 +18,30 @@ public record TowerFloor(
 public record SkippedFloor(int GameId, string GameName, string Reason);
 
 public record Tower(
-    DateOnly Date,
+    string Run,
     IReadOnlyList<Sphere> Party,
     IReadOnlyList<TowerFloor> Floors,
     IReadOnlyList<SkippedFloor> Skipped);
 
 /// <summary>
-/// Builds a day's tower: the hand a party is drafted from, and the floors it climbs.
+/// Builds a tower: the hand a party is drafted from, and the floors it climbs.
 /// </summary>
-public class TowerBuilder(SpherePool pool, DailyPuzzle puzzle)
+/// <remarks>
+/// Not a daily. Jack, 2026-08-11: <em>"If I lose, I want to try again."</em> A run is identified by
+/// a token the client makes up, and everything about that run — which nine spheres are offered,
+/// which fiends stand on each floor — is derived from it. Losing costs a token, not a day.
+/// <para>
+/// The token is the client's rather than the server's because the server keeps no run state. A
+/// player who refreshes mid-climb has to be handed back the same tower, and deriving it from
+/// something they hold is what makes that work without a session.
+/// </para>
+/// <para>
+/// No secret is mixed in, unlike <see cref="Puzzles.DailyPuzzle"/>. That exists so nobody can
+/// compute tomorrow's Kupodle answer; here the whole tower is in the response by design, so there
+/// is nothing a predictable seed could give away.
+/// </para>
+/// </remarks>
+public class TowerBuilder(SpherePool pool)
 {
     /// <summary>One floor per battle-ready game, oldest first.</summary>
     public static int[] FloorGameIds => BattlePool.GameIds;
@@ -71,11 +85,10 @@ public class TowerBuilder(SpherePool pool, DailyPuzzle puzzle)
     /// four Final Fantasy XII entries and nothing from the first three games about a third of the
     /// time, because the pool is not evenly distributed and the eye reads that as a bug.
     /// </remarks>
-    public async Task<IReadOnlyList<Sphere>> DraftAsync(DateOnly date, CancellationToken ct)
+    public async Task<IReadOnlyList<Sphere>> DraftAsync(string run, CancellationToken ct)
     {
         var draftable = await pool.DraftableAsync(ct);
-        var seed = puzzle.SeedFor(date, "spherehunter:draft:v1");
-        var rng = DeterministicRandom.ForScope(seed, "draft");
+        var rng = DeterministicRandom.ForScope(SeedFor(run, "draft"), "draft");
 
         var byGame = draftable
             .GroupBy(s => s.GameId)
@@ -106,7 +119,7 @@ public class TowerBuilder(SpherePool pool, DailyPuzzle puzzle)
         return [.. hand.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    public async Task<Tower?> BuildAsync(IReadOnlyList<int> partyIds, DateOnly date, CancellationToken ct)
+    public async Task<Tower?> BuildAsync(IReadOnlyList<int> partyIds, string run, CancellationToken ct)
     {
         if (partyIds.Count is 0 or > PartySize) return null;
 
@@ -116,7 +129,7 @@ public class TowerBuilder(SpherePool pool, DailyPuzzle puzzle)
         var party = partyIds.Distinct().Where(byId.ContainsKey).Select(id => byId[id]).ToList();
         if (party.Count != partyIds.Distinct().Count()) return null;
 
-        var seed = puzzle.SeedFor(date, $"spherehunter:tower:v1:{string.Join(",", partyIds.OrderBy(i => i))}");
+        var seed = SeedFor(run, $"tower:{string.Join(",", partyIds.OrderBy(i => i))}");
         var byGame = all.GroupBy(s => s.GameId).ToDictionary(g => g.Key, g => g.ToList());
 
         var floors = new List<TowerFloor>();
@@ -139,7 +152,7 @@ public class TowerBuilder(SpherePool pool, DailyPuzzle puzzle)
                 Capture: opponents[^1]));
         }
 
-        return new Tower(date, party, floors, skipped);
+        return new Tower(run, party, floors, skipped);
     }
 
     /// <summary>
@@ -230,6 +243,13 @@ public class TowerBuilder(SpherePool pool, DailyPuzzle puzzle)
 
         return shuffled;
     }
+
+    /// <summary>
+    /// The run token folded into a seed. Scoped so the draft and the tower draw from independent
+    /// streams — otherwise adding a floor would reshuffle which spheres were offered.
+    /// </summary>
+    private static ulong SeedFor(string run, string scope) =>
+        (ulong)$"spherehunter:v1:{run}:{scope}".GetDeterministicHash();
 
     private static string NameOf(List<Sphere> bestiary, int gameId) =>
         bestiary.Count > 0 ? bestiary[0].GameName : $"Game {gameId}";

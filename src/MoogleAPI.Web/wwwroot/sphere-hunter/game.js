@@ -20,20 +20,16 @@
     battle: el('battle'), floorNo: el('floor-no'), floorGame: el('floor-game'), floorMeta: el('floor-meta'),
     ally: el('ally'), foe: el('foe'), bench: el('bench'), moves: el('moves'), log: el('log'),
     capture: el('capture'), result: el('result'),
-    statsLabel: el('stats-label'), stats: el('stats'), countdown: el('countdown')
+    statsLabel: el('stats-label'), stats: el('stats')
   };
 
-  /* The puzzle day runs midnight-to-midnight in Central, as it does for every game here. Central
-     is always behind UTC, so a Central date is never ahead of the server's and the "no future
-     runs" rule is satisfied without a server change — but the date has to be sent explicitly,
-     because the server's own default is UTC and the two disagree every evening. */
-  const TZ = 'America/Chicago';
-  const today = () => new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date());
-
-  const STORE = 'spherehunter:v1';
-  const key = (d) => `${STORE}:${d}`;
+  /* Not a daily. A run is identified by a token this client invents, and the server derives the
+     hand and the tower from it — so refreshing mid-climb rebuilds the same run, and starting a new
+     one is just a new token. Losing costs a token, not a day. */
+  const STORE = 'spherehunter:v2';
+  const newRun = () =>
+    (crypto.randomUUID?.() ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`)
+      .replace(/-/g, '').slice(0, 32);
 
   let rules = null;
   let run = null;      // { date, party[], floors[] } from the server
@@ -109,13 +105,14 @@
 
   // ── State ──────────────────────────────────────────────────────────────────
   function save() {
-    try { localStorage.setItem(key(state.date), JSON.stringify(state)); }
+    try { localStorage.setItem(STORE, JSON.stringify(state)); }
     catch { /* private mode: playable, just not resumable */ }
   }
 
-  function load(date) {
+  /** Only ever one run in storage — a new one replaces the last, finished or not. */
+  function load() {
     try {
-      const raw = localStorage.getItem(key(date));
+      const raw = localStorage.getItem(STORE);
       if (raw) return JSON.parse(raw);
     } catch { /* corrupt — start fresh */ }
     return null;
@@ -403,10 +400,14 @@
     save();
     render();
 
-    MoogleStats.record('sphere-hunter', won ? 'win' : 'loss', {
-      date: state.date,
-      bucket: won ? 'clear' : `F${state.floor + 1}`
-    });
+    // No date: a streak counts consecutive wins rather than consecutive days, which is what a
+    // streak means in a game you can retry. The flag is what stops a refresh of a finished run
+    // counting it twice — supplying a date used to do that job.
+    if (!state.recorded) {
+      state.recorded = true;
+      save();
+      MoogleStats.record('sphere-hunter', won ? 'win' : 'loss', { bucket: won ? 'clear' : `F${state.floor + 1}` });
+    }
 
     ui.result.hidden = false;
     const reached = won ? run.floors.length : state.floor + 1;
@@ -416,10 +417,15 @@
         ? `All ${run.floors.length} floors cleared.`
         : `${escapeHtml(run.floors[state.floor].gameName)} ended the run.`}</p>
        <pre class="share-grid">${shareGrid(reached)}</pre>
-       <div class="actions"><button class="btn" id="share">Copy result</button></div>`;
+       <div class="actions">
+         <button class="btn" id="again">${won ? 'Climb again' : 'Try again'}</button>
+         <button class="btn btn-ghost" id="share">Copy result</button>
+       </div>`;
+
+    el('again').addEventListener('click', restart);
 
     el('share').addEventListener('click', async (e) => {
-      const text = `Sphere Hunter ${state.date} — ${won ? 'cleared' : `floor ${reached}/${run.floors.length}`}\n\n${shareGrid(reached)}\n\nmoogleapi.com/sphere-hunter`;
+      const text = `Sphere Hunter — ${won ? 'cleared' : `floor ${reached}/${run.floors.length}`}\n\n${shareGrid(reached)}\n\nmoogleapi.com/sphere-hunter`;
       try {
         await navigator.clipboard.writeText(text);
         e.target.textContent = 'Copied!';
@@ -519,7 +525,7 @@
   }
 
   // ── Draft ──────────────────────────────────────────────────────────────────
-  function renderDraft(spheres) {
+  function renderDraft(spheres, token) {
     const picked = [];
 
     const refresh = () => {
@@ -565,16 +571,22 @@
     });
 
     refresh();
-    ui.draftGo.addEventListener('click', () => begin(picked.map((p) => p.id)));
+    // The button is replaced rather than added to: dealing a second hand into the same element
+    // would otherwise leave the first hand's listener attached and start the previous run.
+    const go = ui.draftGo.cloneNode(true);
+    ui.draftGo.replaceWith(go);
+    ui.draftGo = go;
+    ui.draftGo.disabled = picked.length !== PARTY_SIZE;
+    ui.draftGo.addEventListener('click', () => begin(picked.map((p) => p.id), token));
   }
 
-  async function begin(ids) {
+  async function begin(ids, token) {
     ui.draft.hidden = true;
     ui.boot.hidden = false;
     ui.boot.textContent = 'Building the tower…';
 
     try {
-      const res = await fetch(`${API}/sphere-hunter/run?${new URLSearchParams({ spheres: ids.join(','), date: today() })}`);
+      const res = await fetch(`${API}/sphere-hunter/run?${new URLSearchParams({ spheres: ids.join(','), run: token })}`);
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       run = await res.json();
       rules = run.rules;
@@ -583,8 +595,8 @@
     }
 
     state = {
-      date: today(), party: run.party.map((s) => ({ id: s.id, sphere: s, max: 0, hp: 1, mp: s.magic, limit: 0 })),
-      floor: 0, battle: 0, active: 0, captured: [], done: false, won: false
+      run: token, party: run.party.map((s) => ({ id: s.id, sphere: s, max: 0, hp: 1, mp: s.magic, limit: 0 })),
+      floor: 0, battle: 0, active: 0, captured: [], done: false, won: false, recorded: false
     };
 
     ui.boot.hidden = true;
@@ -595,7 +607,7 @@
   async function resume(saved) {
     try {
       const ids = saved.party.map((u) => u.id).join(',');
-      const res = await fetch(`${API}/sphere-hunter/run?${new URLSearchParams({ spheres: ids, date: saved.date })}`);
+      const res = await fetch(`${API}/sphere-hunter/run?${new URLSearchParams({ spheres: ids, run: saved.run })}`);
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       run = await res.json();
       rules = run.rules;
@@ -623,42 +635,44 @@
     ui.error.textContent = message;
   }
 
-  function renderCountdown() {
-    const parts = Object.fromEntries(
-      new Intl.DateTimeFormat('en-CA', { timeZone: TZ, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        .formatToParts(new Date()).filter((p) => p.type !== 'literal').map((p) => [p.type, p.value]));
-    const seconds = (Number(parts.hour) % 24) * 3600 + Number(parts.minute) * 60 + Number(parts.second);
-    const remaining = 86400 - seconds;
-    ui.countdown.innerHTML =
-      `New spheres in <strong>${Math.floor(remaining / 3600)}h ${Math.floor((remaining % 3600) / 60)}m</strong> — midnight Central.`;
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  /** Abandons whatever is on screen and deals a fresh hand. The old run is simply forgotten. */
+  async function restart() {
+    ui.result.hidden = true;
+    ui.battle.hidden = true;
+    ui.capture.innerHTML = '';
+    ui.log.replaceChildren();
+    run = null;
+    state = null;
+    try { localStorage.removeItem(STORE); } catch { /* nothing to clear */ }
+    await deal();
   }
 
-  // ── Boot ───────────────────────────────────────────────────────────────────
-  async function init() {
-    const date = today();
-    const saved = load(date);
-
-    if (saved && await resume(saved)) {
-      renderCountdown();
-      setInterval(renderCountdown, 30000);
-      return;
-    }
+  async function deal() {
+    const token = newRun();
+    ui.boot.hidden = false;
+    ui.boot.className = 'loading';
+    ui.boot.textContent = 'Opening a fresh set of spheres…';
 
     try {
-      const res = await fetch(`${API}/sphere-hunter/draft?${new URLSearchParams({ date })}`);
+      const res = await fetch(`${API}/sphere-hunter/draft?${new URLSearchParams({ run: token })}`);
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       rules = data.rules;
 
       ui.boot.hidden = true;
       ui.draft.hidden = false;
-      renderDraft(data.spheres);
+      renderDraft(data.spheres, token);
     } catch (err) {
-      return fail(`Could not open today's spheres. ${err.message}`);
+      fail(`Could not open the spheres. ${err.message}`);
     }
+  }
 
-    renderCountdown();
-    setInterval(renderCountdown, 30000);
+  async function init() {
+    const saved = load();
+    if (saved && await resume(saved)) return;
+
+    await deal();
   }
 
   init();

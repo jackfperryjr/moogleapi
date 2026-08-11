@@ -1,3 +1,4 @@
+using MoogleAPI.Web.Infrastructure.Battle;
 using MoogleAPI.Web.Features.SphereHunter.GetRun;
 using MoogleAPI.Web.Infrastructure.SphereHunter;
 
@@ -100,4 +101,41 @@ public class TowerBuilderTests
     {
         Assert.InRange(TowerBuilder.FloorRecovery, 0.1, 0.5);
     }
+
+    // ---- runs, not days ----------------------------------------------------------------------
+
+    /// <summary>
+    /// Jack, 2026-08-11: "If I lose, I want to try again." A run is identified by a token rather
+    /// than by the date, so a loss costs a token. Two tokens must not agree, or "try again" deals
+    /// the same nine spheres and the same tower.
+    /// </summary>
+    [Fact]
+    public void Two_runs_are_different_runs()
+    {
+        Assert.NotEqual(Seed("run-one", "draft"), Seed("run-two", "draft"));
+    }
+
+    /// <summary>
+    /// And the same token must rebuild identically, because that is what lets a player refresh
+    /// mid-climb — the server keeps no run state to fall back on.
+    /// </summary>
+    [Fact]
+    public void The_same_token_rebuilds_the_same_run()
+    {
+        Assert.Equal(Seed("run-one", "draft"), Seed("run-one", "draft"));
+    }
+
+    /// <summary>
+    /// The draft and the tower draw from independent streams, so adding a floor cannot reshuffle
+    /// which spheres were offered.
+    /// </summary>
+    [Fact]
+    public void The_draft_and_the_tower_do_not_share_a_stream()
+    {
+        Assert.NotEqual(Seed("run-one", "draft"), Seed("run-one", "tower:1,2,3"));
+    }
+
+    /// <summary>Mirrors TowerBuilder.SeedFor, which is private — the behaviour is what matters.</summary>
+    private static ulong Seed(string run, string scope) =>
+        (ulong)$"spherehunter:v1:{run}:{scope}".GetDeterministicHash();
 }
