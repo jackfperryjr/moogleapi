@@ -102,7 +102,12 @@
      * way, which is half the puzzle. So each pool character has a second image, black on a pale
      * field with nothing behind it, served by the byte from /characters/daily/silhouette.
      */
-    /* Bronze rather than the page's green, and gilt rather than flat.
+    /* Dark antiqued bronze rather than the page's green, and gilt rather than flat.
+     *
+     * It was brighter to begin with and read as a lamp on a dark page — the frame was the first
+     * thing the eye went to, ahead of the puzzle it surrounds. Everything is now pitched below the
+     * silhouette's own contrast: the flat is darker, the reeding leans on its shadow rather than
+     * its highlight, and the bevel's lit edges are roughly half what they were.
      *
      * The wall behind this page is a photograph of framed portraits and those frames are warm, so
      * a green frame was the one thing on screen pretending not to be part of the picture. Warm
@@ -131,15 +136,15 @@
       border-radius: 4px;
       background:
         repeating-linear-gradient(58deg,
-          rgba(255, 226, 176, 0.15) 0 1px,
-          rgba(0, 0, 0, 0.13) 1px 3px),
+          rgba(255, 226, 176, 0.10) 0 1px,
+          rgba(0, 0, 0, 0.20) 1px 3px),
         linear-gradient(145deg,
-          #e6c184 0%, #b3813f 26%, #7c5527 52%, #a8763a 74%, #4d3317 100%);
+          #a8854a 0%, #705026 26%, #463116 52%, #624620 74%, #261a0b 100%);
       box-shadow:
-        0 7px 18px rgba(0, 0, 0, 0.55),
-        inset 0 0 0 1px rgba(255, 228, 178, 0.42),
-        inset 0 3px 4px rgba(255, 226, 176, 0.22),
-        inset 0 -3px 5px rgba(0, 0, 0, 0.45);
+        0 8px 20px rgba(0, 0, 0, 0.62),
+        inset 0 0 0 1px rgba(255, 228, 178, 0.26),
+        inset 0 3px 4px rgba(255, 226, 176, 0.13),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.58);
     }
 
     /* The rebate — the step down from the moulding to the glass. One dark line with one light one
@@ -152,8 +157,8 @@
       border-radius: 2px;
       pointer-events: none;
       box-shadow:
-        0 0 0 1px rgba(46, 30, 14, 0.9),
-        inset 0 0 0 1px rgba(255, 224, 170, 0.26);
+        0 0 0 1px rgba(22, 14, 5, 0.95),
+        inset 0 0 0 1px rgba(255, 224, 170, 0.16);
     }
 
     /* The carving: a baroque gilt surround, replicating a reference frame.
@@ -180,7 +185,7 @@
       position: absolute;
       inset: -14px;
       pointer-events: none;
-      background: url('/assets/frames/kupodle-frame.svg?v=20260811b') center / 100% 100% no-repeat;
+      background: url('/assets/frames/kupodle-frame.svg?v=20260811c') center / 100% 100% no-repeat;
     }
 
     .answer-frame-inner {
