@@ -58,7 +58,7 @@ public class BattlePool(AppDbContext db, HybridCache cache)
                     .Select(m => new RawFighter(
                         m.Id, m.Name, m.GameId, m.Game.Name, m.Category, m.HitPoints!.Value,
                         m.Attack, m.Defense, m.MagicAttack, m.MagicDefense, m.Speed,
-                        m.Weaknesses, m.Absorbs, m.Abilities, m.ImageUrl))
+                        m.Weaknesses, m.Absorbs, m.Abilities, m.ImageUrl, m.Popularity))
                     .ToListAsync(token);
 
                 return FillGapsWithGameMedians(raw);
@@ -95,7 +95,7 @@ public class BattlePool(AppDbContext db, HybridCache cache)
                 r.Id, r.Name, r.GameId, r.GameName, r.Category, r.HitPoints,
                 r.Attack ?? attack, r.Defense ?? defense,
                 r.MagicAttack ?? magicAttack, r.MagicDefense ?? magicDefense, r.Speed ?? speed,
-                r.Weaknesses, r.Absorbs, r.Abilities, r.ImageUrl)));
+                r.Weaknesses, r.Absorbs, r.Abilities, r.ImageUrl, r.Popularity)));
         }
 
         return fighters.OrderBy(f => f.Id).ToList();
@@ -121,5 +121,5 @@ public class BattlePool(AppDbContext db, HybridCache cache)
     internal record RawFighter(
         int Id, string Name, int GameId, string GameName, string? Category, int HitPoints,
         int? Attack, int? Defense, int? MagicAttack, int? MagicDefense, int? Speed,
-        string? Weaknesses, string? Absorbs, string? Abilities, string? ImageUrl);
+        string? Weaknesses, string? Absorbs, string? Abilities, string? ImageUrl, int Popularity);
 }

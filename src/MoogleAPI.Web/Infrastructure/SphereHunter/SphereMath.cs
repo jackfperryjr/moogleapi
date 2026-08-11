@@ -22,7 +22,8 @@ public record Sphere(
     int MaxMagic,
     IReadOnlyList<Element> Weaknesses,
     IReadOnlyList<Element> Absorbs,
-    IReadOnlyList<SphereMove> Moves)
+    IReadOnlyList<SphereMove> Moves,
+    int Popularity = 0)
 {
     public bool IsBoss => Category == "Boss";
 
