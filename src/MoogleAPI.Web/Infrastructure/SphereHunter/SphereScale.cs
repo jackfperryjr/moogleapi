@@ -122,8 +122,8 @@ public sealed class SphereScale
         /// first version of this did not and the mistake is invisible at any single level.
         /// <para>
         /// Damage carries a <c>(2 × level / 5 + 2)</c> term, so it grows roughly tenfold from the
-        /// bottom of the tower to the top. Against a fixed pool of health that turns the first
-        /// floor into a twenty-turn slog and the last into a three-turn blitz — the opposite of a
+        /// bottom of the expedition to the top. Against a fixed pool of health that turns the first
+        /// hunt into a twenty-turn slog and the last into a three-turn blitz — the opposite of a
         /// difficulty curve. The source material scales its health stat by level for exactly this
         /// reason, and the two growths are meant to cancel: what a level changes is the size of
         /// the numbers, not the length of the fight.

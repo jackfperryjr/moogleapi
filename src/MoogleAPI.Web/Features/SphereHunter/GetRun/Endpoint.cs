@@ -11,12 +11,12 @@ namespace MoogleAPI.Web.Features.SphereHunter.GetRun;
 /// </param>
 /// <param name="Run">
 /// The run token, as handed to <c>/sphere-hunter/draft</c>. The same token and the same party
-/// always rebuild the same tower, which is what lets a player refresh mid-climb.
+/// always rebuild the same expedition, which is what lets a player refresh mid-climb.
 /// </param>
 public record GetRunRequest(string Spheres, string Run);
 
-/// <param name="Capture">The fiend offered for sealing once the floor is cleared.</param>
-public record FloorView(
+/// <param name="Capture">The fiend offered for sealing once the hunt is cleared.</param>
+public record HuntStageView(
     int Number, int GameId, string GameName, int Level,
     IReadOnlyList<SphereView> Opponents, SphereView Capture);
 
@@ -25,15 +25,15 @@ public record SkippedView(int GameId, string GameName, string Reason);
 public record GetRunResponse(
     string Run,
     IReadOnlyList<SphereView> Party,
-    IReadOnlyList<FloorView> Floors,
+    IReadOnlyList<HuntStageView> Hunts,
     IReadOnlyList<SkippedView> Skipped,
     BattleRules Rules);
 
 /// <summary>
-/// A whole tower in one response: the party, every floor, every opponent, and the rules the
+/// A whole expedition in one response: the party, every hunt, every opponent, and the rules the
 /// browser resolves them with. No server-side battle state — a run costs one request.
 /// </summary>
-public class Endpoint(TowerBuilder tower) : Endpoint<GetRunRequest, GetRunResponse>
+public class Endpoint(HuntBuilder expedition) : Endpoint<GetRunRequest, GetRunResponse>
 {
     public override void Configure()
     {
@@ -41,7 +41,7 @@ public class Endpoint(TowerBuilder tower) : Endpoint<GetRunRequest, GetRunRespon
         AllowAnonymous();
         Description(b => b
             .WithName("GetSphereHunterRun")
-            .WithSummary("Build a tower run for a party of spheres")
+            .WithSummary("Build a expedition run for a party of spheres")
             .WithTags("Sphere Hunter"));
     }
 
@@ -49,7 +49,7 @@ public class Endpoint(TowerBuilder tower) : Endpoint<GetRunRequest, GetRunRespon
     {
         var ids = ParseIds(req.Spheres);
 
-        var run = await tower.BuildAsync(ids, req.Run, ct);
+        var run = await expedition.BuildAsync(ids, req.Run, ct);
         if (run is null)
         {
             await Send.NotFoundAsync(ct);
@@ -59,7 +59,7 @@ public class Endpoint(TowerBuilder tower) : Endpoint<GetRunRequest, GetRunRespon
         await Send.OkAsync(new GetRunResponse(
             run.Run,
             [.. run.Party.Select(SphereView.Of)],
-            [.. run.Floors.Select(f => new FloorView(
+            [.. run.Hunts.Select(f => new HuntStageView(
                 f.Number, f.GameId, f.GameName, f.Level,
                 [.. f.Opponents.Select(SphereView.Of)],
                 SphereView.Of(f.Capture)))],

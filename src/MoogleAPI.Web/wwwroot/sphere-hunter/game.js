@@ -1,8 +1,8 @@
-/* Sphere Hunter — draft three fiends, climb eleven floors.
+/* Sphere Hunter — draft three fiends, take them through eleven hunts.
  *
  * Battles resolve here, but the rules do not live here: every constant comes from the `rules`
  * object in the run payload, which the server built from its own SphereMath. That matters because
- * the server used the same arithmetic to decide each floor was winnable, and a client carrying its
+ * the server used the same arithmetic to decide each hunt was winnable, and a client carrying its
  * own copy of the numbers drifts until the vetting stops describing the fight the player gets.
  * The one thing hard-coded below is the *shape* of the formula; every number in it is served.
  */
@@ -17,14 +17,15 @@
     boot: el('boot'), error: el('error'),
     draft: el('draft'), draftGrid: el('draft-grid'), draftPicked: el('draft-picked'),
     draftCount: el('draft-count'), draftGo: el('draft-go'),
-    battle: el('battle'), floorNo: el('floor-no'), floorGame: el('floor-game'), floorMeta: el('floor-meta'),
+    battle: el('battle'), huntNo: el('hunt-no'), huntGame: el('hunt-game'), huntMeta: el('hunt-meta'),
+    restart: el('restart'), newHunt: el('new-hunt'),
     ally: el('ally'), foe: el('foe'), bench: el('bench'), moves: el('moves'), log: el('log'),
     capture: el('capture'), result: el('result'),
     statsLabel: el('stats-label'), stats: el('stats')
   };
 
   /* Not a daily. A run is identified by a token this client invents, and the server derives the
-     hand and the tower from it — so refreshing mid-climb rebuilds the same run, and starting a new
+     hand and the expedition from it — so refreshing mid-hunt rebuilds the same run, and starting a new
      one is just a new token. Losing costs a token, not a day. */
   const STORE = 'spherehunter:v2';
   const newRun = () =>
@@ -32,7 +33,7 @@
       .replace(/-/g, '').slice(0, 32);
 
   let rules = null;
-  let run = null;      // { date, party[], floors[] } from the server
+  let run = null;      // { date, party[], hunts[] } from the server
   let state = null;    // the run in progress, persisted
 
   // ── Rules-driven maths, mirroring SphereMath ───────────────────────────────
@@ -78,7 +79,7 @@
 
   /* Rolled in the browser rather than from a shared seed. Opponent selection is seeded and
      identical for everyone; the dice inside a battle are not, and do not need to be — nothing is
-     scored server-side, and a shared result grid records which floor you reached, not how. */
+     scored server-side, and a shared result grid records which hunt you reached, not how. */
   function resolve(attacker, defender, move, level, status) {
     const effect = effectiveness(defender, move.element);
     if (effect === 0) return { damage: 0, missed: false, critical: false, effect };
@@ -127,22 +128,22 @@
     };
   }
 
-  /** Rebuilds the live units for a floor. Health carries between floors as a fraction, so a
-   *  sphere that ended the last floor at a third stays at a third of a bigger pool. */
-  function enterFloor(floor) {
-    const level = floor.level;
+  /** Rebuilds the live units for a hunt. Health carries between hunts as a fraction, so a
+   *  sphere that ended the last hunt at a third stays at a third of a bigger pool. */
+  function enterHunt(hunt) {
+    const level = hunt.level;
 
     state.party = state.party.map((prev) => {
       const sphere = run.party.concat(state.captured || []).find((s) => s.id === prev.id) || prev.sphere;
       const max = healthAt(sphere, level);
       const fraction = prev.max ? prev.hp / prev.max : 1;
 
-      // Recovery is partial on purpose: below what a floor costs, so the run trends downward.
-      const restored = Math.min(1, fraction + rules.floorRecovery);
+      // Recovery is partial on purpose: below what a hunt costs, so the run trends downward.
+      const restored = Math.min(1, fraction + rules.recoveryBetweenHunts);
       return {
         id: sphere.id, sphere, max,
-        hp: prev.hp <= 0 ? Math.max(1, Math.round(max * rules.floorRecovery)) : Math.max(1, Math.round(max * restored)),
-        mp: Math.min(sphere.magic, Math.round(prev.mp + sphere.magic * rules.floorRecovery)),
+        hp: prev.hp <= 0 ? Math.max(1, Math.round(max * rules.recoveryBetweenHunts)) : Math.max(1, Math.round(max * restored)),
+        mp: Math.min(sphere.magic, Math.round(prev.mp + sphere.magic * rules.recoveryBetweenHunts)),
         limit: prev.limit || 0, limitSpent: false, status: 'None', statusTurns: 0, sleepFor: 0
       };
     });
@@ -152,9 +153,9 @@
   }
 
   function startBattle() {
-    const floor = run.floors[state.floor];
-    const sphere = floor.opponents[state.battle];
-    const level = floor.level;
+    const hunt = run.hunts[state.hunt];
+    const sphere = hunt.opponents[state.battle];
+    const level = hunt.level;
 
     state.foe = {
       id: sphere.id, sphere, max: healthAt(sphere, level),
@@ -162,7 +163,7 @@
       limit: 0, limitSpent: false, status: 'None', statusTurns: 0, sleepFor: 0
     };
     state.busy = false;
-    log(`Floor ${floor.number} — ${sphere.name} blocks the way.`, 'foe');
+    log(`Hunt ${hunt.number} — ${sphere.name} stands in the way.`, 'foe');
     save();
     render();
   }
@@ -190,8 +191,8 @@
     state.busy = true;
     render();
 
-    const floor = run.floors[state.floor];
-    const level = floor.level;
+    const hunt = run.hunts[state.hunt];
+    const level = hunt.level;
     const playerFirst = speedOf(active()) >= speedOf(state.foe);
 
     const order = playerFirst ? ['player', 'foe'] : ['foe', 'player'];
@@ -258,7 +259,7 @@
         defender.statusTurns = rules.statusTurns;
         if (move.status === 'Sleep') {
           defender.sleepFor = rules.minSleepTurns +
-            Math.floor(Math.random() * (rules.maxSleepTurns - rules.minSleepTurns + 1));
+            Math.hunt(Math.random() * (rules.maxSleepTurns - rules.minSleepTurns + 1));
         }
         log(`${defender.sphere.name} is ${move.status.toLowerCase()}.`);
       }
@@ -305,15 +306,15 @@
 
   /** After every exchange: did anything die, and what happens next? */
   function settle() {
-    const floor = run.floors[state.floor];
+    const hunt = run.hunts[state.hunt];
 
     if (state.foe.hp <= 0) {
       log(`${state.foe.sphere.name} is defeated.`, 'hit');
       state.battle++;
 
-      if (state.battle >= floor.opponents.length) {
+      if (state.battle >= hunt.opponents.length) {
         state.battle = 0;
-        offerCapture(floor);
+        offerCapture(hunt);
         return;
       }
       startBattle();
@@ -335,11 +336,11 @@
   }
 
   // ── Capture ────────────────────────────────────────────────────────────────
-  function offerCapture(floor) {
+  function offerCapture(hunt) {
     save();
     render();
 
-    const fiend = floor.capture;
+    const fiend = hunt.capture;
     ui.capture.innerHTML = '';
 
     const box = document.createElement('div');
@@ -369,9 +370,9 @@
       swap.textContent = `Release ${unit.sphere.name}`;
       swap.addEventListener('click', () => {
         (state.captured = state.captured || []).push(fiend);
-        state.party[i] = { ...unitOf(fiend, floor.level), max: healthAt(fiend, floor.level) };
+        state.party[i] = { ...unitOf(fiend, hunt.level), max: healthAt(fiend, hunt.level) };
         log(`${fiend.name} is sealed. ${unit.sphere.name} is released.`, 'big');
-        nextFloor();
+        nextHunt();
       });
       actions.appendChild(swap);
     });
@@ -379,19 +380,19 @@
     const decline = document.createElement('button');
     decline.className = 'btn btn-ghost';
     decline.textContent = 'Leave it';
-    decline.addEventListener('click', nextFloor);
+    decline.addEventListener('click', nextHunt);
     actions.appendChild(decline);
   }
 
-  function nextFloor() {
+  function nextHunt() {
     ui.capture.innerHTML = '';
-    state.floor++;
-    if (state.floor >= run.floors.length) return finish(true);
+    state.hunt++;
+    if (state.hunt >= run.hunts.length) return finish(true);
 
     if (state.active === -1 || state.party[state.active].hp <= 0) {
       state.active = state.party.findIndex((u) => u.hp > 0);
     }
-    enterFloor(run.floors[state.floor]);
+    enterHunt(run.hunts[state.hunt]);
   }
 
   function finish(won) {
@@ -406,26 +407,28 @@
     if (!state.recorded) {
       state.recorded = true;
       save();
-      MoogleStats.record('sphere-hunter', won ? 'win' : 'loss', { bucket: won ? 'clear' : `F${state.floor + 1}` });
+      MoogleStats.record('sphere-hunter', won ? 'win' : 'loss', { bucket: won ? 'clear' : `F${state.hunt + 1}` });
     }
 
     ui.result.hidden = false;
-    const reached = won ? run.floors.length : state.floor + 1;
+    const reached = won ? run.hunts.length : state.hunt + 1;
     ui.result.innerHTML =
-      `<h2>${won ? 'The tower is yours' : `Fell on floor ${reached}`}</h2>
+      `<h2>${won ? 'Every mark taken' : `The hunt ended on ${reached}`}</h2>
        <p>${won
-        ? `All ${run.floors.length} floors cleared.`
-        : `${escapeHtml(run.floors[state.floor].gameName)} ended the run.`}</p>
+        ? `All ${run.hunts.length} hunts cleared.`
+        : `${escapeHtml(run.hunts[state.hunt].gameName)} ended the run.`}</p>
        <pre class="share-grid">${shareGrid(reached)}</pre>
        <div class="actions">
-         <button class="btn" id="again">${won ? 'Climb again' : 'Try again'}</button>
+         <button class="btn" id="again">${won ? 'Hunt again' : 'New hunt'}</button>
+         <button class="btn btn-ghost" id="retry">Same monsters</button>
          <button class="btn btn-ghost" id="share">Copy result</button>
        </div>`;
 
     el('again').addEventListener('click', restart);
+    el('retry').addEventListener('click', retry);
 
     el('share').addEventListener('click', async (e) => {
-      const text = `Sphere Hunter — ${won ? 'cleared' : `floor ${reached}/${run.floors.length}`}\n\n${shareGrid(reached)}\n\nmoogleapi.com/sphere-hunter`;
+      const text = `Sphere Hunter — ${won ? 'cleared' : `hunt ${reached}/${run.hunts.length}`}\n\n${shareGrid(reached)}\n\nmoogleapi.com/sphere-hunter`;
       try {
         await navigator.clipboard.writeText(text);
         e.target.textContent = 'Copied!';
@@ -437,9 +440,9 @@
     ui.statsLabel.hidden = false;
   }
 
-  /** One square per floor — the shape of the climb, not which fiends were in it. */
+  /** One square per hunt — the shape of the run, not which fiends were in it. */
   const shareGrid = (reached) =>
-    run.floors.map((_, i) => (i < reached - (state.won ? 0 : 1) ? '🟩' : i === reached - 1 && !state.won ? '🟥' : '⬛'))
+    run.hunts.map((_, i) => (i < reached - (state.won ? 0 : 1) ? '🟩' : i === reached - 1 && !state.won ? '🟥' : '⬛'))
       .join('');
 
   // ── Rendering ──────────────────────────────────────────────────────────────
@@ -455,6 +458,14 @@
       sphere.imageUrl ? `<img src="${sphere.imageUrl}" alt="" />` : ''}</figure>`;
   }
 
+  /** The fight shows the whole picture rather than the sphere. A sphere is what a fiend is kept
+   *  in — right for the draft, the bench and the seal — but a circle crops the artwork to a face,
+   *  and in the one place two monsters are actually facing each other you want to see them. */
+  function cardArt(sphere, fainted) {
+    return `<figure class="art-card${fainted ? ' fainted' : ''}">${
+      sphere.imageUrl ? `<img src="${sphere.imageUrl}" alt="" />` : ''}</figure>`;
+  }
+
   function bar(cls, value, max) {
     const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
     const tone = cls === 'hp' ? (pct <= 25 ? ' critical' : pct <= 55 ? ' hurt' : '') : '';
@@ -466,7 +477,7 @@
     if (unit.status !== 'None') badges.push(unit.status);
     if (unit.limit >= rules.limitFull && !unit.limitSpent) badges.push('Limit ready');
 
-    return `${sphereArt(unit.sphere, unit.hp <= 0)}
+    return `${cardArt(unit.sphere, unit.hp <= 0)}
       <div class="combatant-name">${escapeHtml(unit.sphere.name)}</div>
       <div class="combatant-game">${escapeHtml(unit.sphere.gameName)} · ${elemTag(unit.sphere.affinity)}</div>
       <div class="gauge-row"><span>HP</span>${bar(isFoe ? 'hp foe' : 'hp', unit.hp, unit.max)}</div>
@@ -479,10 +490,10 @@
   function render() {
     if (state.done) { ui.moves.innerHTML = ''; return; }
 
-    const floor = run.floors[state.floor];
-    ui.floorNo.textContent = `Floor ${floor.number} / ${run.floors.length}`;
-    ui.floorGame.textContent = floor.gameName;
-    ui.floorMeta.textContent = `Level ${floor.level} · battle ${state.battle + 1}/${floor.opponents.length}`;
+    const hunt = run.hunts[state.hunt];
+    ui.huntNo.textContent = `Hunt ${hunt.number} / ${run.hunts.length}`;
+    ui.huntGame.textContent = hunt.gameName;
+    ui.huntMeta.textContent = `Level ${hunt.level} · battle ${state.battle + 1}/${hunt.opponents.length}`;
 
     ui.ally.innerHTML = combatant(active(), false);
     ui.foe.innerHTML = combatant(state.foe, true);
@@ -515,7 +526,7 @@
         (move.magicCost > 0 && me.mp < move.magicCost) ||
         (me.status === 'Silence' && move.category === 'Magic');
 
-      const expected = Math.round(deterministic(me.sphere, state.foe.sphere, move, floor.level, me.status));
+      const expected = Math.round(deterministic(me.sphere, state.foe.sphere, move, hunt.level, me.status));
       button.innerHTML = `<span class="move-name">${escapeHtml(move.name)}</span>
         <span class="move-meta">${move.element || 'Neutral'} · ${move.category} · ~${expected} dmg</span>
         <span class="move-meta">${move.accuracy}% acc${move.magicCost ? ` · ${move.magicCost} MP` : ''}${move.recoil ? ' · recoil' : ''}</span>`;
@@ -583,7 +594,7 @@
   async function begin(ids, token) {
     ui.draft.hidden = true;
     ui.boot.hidden = false;
-    ui.boot.textContent = 'Building the tower…';
+    ui.boot.textContent = 'Building the expedition…';
 
     try {
       const res = await fetch(`${API}/sphere-hunter/run?${new URLSearchParams({ spheres: ids.join(','), run: token })}`);
@@ -596,12 +607,12 @@
 
     state = {
       run: token, party: run.party.map((s) => ({ id: s.id, sphere: s, max: 0, hp: 1, mp: s.magic, limit: 0 })),
-      floor: 0, battle: 0, active: 0, captured: [], done: false, won: false, recorded: false
+      hunt: 0, battle: 0, active: 0, captured: [], done: false, won: false, recorded: false
     };
 
     ui.boot.hidden = true;
     ui.battle.hidden = false;
-    enterFloor(run.floors[0]);
+    enterHunt(run.hunts[0]);
   }
 
   async function resume(saved) {
@@ -636,6 +647,26 @@
   }
 
   // ── Boot ───────────────────────────────────────────────────────────────────
+  /** Runs the same expedition again from the first hunt — same party, same fiends, same order.
+   *  No refetch: the run payload already holds everything, and re-requesting it with the same
+   *  token would rebuild exactly what is in memory. */
+  function retry() {
+    if (!run) return;
+
+    ui.result.hidden = true;
+    ui.capture.innerHTML = '';
+    ui.log.replaceChildren();
+    ui.battle.hidden = false;
+
+    state = {
+      run: state.run,
+      party: run.party.map((s) => ({ id: s.id, sphere: s, max: 0, hp: 1, mp: s.magic, limit: 0 })),
+      hunt: 0, battle: 0, active: 0, captured: [], done: false, won: false, recorded: false
+    };
+
+    enterHunt(run.hunts[0]);
+  }
+
   /** Abandons whatever is on screen and deals a fresh hand. The old run is simply forgotten. */
   async function restart() {
     ui.result.hidden = true;
@@ -668,7 +699,27 @@
     }
   }
 
+  /** A destructive button that asks first, in place, rather than through a modal. */
+  function arm(button, prompt, action) {
+    let armed = false;
+    const label = button.textContent;
+
+    button.addEventListener('click', () => {
+      if (!armed) { armed = true; button.textContent = prompt; return; }
+      armed = false;
+      button.textContent = label;
+      action();
+    });
+
+    button.addEventListener('blur', () => {
+      if (armed) { armed = false; button.textContent = label; }
+    });
+  }
+
   async function init() {
+    arm(ui.restart, 'Start over?', retry);
+    arm(ui.newHunt, 'New monsters?', restart);
+
     const saved = load();
     if (saved && await resume(saved)) return;
 

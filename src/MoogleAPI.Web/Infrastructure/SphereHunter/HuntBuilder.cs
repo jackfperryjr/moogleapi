@@ -2,12 +2,12 @@ using MoogleAPI.Web.Infrastructure.Battle;
 
 namespace MoogleAPI.Web.Infrastructure.SphereHunter;
 
-/// <param name="Level">What both sides fight at on this floor. Progression, not a resource.</param>
+/// <param name="Level">What both sides fight at on this hunt. Progression, not a resource.</param>
 /// <param name="Capture">
-/// The fiend offered for sealing once the floor is cleared — the boss that ended it. Declining is
+/// The fiend offered for sealing once the hunt is cleared — the boss that ended it. Declining is
 /// a real option: a party slot spent on it is a slot given up.
 /// </param>
-public record TowerFloor(
+public record HuntStage(
     int Number,
     int GameId,
     string GameName,
@@ -15,61 +15,61 @@ public record TowerFloor(
     IReadOnlyList<Sphere> Opponents,
     Sphere Capture);
 
-public record SkippedFloor(int GameId, string GameName, string Reason);
+public record SkippedHunt(int GameId, string GameName, string Reason);
 
-public record Tower(
+public record Expedition(
     string Run,
     IReadOnlyList<Sphere> Party,
-    IReadOnlyList<TowerFloor> Floors,
-    IReadOnlyList<SkippedFloor> Skipped);
+    IReadOnlyList<HuntStage> Hunts,
+    IReadOnlyList<SkippedHunt> Skipped);
 
 /// <summary>
-/// Builds a tower: the hand a party is drafted from, and the floors it climbs.
+/// Builds an expedition: the hand a party is drafted from, and the hunts it works through.
 /// </summary>
 /// <remarks>
 /// Not a daily. Jack, 2026-08-11: <em>"If I lose, I want to try again."</em> A run is identified by
 /// a token the client makes up, and everything about that run — which nine spheres are offered,
-/// which fiends stand on each floor — is derived from it. Losing costs a token, not a day.
+/// which fiends stand on each hunt — is derived from it. Losing costs a token, not a day.
 /// <para>
 /// The token is the client's rather than the server's because the server keeps no run state. A
-/// player who refreshes mid-climb has to be handed back the same tower, and deriving it from
+/// player who refreshes mid-hunt has to be handed back the same expedition, and deriving it from
 /// something they hold is what makes that work without a session.
 /// </para>
 /// <para>
 /// No secret is mixed in, unlike <see cref="Puzzles.DailyPuzzle"/>. That exists so nobody can
-/// compute tomorrow's Kupodle answer; here the whole tower is in the response by design, so there
+/// compute tomorrow's Kupodle answer; here the whole expedition is in the response by design, so there
 /// is nothing a predictable seed could give away.
 /// </para>
 /// </remarks>
-public class TowerBuilder(SpherePool pool)
+public class HuntBuilder(SpherePool pool)
 {
-    /// <summary>One floor per battle-ready game, oldest first.</summary>
-    public static int[] FloorGameIds => BattlePool.GameIds;
+    /// <summary>One hunt per battle-ready game, oldest first.</summary>
+    public static int[] HuntGameIds => BattlePool.GameIds;
 
     /// <summary>Spheres offered at the draft. Nine is three parties' worth of choice.</summary>
     public const int DraftSize = 9;
 
     public const int PartySize = 3;
 
-    /// <summary>Fights on a floor: two of the game's rank and file, then one of its bosses.</summary>
-    public const int BattlesPerFloor = 3;
+    /// <summary>Fights on a hunt: two of the game's rank and file, then one of its bosses.</summary>
+    public const int BattlesPerHunt = 3;
 
     /// <summary>
-    /// Health and magic restored between floors, as a share of maximum.
+    /// Health and magic restored between hunts, as a share of maximum.
     /// </summary>
     /// <remarks>
-    /// Below what a floor costs, deliberately, so a run trends downward and the tower is a war of
+    /// Below what a hunt costs, deliberately, so a run trends downward and the expedition is a war of
     /// attrition rather than eleven independent fights. The same reasoning as Battle Square's
-    /// wave recovery, and the same trap to avoid: set it at or above the cost of a floor and the
+    /// wave recovery, and the same trap to avoid: set it at or above the cost of a hunt and the
     /// run stops being one.
     /// </remarks>
-    public const double FloorRecovery = 0.35;
+    public const double RecoveryBetweenHunts = 0.35;
 
     /// <summary>A fight decided in a click or two is not one.</summary>
     private const int MinTurns = 3;
 
     /// <summary>
-    /// How far an opponent's health rating may sit from the party's best, so a floor is a fight
+    /// How far an opponent's health rating may sit from the party's best, so a hunt is a fight
     /// rather than a formality in either direction. Bosses get more room — a boss is meant to be
     /// the wall at the end of a game, not a third random encounter.
     /// </summary>
@@ -119,7 +119,7 @@ public class TowerBuilder(SpherePool pool)
         return [.. hand.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    public async Task<Tower?> BuildAsync(IReadOnlyList<int> partyIds, string run, CancellationToken ct)
+    public async Task<Expedition?> BuildAsync(IReadOnlyList<int> partyIds, string run, CancellationToken ct)
     {
         if (partyIds.Count is 0 or > PartySize) return null;
 
@@ -129,30 +129,30 @@ public class TowerBuilder(SpherePool pool)
         var party = partyIds.Distinct().Where(byId.ContainsKey).Select(id => byId[id]).ToList();
         if (party.Count != partyIds.Distinct().Count()) return null;
 
-        var seed = SeedFor(run, $"tower:{string.Join(",", partyIds.OrderBy(i => i))}");
+        var seed = SeedFor(run, $"expedition:{string.Join(",", partyIds.OrderBy(i => i))}");
         var byGame = all.GroupBy(s => s.GameId).ToDictionary(g => g.Key, g => g.ToList());
 
-        var floors = new List<TowerFloor>();
-        var skipped = new List<SkippedFloor>();
+        var hunts = new List<HuntStage>();
+        var skipped = new List<SkippedHunt>();
 
-        foreach (var gameId in FloorGameIds)
+        foreach (var gameId in HuntGameIds)
         {
             var bestiary = byGame.GetValueOrDefault(gameId, []);
-            var level = SphereFactory.LevelForFloor(floors.Count + 1, FloorGameIds.Length);
+            var level = SphereFactory.LevelForHunt(hunts.Count + 1, HuntGameIds.Length);
 
-            var opponents = PickOpponents(bestiary, party, seed, floors.Count + 1, level);
-            if (opponents.Count < BattlesPerFloor)
+            var opponents = PickOpponents(bestiary, party, seed, hunts.Count + 1, level);
+            if (opponents.Count < BattlesPerHunt)
             {
-                skipped.Add(new SkippedFloor(gameId, NameOf(bestiary, gameId), "not enough comparable opponents"));
+                skipped.Add(new SkippedHunt(gameId, NameOf(bestiary, gameId), "not enough comparable opponents"));
                 continue;
             }
 
-            floors.Add(new TowerFloor(
-                floors.Count + 1, gameId, opponents[0].GameName, level, opponents,
+            hunts.Add(new HuntStage(
+                hunts.Count + 1, gameId, opponents[0].GameName, level, opponents,
                 Capture: opponents[^1]));
         }
 
-        return new Tower(run, party, floors, skipped);
+        return new Expedition(run, party, hunts, skipped);
     }
 
     /// <summary>
@@ -160,9 +160,9 @@ public class TowerBuilder(SpherePool pool)
     /// actually win.
     /// </summary>
     private static List<Sphere> PickOpponents(
-        List<Sphere> bestiary, IReadOnlyList<Sphere> party, ulong seed, int floor, int level)
+        List<Sphere> bestiary, IReadOnlyList<Sphere> party, ulong seed, int hunt, int level)
     {
-        var rng = DeterministicRandom.ForScope(seed, "floor", floor);
+        var rng = DeterministicRandom.ForScope(seed, "hunt", hunt);
         var partyIds = party.Select(s => s.Id).ToHashSet();
 
         var enemies = Winnable(bestiary.Where(s => !s.IsBoss && !partyIds.Contains(s.Id)), party, level, RatingBand);
@@ -170,7 +170,7 @@ public class TowerBuilder(SpherePool pool)
 
         var picked = new List<Sphere>();
 
-        for (var i = 0; i < BattlesPerFloor - 1 && enemies.Count > 0; i++)
+        for (var i = 0; i < BattlesPerHunt - 1 && enemies.Count > 0; i++)
         {
             var index = rng.Next(enemies.Count);
             picked.Add(enemies[index]);
@@ -178,7 +178,7 @@ public class TowerBuilder(SpherePool pool)
         }
 
         // A game whose boss articles are too thin still ends on its hardest ordinary enemy, rather
-        // than losing its floor from the tower altogether.
+        // than losing its hunt from the expedition altogether.
         if (bosses.Count > 0) picked.Add(bosses[rng.Next(bosses.Count)]);
         else if (enemies.Count > 0) picked.Add(enemies.OrderByDescending(s => s.Ratings.HitPoints).First());
 
@@ -190,7 +190,7 @@ public class TowerBuilder(SpherePool pool)
     /// </summary>
     /// <remarks>
     /// Vetted against the party's <em>best</em> answer to each opponent rather than an average,
-    /// because the player gets to switch — a floor is fair if any of the three can handle it, and
+    /// because the player gets to switch — a hunt is fair if any of the three can handle it, and
     /// finding which one is the game. Rated on comparable health first so that a Goblin never draws
     /// a superboss, then on the same arithmetic the browser will resolve the fight with.
     /// </remarks>
@@ -222,7 +222,7 @@ public class TowerBuilder(SpherePool pool)
 
         if (winnable.Count > 0) return winnable;
 
-        // Everything here is a losing matchup. Take the least bad rather than drop the floor: the
+        // Everything here is a losing matchup. Take the least bad rather than drop the hunt: the
         // party has two more members, a Limit the estimate ignores, and the option to run the
         // fight with a sphere the estimate never considered best.
         return [.. banded
@@ -245,8 +245,8 @@ public class TowerBuilder(SpherePool pool)
     }
 
     /// <summary>
-    /// The run token folded into a seed. Scoped so the draft and the tower draw from independent
-    /// streams — otherwise adding a floor would reshuffle which spheres were offered.
+    /// The run token folded into a seed. Scoped so the draft and the expedition draw from independent
+    /// streams — otherwise adding a hunt would reshuffle which spheres were offered.
     /// </summary>
     private static ulong SeedFor(string run, string scope) =>
         (ulong)$"spherehunter:v1:{run}:{scope}".GetDeterministicHash();

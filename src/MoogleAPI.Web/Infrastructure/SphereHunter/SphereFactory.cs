@@ -9,30 +9,30 @@ namespace MoogleAPI.Web.Infrastructure.SphereHunter;
 public static class SphereFactory
 {
     /// <summary>
-    /// The level the ground floor is fought at, and the level at the top.
+    /// The level the ground hunt is fought at, and the level at the top.
     /// </summary>
     /// <remarks>
-    /// The floor is 15 rather than something rounder because damage carries a
+    /// The hunt is 15 rather than something rounder because damage carries a
     /// <c>(2 × level / 5 + 2)</c> term whose <c>+ 2</c> is a large share of a very low level and a
     /// rounding error at a high one. Health scales cleanly with level, that constant does not, and
-    /// starting at 5 left the first floor's fights visibly shorter than the rest of the tower's.
-    /// From 15 the whole climb sits inside a turn or two of itself.
+    /// starting at 5 left the first hunt's fights visibly shorter than the rest of the expedition's.
+    /// From 15 the whole expedition sits inside a turn or two of itself.
     /// </remarks>
     public const int MinLevel = 15;
     public const int MaxLevel = 80;
 
-    /// <summary>The level everything on a given floor fights at.</summary>
+    /// <summary>The level everything on a given hunt fights at.</summary>
     /// <remarks>
     /// Both sides, deliberately. Level is a difficulty curve here rather than a resource the player
-    /// accumulates — a party that out-levelled the floor would turn the back half of the tower into
+    /// accumulates — a party that out-levelled the hunt would turn the back half of the expedition into
     /// a formality, and the interesting decisions are which three spheres you brought and when you
     /// switch them, not whether you ground.
     /// </remarks>
-    public static int LevelForFloor(int floor, int floors)
+    public static int LevelForHunt(int hunt, int hunts)
     {
-        if (floors <= 1) return MaxLevel;
+        if (hunts <= 1) return MaxLevel;
 
-        var progress = Math.Clamp((floor - 1) / (double)(floors - 1), 0, 1);
+        var progress = Math.Clamp((hunt - 1) / (double)(hunts - 1), 0, 1);
         return (int)Math.Round(MinLevel + (MaxLevel - MinLevel) * progress);
     }
 

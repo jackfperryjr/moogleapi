@@ -57,7 +57,7 @@ public static class Elements
     /// would have to memorise it, where "opposites hurt each other" needs no instruction at all.
     /// <para>
     /// An element is resisted by itself, which is the one asymmetry worth keeping: it stops a
-    /// Fire party bulldozing a Fire floor with Fire, and it is what the series does whenever a
+    /// Fire party bulldozing a Fire hunt with Fire, and it is what the series does whenever a
     /// creature is made of the thing you are throwing at it.
     /// </para>
     /// </remarks>
