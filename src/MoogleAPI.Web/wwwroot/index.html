@@ -171,10 +171,39 @@
       width: auto;
       vertical-align: middle;
       display: inline-block;
-      margin: 0 -0.04em;
+      /* Asymmetric on purpose. h1 has letter-spacing: 0.15em, which is trailing space added after
+         every character — so the "m" pushes 0.15em of it against the moogle's left side while the
+         "o" on the right gets none, and an even margin lands the mascot hard up against the "o".
+         The two values differ by that 0.15em and average out to the old -0.04em, so the wordmark
+         is the same width as before; only the moogle moved. */
+      margin: 0 0.035em 0 -0.115em;
       -webkit-text-fill-color: initial;
       transform: rotate(-8deg) translateY(-0.05em);
+      transform-origin: 50% 65%;
       filter: drop-shadow(0 2px 6px rgba(20, 22, 26, 0.18));
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.35s ease;
+    }
+    /* Hover is the only hint that the mascot does anything — it is the FFIV-mode toggle, and a
+       still image in the middle of a wordmark does not read as a button. The gold is the FFIV
+       accent rather than anything from the silver palette, which makes the hover a small preview
+       of what clicking does.
+
+       The wobble ends on exactly the transform the hover rule holds, so when the animation drops
+       off nothing jumps, and the transition takes the lift back down on the way out. Nothing else
+       may set transform on this element: an !important rule elsewhere outranks the keyframes and
+       silently flattens the whole thing back to a pop. */
+    .moogle-letter:hover,
+    .moogle-letter:focus-visible {
+      transform: rotate(-8deg) translateY(-0.12em) scale(1.12);
+      filter: drop-shadow(0 0 10px rgba(248, 208, 48, 0.9));
+      animation: moogle-wobble 0.65s ease-in-out;
+    }
+    @keyframes moogle-wobble {
+      0%   { transform: rotate(-8deg)  translateY(-0.05em) scale(1); }
+      25%  { transform: rotate(6deg)   translateY(-0.16em) scale(1.16); }
+      50%  { transform: rotate(-16deg) translateY(-0.1em)  scale(1.12); }
+      75%  { transform: rotate(-2deg)  translateY(-0.14em) scale(1.14); }
+      100% { transform: rotate(-8deg)  translateY(-0.12em) scale(1.12); }
     }
     .hero p {
       color: var(--muted);
@@ -467,11 +496,11 @@
      * silver theme owns :root and ff4.css overrides the same tokens on :root.ff-mode, so
      * components never need to know which mode they are in.
      */
+    /* The hover state itself is up with .moogle-letter, not here — an #id !important rule beat the
+       wobble keyframes to the transform, and since a running animation suppresses the transition
+       on the same property, the result was an instant pop to scale with no animation at all. One
+       owner for that transform now. The gold glow survived the move; only the fight did not. */
     #moogle-egg { cursor: pointer; }
-    #moogle-egg:hover {
-      filter: drop-shadow(0 0 10px rgba(248, 208, 48, 0.9)) !important;
-      transform: rotate(-8deg) translateY(-0.05em) scale(1.2) !important;
-    }
 
     #ff-notify {
       position: fixed;
@@ -584,11 +613,16 @@
       100% { transform: translateY(-14%) rotate(2deg); }
     }
 
-    /* The herd still crosses and the theme still changes — it just stops bouncing. */
+    /* The herd still crosses and the theme still changes — it just stops bouncing. The moogle
+       keeps its hover state too, so the mascot still answers the pointer; it just arrives there
+       instead of wobbling into it. */
     @media (prefers-reduced-motion: reduce) {
       #choco-wipe.run .choco img { animation: none; }
       #choco-wipe.run #choco-curtain,
       #choco-wipe.run .choco { animation-timing-function: ease; }
+      .moogle-letter { transition-duration: 0.01ms; }
+      .moogle-letter:hover,
+      .moogle-letter:focus-visible { animation: none; }
     }
 
     .ff-mode h2,
