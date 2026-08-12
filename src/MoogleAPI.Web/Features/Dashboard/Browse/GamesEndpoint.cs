@@ -32,7 +32,7 @@ public class GamesEndpoint(AppDbContext db) : Endpoint<BrowseRequest, BrowseResp
             .OrderBy(g => g.ReleaseYear).ThenBy(g => g.Name)
             .Select(g => new GameRow(
                 g.Id, g.Characters.Count, g.Monsters.Count, g.Cards.Count,
-                new GameEdit(g.Name, g.ReleaseYear, g.Platform, g.Description,
+                new GameEdit(g.Name, g.ReleaseYear, g.Platform, g.IsMainSeries, g.Description,
                              g.ImageUrl, g.ThumbnailUrl, g.ImageSourceUrl)))
             .ToListAsync(ct);
 

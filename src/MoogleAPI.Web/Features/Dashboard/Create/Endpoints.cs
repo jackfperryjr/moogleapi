@@ -199,6 +199,7 @@ public class GameEndpoint(AppDbContext db, HybridCache cache)
             Name = f.Name.Trim(),
             ReleaseYear = f.ReleaseYear,
             Platform = f.Platform.Trim(),
+            IsMainSeries = f.IsMainSeries,
             Description = EditText.Clean(f.Description),
         };
 
@@ -210,7 +211,7 @@ public class GameEndpoint(AppDbContext db, HybridCache cache)
 
         await Send.OkAsync(new CreateResponse<GameRow>(
             new GameRow(game.Id, 0, 0, 0,
-                new GameEdit(game.Name, game.ReleaseYear, game.Platform, game.Description,
+                new GameEdit(game.Name, game.ReleaseYear, game.Platform, game.IsMainSeries, game.Description,
                              game.ImageUrl, game.ThumbnailUrl, game.ImageSourceUrl)),
             duplicate ? $"There was already a game called {game.Name}." : null), ct);
     }
