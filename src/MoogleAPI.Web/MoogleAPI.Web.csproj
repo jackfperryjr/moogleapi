@@ -32,11 +32,14 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
 
+  <!-- The two authenticated pages and the stylesheet and script each one loads. They live outside
+       wwwroot, so nothing copies them to the output directory by convention and Program.cs serves
+       each by an explicit route. -->
   <ItemGroup>
-    <Content Include="Dashboard\index.html">
+    <Content Include="Dashboard\index.html;Dashboard\app.css;Dashboard\app.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Stats\index.html">
+    <Content Include="Stats\index.html;Stats\app.css;Stats\app.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

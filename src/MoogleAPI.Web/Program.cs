@@ -299,6 +299,25 @@ app.MapGet("/stats", (IWebHostEnvironment env) =>
     .RequireAuthorization("Dashboard")
     .ExcludeFromDescription();
 
+// Both pages keep their stylesheet and their script in files beside them, the way every page
+// under wwwroot does. These two folders are not under wwwroot, though, so UseStaticFiles never
+// sees them and each file needs naming here — which is the point: the same policy that guards
+// the page guards what the page loads, instead of the markup being private and its behaviour
+// being public. Requested with a ?v= stamp; the URL below is the unstamped path.
+foreach (var (route, folder, file, mime) in new[]
+{
+    ("/dashboard/app.css", "Dashboard", "app.css", "text/css"),
+    ("/dashboard/app.js",  "Dashboard", "app.js",  "text/javascript"),
+    ("/stats/app.css",     "Stats",     "app.css", "text/css"),
+    ("/stats/app.js",      "Stats",     "app.js",  "text/javascript"),
+})
+{
+    app.MapGet(route, (IWebHostEnvironment env) =>
+        Results.File(Path.Combine(env.ContentRootPath, folder, file), mime))
+        .RequireAuthorization("Dashboard")
+        .ExcludeFromDescription();
+}
+
 // Trigger Google sign-in and redirect back to dashboard on success
 app.MapGet("/signin", () =>
     Results.Challenge(

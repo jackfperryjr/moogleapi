@@ -1,0 +1,255 @@
+/* The hub wears the landing page's palette, not the games'.
+ *
+ * games.css sets its tokens on :root and each game overrides them on body; this block is a
+ * second :root after that link, so it wins on order and repaints the hub silver while the
+ * four game boards keep the dark palette their art frames and hit/miss colours were tuned
+ * for. Every value here is the landing page's, copied rather than imported because the two
+ * pages do not share a stylesheet.
+ *
+ * --gold is what games.css sets .nav-brand in, so the wordmark comes out red here the same
+ * way it does on the landing page. */
+:root {
+  --bg:        #f4f6f8;
+  /* Panels sit a step DOWN from the page, not up — see the landing page for why white cards
+     on silver read as holes. */
+  --surface:   #e0e4ea;
+  --surface-2: #e8ebf0;
+  --border:    #c9cfd8;
+  --accent:    #d0021b;
+  --accent-2:  #a10214;
+  --gold:      #d0021b;
+  --text:      #14161a;
+  --muted:     #5b626d;
+  --nav-bg:    rgba(250, 251, 252, 0.9);
+}
+
+body {
+  background-image: linear-gradient(180deg, #fcfcfd 0%, var(--bg) 38%, #edeff3 100%);
+  background-attachment: fixed;
+}
+
+.nav-links a:hover, .nav-links a[aria-current="page"] { color: var(--accent); }
+
+.hub-intro { max-width: 46rem; }
+
+/* Four games, two by two. Fixed rather than auto-fit: the tiles are the whole page, and a
+   track count that changes with the viewport would put three across on a wide screen and
+   leave the fourth stranded on a row of its own. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.1rem;
+  margin-top: 2rem;
+}
+
+/* Each tile carries its own accent AND its own artwork through custom properties, so one
+   rule styles four games and adding a fifth is two values and a link.
+ *
+ * The picture covers the whole card, which means the card is dark and its text is light —
+ * there is no veil strong enough to carry black copy over a full-bleed photograph without
+ * becoming the wash this replaced. The scrim instead deepens downward: 6% at the top, where
+ * the picture is the point, closing to 94% under the text block at the bottom. Four sources
+ * with wildly different brightness (Sphere Hunter is a bright green field, Battle Square a night arena)
+ * all end up near-black under the copy, which is what lets one set of text colours work
+ * across the set.
+ *
+ * The text is bottom-aligned, so a taller tile grows its picture rather than its copy. That
+ * is also why the descriptions are one line each: every line of copy is a line of artwork
+ * covered up.
+ *
+ * Measured, not guessed — composited over the real crops and sampled at the darkest and
+ * lightest pixel of each band of text. Worst case is the Battle Square footer link at 5.2:1;
+ * the name is 6.8:1 even when a wrapped description pushes it up. Re-measure if the scrim
+ * moves. Two earlier attempts at this looked fine and failed.
+ *
+ * background-color is dark rather than --surface so a tile with no artwork is still a dark
+ * card with readable light text, instead of light text on silver.
+ *
+ * Default theme only: FFIV mode replaces the background wholesale further down. */
+.tile {
+  --tile: var(--accent);
+  --tile-bg: none;
+  --scrim: linear-gradient(180deg,
+    rgba(9, 11, 15, 0.06) 0%,
+    rgba(9, 11, 15, 0.16) 34%,
+    rgba(9, 11, 15, 0.74) 50%,
+    rgba(9, 11, 15, 0.90) 62%,
+    rgba(9, 11, 15, 0.94) 100%);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 15.5rem;
+  overflow: hidden;
+  padding: 1.4rem 1.3rem 1.25rem;
+  background-color: #12161c;
+  background-image: var(--scrim), var(--tile-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: #ffffff;
+  text-decoration: none;
+  box-shadow: 0 1px 1px rgb(20 22 26 / 0.06), 0 6px 18px rgb(20 22 26 / 0.10);
+  transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+}
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--tile);
+  z-index: 2;
+}
+/* A hover cue and nothing else — the artwork carries the game's colour at rest, and keeping
+   this invisible until hover keeps it out of the contrast budget the scrim was measured
+   against. */
+.tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--tile) 20%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.tile:hover, .tile:focus-visible {
+  border-color: var(--tile);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgb(20 22 26 / 0.22);
+}
+.tile:hover::after, .tile:focus-visible::after { opacity: 0.55; }
+
+.tile > * { position: relative; z-index: 1; }
+
+/* Logo slot. The art is supplied per game; until a file exists the script swaps in the
+   wordmark below, so a missing image is a different-looking tile rather than a broken one. */
+.tile-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+  margin-bottom: 1rem;
+}
+.tile-art img { max-height: 100%; max-width: 100%; object-fit: contain; }
+.tile-wordmark {
+  font-family: 'Josefin Sans', sans-serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.tile-name {
+  font-family: 'Josefin Sans', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-top: auto;
+  margin-bottom: 0.35rem;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+.tile-desc {
+  font-size: 0.86rem;
+  color: #dfe4ea;
+  line-height: 1.55;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+}
+.tile-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #c3ccd6;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+}
+.tile-go {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tile);
+  white-space: nowrap;
+  transition: transform 0.18s;
+}
+.tile:hover .tile-go { transform: translateX(3px); }
+
+.hub-note {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.hub-note a { color: var(--accent-2); }
+
+/* Two columns need more room than the tiles' old 260px minimum implied — below this the
+   description wraps to five or six lines and the pair stops reading as a row. */
+@media (max-width: 720px) {
+  .tiles { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .tile { padding: 1.1rem 1rem; }
+  .tile-art { height: 70px; }
+}
+
+/* ── FFIV mode ──────────────────────────────────────────────────────────────
+ * ff4.css brings the palette and the chrome; the tiles are this page's own, so their window
+ * treatment is here. The per-game accent survives the swap — --tile is set inline on each
+ * tile and the four colours were picked for a dark surface in the first place, which is
+ * exactly what they are back on. */
+.ff-mode .tile {
+  background: linear-gradient(180deg, #3358d8 0%, #17309c 55%, #0e1f70 100%);
+  border: 2px solid #dfe8ff;
+  box-shadow: inset 0 0 0 2px #0c1a60, 0 3px 0 rgba(4, 6, 31, 0.55);
+}
+.ff-mode .tile:hover,
+.ff-mode .tile:focus-visible {
+  border-color: #f8d030;
+  transform: translateY(-3px);
+  box-shadow: inset 0 0 0 2px #0c1a60, 0 0 14px rgba(248, 208, 48, 0.35), 0 3px 0 rgba(4, 6, 31, 0.55);
+}
+/* The tint over a blue window would muddy it; the top bar carries the accent on its own.
+   Lightened, because the four --tile values are picked for a light surface — dropped straight
+   onto #17309c the green bar lands at 1.6:1 and simply is not there. */
+.ff-mode .tile::after { opacity: 0; }
+.ff-mode .tile::before {
+  height: 4px;
+  background: color-mix(in srgb, var(--tile) 45%, #ffffff);
+}
+
+.ff-mode .page-title,
+.ff-mode .tile-name,
+.ff-mode .tile-wordmark {
+  font-family: 'Press Start 2P', monospace;
+  text-shadow: 1px 1px 0 #0a1450;
+}
+.ff-mode .page-title { font-size: 1rem; letter-spacing: 0.08em; }
+.ff-mode .tile-name { font-size: 0.6rem; letter-spacing: 0.05em; line-height: 1.6; }
+/* White, not var(--tile). There is no assets/logos/ directory, so the wordmark is not a
+   fallback that rarely fires — it is what every tile actually renders, and the game accents
+   are chosen for a light surface: the Kupodle green sits at 1.63:1 on the window. FFIV menu
+   text is white anyway; the hue survives on the bar above it. */
+.ff-mode .tile-wordmark { font-size: 0.85rem; line-height: 1.5; color: #ffffff; }
+.ff-mode .tile-go { color: #f8d030; }
+.ff-mode .tile-name,
+.ff-mode .tile-desc { text-shadow: 1px 1px 0 #0a1450; }
+.ff-mode .tile-desc { color: #dfe8ff; }
+.ff-mode .tile-tag { border-color: rgba(223, 232, 255, 0.5); }
+.ff-mode .page-sub,
+.ff-mode .tile-desc,
+.ff-mode .hub-note { text-shadow: 1px 1px 0 rgba(10, 20, 80, 0.9); }
+.ff-mode .hub-note { border-top-color: #dfe8ff; }
+.ff-mode .hub-note a { color: #f8d030; }
