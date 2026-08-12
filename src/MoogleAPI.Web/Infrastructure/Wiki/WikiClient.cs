@@ -675,6 +675,15 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
     /// Everything else an affinity field can say — Immune, Halve, Nullify, a resistance
     /// percentage at or below 100 — is not interesting enough to store.
     /// </summary>
+    /// <remarks>
+    /// The first value an element has that says anything wins, rather than simply the first
+    /// one. An article repeats each element per release, and the earliest block is routinely
+    /// the emptiest: every Final Fantasy II enemy leads with an unfilled PlayStation Portable
+    /// set — often several assignments collapsed onto one line, as "| psp fire = | psp ice =" —
+    /// before giving the real affinity under the Game Boy Advance tag. Taking the literal first
+    /// match read the blank and stopped, which left the whole game with one listed weakness
+    /// between 166 enemies and made it look like a bestiary with no elemental play in it.
+    /// </remarks>
     internal static (string? Weaknesses, string? Absorbs) ParseElementalAffinities(string wikitext)
     {
         var weak = new List<string>();
@@ -682,17 +691,23 @@ public class WikiClient(HttpClient http, ILogger<WikiClient>? logger = null)
 
         foreach (var (field, element) in ElementFields)
         {
-            var match = Regex.Match(wikitext,
-                $@"^\|\s*{StatPrefix}{FieldPattern(field)}\s*=\s*(.+)$",
-                RegexOptions.IgnoreCase | RegexOptions.Multiline);
-            if (!match.Success) continue;
+            foreach (Match match in Regex.Matches(wikitext,
+                         $@"^\|\s*{StatPrefix}{FieldPattern(field)}\s*=\s*(.+)$",
+                         RegexOptions.IgnoreCase | RegexOptions.Multiline))
+            {
+                // Cleaned rather than trimmed, because a blank field is not always blank on the
+                // page: the next assignment can share its line, and "| psp poison =" read as a
+                // value is neither a weakness nor an absorption but is still not nothing.
+                var value = CleanFieldValue(match.Groups[1].Value);
+                if (value is null) continue;
 
-            var value = match.Groups[1].Value.Trim();
+                if (IsWeakness(value) && !weak.Contains(element))
+                    weak.Add(element);
+                else if (IsAbsorption(value) && !absorb.Contains(element))
+                    absorb.Add(element);
 
-            if (IsWeakness(value) && !weak.Contains(element))
-                weak.Add(element);
-            else if (IsAbsorption(value) && !absorb.Contains(element))
-                absorb.Add(element);
+                break;
+            }
         }
 
         return (Join(weak), Join(absorb));

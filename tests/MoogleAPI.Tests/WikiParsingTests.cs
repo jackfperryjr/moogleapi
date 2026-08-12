@@ -740,6 +740,45 @@ public class MonsterParsingTests
         Assert.Equal(expected, stats.Steals);
     }
 
+    /// <summary>
+    /// Final Fantasy II leads every enemy with an unfilled PlayStation Portable block, often
+    /// several assignments collapsed onto one line, and states the real affinity further down.
+    /// </summary>
+    [Fact]
+    public void ReadsThroughAnEmptyReleaseBlockToTheStatedAffinity()
+    {
+        var stats = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFII
+            | release = FFII
+            | psp fire = | psp ice =
+            | psp lightning =
+            | gba fire = Absorb
+            | gba ice = Weak
+            | gba lightning = Resist
+            }}
+            """);
+
+        Assert.Equal("Ice", stats.Weaknesses);
+        Assert.Equal("Fire", stats.Absorbs);
+    }
+
+    /// <summary>
+    /// The first block that says something wins — a later one does not override it.
+    /// </summary>
+    [Fact]
+    public void KeepsTheEarliestStatedAffinity()
+    {
+        var stats = WikiClient.ParseMonsterStats("""
+            {{infobox enemy stats FFVI
+            | snes fire = Weak
+            | gba fire = Absorb
+            }}
+            """);
+
+        Assert.Equal("Fire", stats.Weaknesses);
+        Assert.Null(stats.Absorbs);
+    }
+
     [Theory]
     [InlineData("| abilities = None")]
     [InlineData("| abilities = N/A")]

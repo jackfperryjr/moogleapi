@@ -89,7 +89,7 @@ public class HuntBuilderTests
     [Fact]
     public void The_tower_has_one_floor_per_battle_ready_game()
     {
-        Assert.Equal(11, HuntBuilder.HuntGameIds.Length);
+        Assert.Equal(13, HuntBuilder.HuntGameIds.Length);
     }
 
     /// <summary>

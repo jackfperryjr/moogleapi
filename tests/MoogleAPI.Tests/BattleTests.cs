@@ -529,27 +529,29 @@ public class BattleMathTests
 public class LadderTests
 {
     /// <summary>
-    /// The ladder deliberately omits VIII, XI, XIV and XVI: their enemy articles publish no
-    /// usable HP, so no battle can be staged there. If a future scrape fills those in, this
-    /// test is the reminder to reconsider the list.
+    /// The ladder omits XI, XIV and XVI: not one of their enemy articles carries a stats
+    /// infobox, so no battle can be staged there. If a future source fills those in, this test
+    /// is the reminder to reconsider the list.
     /// </summary>
     [Fact]
     public void SkipsTheGamesWithoutPublishedEnemyStats()
     {
-        Assert.DoesNotContain(8, ClimbBuilder.LadderGameIds);
         Assert.DoesNotContain(11, ClimbBuilder.LadderGameIds);
         Assert.DoesNotContain(14, ClimbBuilder.LadderGameIds);
         Assert.DoesNotContain(16, ClimbBuilder.LadderGameIds);
     }
 
     /// <summary>
-    /// II is excluded on playability rather than missing stats: 1 of its 166 battle-ready
-    /// monsters carries an elemental weakness, so nothing there rewards choosing a move.
+    /// II and VIII were both excluded on what turned out to be parser limits rather than the
+    /// games: VIII states its stats as coefficients of a level curve, and II opens every
+    /// article with an empty release block that the affinity reader used to stop at. Both are
+    /// readable now, so both fight.
     /// </summary>
     [Fact]
-    public void SkipsTheGameWithNoElementalCounterplay()
+    public void IncludesTheGamesWhoseStatsAreNowReadable()
     {
-        Assert.DoesNotContain(2, ClimbBuilder.LadderGameIds);
+        Assert.Contains(2, ClimbBuilder.LadderGameIds);
+        Assert.Contains(8, ClimbBuilder.LadderGameIds);
     }
 
     [Fact]

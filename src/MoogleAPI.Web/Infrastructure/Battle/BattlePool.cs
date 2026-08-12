@@ -25,22 +25,21 @@ public class BattlePool(AppDbContext db, HybridCache cache)
     /// races and family pages rather than single enemies, and the specialist wikis leave the
     /// same fields blank.
     /// <para>
-    /// VIII is a different case and no longer a data one. Its articles give stats as
-    /// coefficients of a level curve rather than numbers, so nothing could be read off the
-    /// wikitext; 85 of its 118 enemies now hold the values the wiki's own table renders at
-    /// level 50, and 68% of those have an elemental weakness — between VI and V, so the bar
-    /// II fails is comfortably cleared. What it does not have is moves: 14 of the 85 list an
-    /// ability, against a pool where most do. Adding it is a gameplay decision rather than a
-    /// blocked one.
+    /// II and VIII were both here for years on reasons that turned out to be about the parser
+    /// rather than the games. VIII states its stats as coefficients of a level curve, so there
+    /// was no number in the wikitext to read; 85 of its 118 enemies now carry what the wiki's
+    /// own table renders at level 50. II looked like a bestiary with no elemental play in it —
+    /// one listed weakness across 166 enemies — because every one of its articles opens with an
+    /// empty PlayStation Portable block, and the affinity reader stopped at the first match
+    /// rather than the first that said anything. Reading past it finds 66.
     /// </para>
     /// <para>
-    /// II is absent for a different reason. It has HP and art for 166 monsters, so it looks
-    /// playable — but exactly one of them has a listed elemental weakness, against 31–91% in
-    /// every other game here. Elemental choice is the whole decision in a battle, so a fight in
-    /// II is a damage race with nothing to think about.
+    /// Both are thinner on moves than the rest: 14 of VIII's 85 list an ability where most of
+    /// the pool does. A fighter with none still gets its basic attack, so they fight — they
+    /// just fight plainly.
     /// </para>
     /// </remarks>
-    public static readonly int[] GameIds = [1, 3, 4, 5, 6, 7, 9, 10, 12, 13, 15];
+    public static readonly int[] GameIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15];
 
     /// <summary>
     /// Loaded whole and cached: it is a few thousand small rows, and holding it in memory keeps
