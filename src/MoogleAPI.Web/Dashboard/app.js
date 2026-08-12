@@ -1,0 +1,1060 @@
+/* The catalogue dashboard: tabbed tables over characters, monsters and games, and the editor
+ * behind them.
+ *
+ * LOAD THIS AT THE END OF <body>. The tab wiring and the first load() run on execution, against
+ * markup that has to already be there.
+ *
+ * Served by an explicit route rather than by UseStaticFiles - this file sits outside wwwroot, so
+ * it stays behind the same "Dashboard" authorization policy as the page that loads it.
+ */
+(() => {
+  'use strict';
+
+  // ── Shape of each tab ───────────────────────────────────────────────────────
+  // `columns` is what the table shows; `fields` is what the editor writes. Cells are filled
+  // with textContent, never innerHTML: every string here came off the wiki unsanitized.
+  //
+  // A row arrives as { id, gameName, releaseYear, fields: {...} } — the editable half is
+  // nested so it can be posted straight back without the joined-in display columns.
+
+  const yesNo = v => v ? 'yes' : 'no';
+  const f = (key, label, type, opts = {}) => ({ key, label, type, ...opts });
+
+  const IMAGE_KINDS = ['Cutout', 'Flat', 'Line-art', 'Screenshot', 'Busy-background'];
+
+  const TABS = {
+    characters: {
+      endpoint: '/api/dashboard/characters',
+      singular: 'character',
+      paged: true,
+      hasArt: true,
+      // One picture, not two. A character's artwork is the generated house-style illustration —
+      // the copied wiki original is no longer something the row can fall back to, so offering it
+      // as a second editable slot only invites putting art back that the catalogue has retired.
+      // The server keeps ImageUrl equal to this column for characters, so what is uploaded here
+      // is what gets served. Monsters still carry both while that half is under review.
+      artSlots: [
+        { key: 'generatedImageUrl', label: 'Artwork', slot: 'generated', preview: true },
+      ],
+      columns: [
+        { label: '',          cls: 'thumb', art: true,                     px: 64, prio: 1 },
+        { label: 'ID',        cls: 'id',   get: r => r.id,                 px: 54, prio: 2 },
+        { label: 'Name',      cls: 'name', get: r => r.fields.name,        flex: 2.2, prio: 1 },
+        { label: 'Game',      cls: '',     get: r => r.gameName,           flex: 2, prio: 1 },
+        { label: 'Role',      cls: '',     get: r => r.fields.role,        flex: 1.7, prio: 1 },
+        { label: 'Job',       cls: '',     get: r => r.fields.job,         flex: 1.2, prio: 2 },
+        { label: 'Race',      cls: '',     get: r => r.fields.race,        flex: 1.1, prio: 3 },
+        { label: 'Hometown',  cls: '',     get: r => r.fields.hometown,    flex: 1.4, prio: 3 },
+        { label: 'Weapon',    cls: '',     get: r => r.fields.weapon,      flex: 1.3, prio: 3 },
+        { label: 'Abilities', cls: '',     get: r => r.fields.abilities,   flex: 1.7, prio: 3 },
+        { label: 'Playable',  cls: '',     badge: r => ({ text: yesNo(r.fields.isPlayable), kind: r.fields.isPlayable ? 'yes' : 'no' }), px: 74, prio: 2 },
+        { label: 'Pop',       cls: 'num',  get: r => r.fields.popularity,  px: 52, prio: 1 },
+        { label: 'Art',       cls: '',     get: r => r.fields.imageKind,   px: 88, prio: 2 },
+      ],
+      fields: [
+        f('name', 'Name', 'text', { required: true }),
+        f('gameId', 'Game', 'game'),
+        f('role', 'Role', 'text'),
+        f('job', 'Job', 'text'),
+        f('race', 'Race', 'text'),
+        f('hometown', 'Hometown', 'text'),
+        f('affiliation', 'Affiliation', 'text'),
+        f('weapon', 'Weapon', 'text'),
+        f('abilities', 'Abilities', 'text'),
+        f('imageKind', 'Image kind', 'text', { list: IMAGE_KINDS }),
+        f('popularity', 'Popularity (0–100)', 'int', { min: 0, max: 100, required: true }),
+        f('wikiPageLength', 'Wiki page length', 'int', { min: 0 }),
+        f('wikiBacklinks', 'Wiki backlinks', 'int', { min: 0 }),
+        f('isPlayable', 'Playable character', 'bool'),
+        f('description', 'Description', 'textarea', { wide: true }),
+      ],
+    },
+    monsters: {
+      endpoint: '/api/dashboard/monsters',
+      singular: 'monster',
+      paged: true,
+      hasArt: true,
+      columns: [
+        { label: '',           cls: 'thumb', art: true,                      px: 64, prio: 1 },
+        { label: 'ID',         cls: 'id',   get: r => r.id,                  px: 54, prio: 2 },
+        { label: 'Name',       cls: 'name', get: r => r.fields.name,         flex: 2.2, prio: 1 },
+        { label: 'Game',       cls: '',     get: r => r.gameName,            flex: 1.8, prio: 1 },
+        { label: 'Category',   cls: '',     get: r => r.fields.category,     px: 82, prio: 1 },
+        { label: 'Location',   cls: '',     get: r => r.fields.location,     flex: 1.8, prio: 3 },
+        { label: 'HP',         cls: 'num',  get: r => r.fields.hitPoints,    px: 62, prio: 1 },
+        { label: 'Lvl',        cls: 'num',  get: r => r.fields.level,        px: 48, prio: 2 },
+        { label: 'Atk',        cls: 'num',  get: r => r.fields.attack,       px: 48, prio: 2 },
+        { label: 'Def',        cls: 'num',  get: r => r.fields.defense,      px: 48, prio: 2 },
+        { label: 'EXP',        cls: 'num',  get: r => r.fields.experience,   px: 60, prio: 3 },
+        { label: 'Gil',        cls: 'num',  get: r => r.fields.gil,          px: 60, prio: 3 },
+        { label: 'Abilities',  cls: '',     get: r => r.fields.abilities,    flex: 1.7, prio: 3 },
+        { label: 'Drops',      cls: '',     get: r => r.fields.drops,        flex: 1.4, prio: 3 },
+        { label: 'Weaknesses', cls: '',     get: r => r.fields.weaknesses,   flex: 1.4, prio: 3 },
+        { label: 'Pop',        cls: 'num',  get: r => r.fields.popularity,   px: 52, prio: 1 },
+        { label: 'Art',        cls: '',     get: r => r.fields.imageKind,    px: 88, prio: 2 },
+      ],
+      fields: [
+        f('name', 'Name', 'text', { required: true }),
+        f('gameId', 'Game', 'game'),
+        f('category', 'Category', 'text'),
+        f('location', 'Location', 'text'),
+        f('hitPoints', 'HP', 'int', { min: 0 }),
+        f('magicPoints', 'MP', 'int', { min: 0 }),
+        f('level', 'Level', 'int', { min: 0 }),
+        f('experience', 'EXP', 'int', { min: 0 }),
+        f('gil', 'Gil', 'int', { min: 0 }),
+        f('attack', 'Attack', 'int', { min: 0 }),
+        f('defense', 'Defense', 'int', { min: 0 }),
+        f('magicAttack', 'Magic attack', 'int', { min: 0 }),
+        f('magicDefense', 'Magic defense', 'int', { min: 0 }),
+        f('speed', 'Speed', 'int', { min: 0 }),
+        f('evasion', 'Evasion', 'int', { min: 0 }),
+        f('abilities', 'Abilities', 'text', { wide: true }),
+        f('drops', 'Drops', 'text'),
+        f('steals', 'Steals', 'text'),
+        f('weaknesses', 'Weaknesses', 'text'),
+        f('absorbs', 'Absorbs', 'text'),
+        f('imageKind', 'Image kind', 'text', { list: IMAGE_KINDS }),
+        f('popularity', 'Popularity (0–100)', 'int', { min: 0, max: 100, required: true }),
+        f('wikiPageLength', 'Wiki page length', 'int', { min: 0 }),
+        f('wikiBacklinks', 'Wiki backlinks', 'int', { min: 0 }),
+        f('description', 'Description', 'textarea', { wide: true }),
+      ],
+    },
+    games: {
+      endpoint: '/api/dashboard/games',
+      singular: 'game',
+      paged: false,
+      hasArt: true,
+      // A square emblem and the wide logo — two crops, not two sizes. No generated slot:
+      // generation never selects games, so it would upload into a column nothing promotes
+      // and nothing serves. The API refuses that combination too.
+      artSlots: [
+        { key: 'thumbnailUrl', label: 'Thumbnail', slot: 'thumbnail', preview: true },
+        { key: 'imageUrl', label: 'Full logo', slot: 'original' },
+      ],
+      columns: [
+        { label: '',            cls: 'thumb', art: true,                     px: 64, prio: 1 },
+        { label: 'ID',          cls: 'id',   get: r => r.id,                 px: 54, prio: 2 },
+        { label: 'Name',        cls: 'name', get: r => r.fields.name,        flex: 2, prio: 1 },
+        { label: 'Year',        cls: 'num',  get: r => r.fields.releaseYear, px: 58, prio: 1 },
+        { label: 'Platform',    cls: '',     get: r => r.fields.platform,    flex: 1.3, prio: 1 },
+        { label: 'Series',      cls: '',     badge: r => ({ text: r.fields.isMainSeries ? 'main' : 'spin-off', kind: r.fields.isMainSeries ? 'yes' : 'no' }), px: 82, prio: 2 },
+        { label: 'Characters',  cls: 'num',  get: r => r.characterCount,     px: 100, prio: 2 },
+        { label: 'Monsters',    cls: 'num',  get: r => r.monsterCount,       px: 92, prio: 2 },
+        { label: 'Cards',       cls: 'num',  get: r => r.cardCount,          px: 66, prio: 2 },
+        { label: 'Description', cls: '',     get: r => r.fields.description, flex: 3, prio: 1 },
+      ],
+      fields: [
+        f('name', 'Name', 'text', { required: true }),
+        f('releaseYear', 'Release year', 'int', { min: 1980, required: true }),
+        f('platform', 'Platform', 'text', { required: true }),
+        f('isMainSeries', 'Main series (not a spin-off)', 'bool'),
+        f('description', 'Description', 'textarea', { wide: true }),
+      ],
+    },
+  };
+
+  // Both artwork columns, and which R2 slot an upload to each one targets. A tab can narrow
+  // this with its own `artSlots` — games carry a logo and nothing else.
+  const ART_SLOTS = [
+    { key: 'imageUrl', label: 'Original', slot: 'original' },
+    // `preview` picks which picture the table cell shows when a row has more than one.
+    { key: 'generatedImageUrl', label: 'Generated', slot: 'generated', preview: true },
+  ];
+
+  const artSlotsFor = cfg => cfg.artSlots ?? ART_SLOTS;
+
+  // The marked slot if it has a picture, otherwise whichever slot does.
+  function previewUrl(row, cfg) {
+    const slots = artSlotsFor(cfg);
+    const chosen = slots.find(s => s.preview && row.fields[s.key])
+                ?? slots.find(s => row.fields[s.key]);
+    return chosen ? row.fields[chosen.key] : null;
+  }
+
+  // ── State ───────────────────────────────────────────────────────────────────
+  const state = { tab: 'characters', search: '', gameId: '', page: 1, pageSize: 50, total: 0 };
+  const editing = { tab: null, row: null, mode: 'edit', inputs: new Map(), art: new Map() };
+  let games = [];
+  let lastRows = [];
+  let requestSeq = 0;
+
+  const $ = id => document.getElementById(id);
+  const $$ = sel => document.querySelectorAll(sel);
+  const fmt = n => Number(n).toLocaleString();
+
+  // An upload overwrites the object at the row's existing address, so every copy of that URL
+  // already in a cache — the browser's, Cloudflare's — still resolves to the old picture. The
+  // stamp is per URL and fixed at upload time rather than per render: a fresh Date.now() on
+  // every redraw would work too, and would re-download every thumbnail on every page turn.
+  const uploadStamps = new Map();
+
+  const bust = url => url ? url + (url.includes('?') ? '&' : '?') + 't=' + (uploadStamps.get(url) ?? 0) : url;
+  const display = url => uploadStamps.has(url) ? bust(url) : url;
+
+  function toast(message) {
+    const el = $('toast');
+    el.textContent = message;
+    el.style.display = 'block';
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => { el.style.display = 'none'; }, 4000);
+  }
+
+  // FastEndpoints returns ProblemDetails: { errors: [{ name, reason }, …] }. Older shapes use a
+  // name → messages map, so both are flattened here rather than guessed at.
+  function problemMessages(body) {
+    if (!body) return [];
+    const errors = body.errors;
+    if (Array.isArray(errors)) return errors.map(e => ({ name: e.name ?? '', reason: e.reason ?? String(e) }));
+    if (errors && typeof errors === 'object') {
+      return Object.entries(errors).flatMap(([name, list]) =>
+        (Array.isArray(list) ? list : [list]).map(reason => ({ name, reason })));
+    }
+    return body.title ? [{ name: '', reason: body.title }] : [];
+  }
+
+  async function readProblem(res) {
+    try { return problemMessages(await res.json()); } catch { return []; }
+  }
+
+  // ── Table rendering ─────────────────────────────────────────────────────────
+  // Every column declares a width and a priority. Fixed-width columns (`px`) are the ones whose
+  // content has a known size — a 48px thumbnail, a three-digit stat, the row buttons — and the
+  // rest (`flex`) share whatever is left in proportion. The table is therefore always exactly as
+  // wide as the window, with no horizontal scrollbar at any size.
+  //
+  // Priority is what keeps that from turning into eighteen useless slivers on a laptop: at 1500px
+  // the third tier drops out, at 1150px the second, leaving the columns you would actually scan
+  // by. Nothing is lost — the hidden values are all in the editor, one click away.
+  const ACTIONS_COL = { label: '', cls: 'actions', px: 124, prio: 1, actions: true };
+
+  function priorityFloor() {
+    const w = window.innerWidth;
+    if (w < 1150) return 1;
+    if (w < 1500) return 2;
+    return 3;
+  }
+
+  function visibleColumns(cfg) {
+    const floor = priorityFloor();
+    return [...cfg.columns.filter(c => c.prio <= floor), ACTIONS_COL];
+  }
+
+  function renderHead(columns) {
+    const table = $('thead-row').closest('table');
+
+    const fixed = columns.reduce((sum, c) => sum + (c.px ?? 0), 0);
+    const flexTotal = columns.reduce((sum, c) => sum + (c.flex ?? 0), 0);
+
+    const colgroup = document.createElement('colgroup');
+    for (const col of columns) {
+      const el = document.createElement('col');
+      el.style.width = col.px
+        ? `${col.px}px`
+        : `calc((100% - ${fixed}px) * ${(col.flex ?? 1) / (flexTotal || 1)})`;
+      colgroup.appendChild(el);
+    }
+    table.querySelector('colgroup')?.remove();
+    table.prepend(colgroup);
+
+    $('thead-row').replaceChildren(...columns.map(col => {
+      const th = document.createElement('th');
+      th.textContent = col.label;
+      if (col.cls === 'num') th.className = 'num';
+      if (col.label) th.title = col.label;
+      return th;
+    }));
+  }
+
+  function stateRow(colSpan, text) {
+    const tr = document.createElement('tr');
+    tr.className = 'state-row';
+    const td = document.createElement('td');
+    td.colSpan = colSpan;
+    td.textContent = text;
+    tr.appendChild(td);
+    return tr;
+  }
+
+  function artCell(row) {
+    const td = document.createElement('td');
+    td.className = 'thumb';
+    const src = previewUrl(row, TABS[state.tab]);
+
+    if (!src) {
+      const none = document.createElement('div');
+      none.className = 'thumb-none';
+      none.textContent = '—';
+      td.appendChild(none);
+      return td;
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'thumb-btn';
+    btn.title = 'Click to zoom';
+    const img = document.createElement('img');
+    img.src = display(src);
+    img.alt = row.fields.name;
+    img.loading = 'lazy';
+    btn.appendChild(img);
+    btn.addEventListener('click', () => openZoom(row));
+    td.appendChild(btn);
+    return td;
+  }
+
+  function actionCell(row) {
+    const td = document.createElement('td');
+    td.className = 'actions';
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'row-btn';
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => openEditor(row));
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'row-btn danger';
+    del.textContent = 'Delete';
+    del.addEventListener('click', () => confirmDelete(row));
+
+    td.append(edit, del);
+    return td;
+  }
+
+  function renderBody(tab, rows) {
+    const columns = visibleColumns(TABS[tab]);
+    const body = $('tbody');
+
+    if (rows.length === 0) {
+      body.replaceChildren(stateRow(columns.length, 'No rows match.'));
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      for (const col of columns) {
+        if (col.art) { tr.appendChild(artCell(row)); continue; }
+        if (col.actions) { tr.appendChild(actionCell(row)); continue; }
+
+        const td = document.createElement('td');
+        td.className = col.cls;
+
+        if (col.badge) {
+          const { text, kind } = col.badge(row);
+          const span = document.createElement('span');
+          span.className = `badge badge-${kind}`;
+          span.textContent = text;
+          td.appendChild(span);
+        } else {
+          const value = col.get(row);
+          if (value === null || value === undefined || value === '') {
+            td.textContent = '—';
+            td.classList.add('empty-cell');
+          } else {
+            td.textContent = value;
+            // Every cell can now be truncated, so every cell carries its full value on hover.
+            td.title = value;
+          }
+        }
+        tr.appendChild(td);
+      }
+      frag.appendChild(tr);
+    }
+    body.replaceChildren(frag);
+  }
+
+  // Both pagers are driven from here — they are the same control drawn twice, so they are
+  // selected by class rather than by id and can never disagree about which page you are on.
+  function renderPager() {
+    const cfg = TABS[state.tab];
+    const pages = cfg.paged ? Math.max(1, Math.ceil(state.total / state.pageSize)) : 1;
+
+    $('result-count').textContent = state.total ? `${fmt(state.total)} rows` : '';
+    for (const el of $$('.page-label')) el.textContent = cfg.paged ? `${state.page} / ${pages}` : '—';
+    for (const el of $$('.pager-prev')) el.disabled = !cfg.paged || state.page <= 1;
+    for (const el of $$('.pager-next')) el.disabled = !cfg.paged || state.page >= pages;
+    // Games is a short unpaged table; a dead control under it is just clutter. The toolbar keeps
+    // its disabled pager, because the toolbar's layout expects something to be there.
+    $('pager-bottom').hidden = !cfg.paged;
+    $('count-' + state.tab).textContent = state.total ? fmt(state.total) : '';
+  }
+
+  // ── Zoom ────────────────────────────────────────────────────────────────────
+  // A row can carry two pictures — the original scraped art and its generated replacement — so
+  // the modal offers both rather than picking one: comparing them is usually the reason to look.
+  function openZoom(row) {
+    const sources = artSlotsFor(TABS[state.tab])
+      .filter(s => row.fields[s.key])
+      .map(s => ({ label: s.label, url: row.fields[s.key] }))
+      .reverse();
+    if (sources.length === 0) return;
+
+    $('zoom-title').textContent = row.fields.name;
+    $('zoom-sub').textContent = [row.gameName, row.fields.imageKind].filter(Boolean).join(' · ');
+
+    const show = i => {
+      $('zoom-img').src = display(sources[i].url);
+      $('zoom-img').alt = `${row.fields.name} — ${sources[i].label}`;
+      $('zoom-link').textContent = sources[i].url;
+      $('zoom-link').href = sources[i].url;
+      [...$('zoom-switch').children].forEach((b, j) => b.setAttribute('aria-pressed', String(i === j)));
+    };
+
+    $('zoom-switch').replaceChildren(...sources.map((s, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = s.label;
+      b.addEventListener('click', () => show(i));
+      return b;
+    }));
+    $('zoom-switch').style.display = sources.length > 1 ? 'flex' : 'none';
+
+    show(0);
+    $('zoom').classList.add('open');
+  }
+
+  function closeZoom() {
+    $('zoom').classList.remove('open');
+    $('zoom-img').removeAttribute('src');
+  }
+
+  // ── Editor ──────────────────────────────────────────────────────────────────
+  function buildField(spec, value) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field' + (spec.wide ? ' wide' : '') + (spec.type === 'bool' ? ' field-check' : '');
+
+    const id = `field-${spec.key}`;
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = spec.label + (spec.required ? ' *' : '');
+
+    let input;
+    if (spec.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.rows = 4;
+      input.value = value ?? '';
+    } else if (spec.type === 'bool') {
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = Boolean(value);
+    } else if (spec.type === 'game') {
+      input = document.createElement('select');
+      for (const g of games) {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = `${g.fields.name} (${g.fields.releaseYear})`;
+        input.appendChild(opt);
+      }
+      input.value = String(value ?? '');
+    } else if (spec.type === 'int') {
+      input = document.createElement('input');
+      input.type = 'number';
+      if (spec.min !== undefined) input.min = spec.min;
+      if (spec.max !== undefined) input.max = spec.max;
+      input.value = value ?? '';
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.value = value ?? '';
+      if (spec.list) {
+        const listId = `${id}-list`;
+        const datalist = document.createElement('datalist');
+        datalist.id = listId;
+        datalist.append(...spec.list.map(v => {
+          const o = document.createElement('option');
+          o.value = v;
+          return o;
+        }));
+        wrap.appendChild(datalist);
+        input.setAttribute('list', listId);
+      }
+    }
+
+    input.id = id;
+    input.dataset.key = spec.key;
+    input.dataset.type = spec.type;
+
+    const error = document.createElement('div');
+    error.className = 'field-error';
+
+    if (spec.type === 'bool') wrap.append(input, label, error);
+    else wrap.append(label, input, error);
+
+    editing.inputs.set(spec.key, { input, wrap, error, spec });
+    return wrap;
+  }
+
+  function buildArtSlot(slot, row) {
+    const wrap = document.createElement('div');
+    wrap.className = 'art-slot';
+
+    const head = document.createElement('div');
+    head.className = 'art-slot-head';
+    const title = document.createElement('span');
+    title.textContent = slot.label;
+    head.appendChild(title);
+
+    const preview = document.createElement('div');
+    preview.className = 'art-preview';
+
+    const urlInput = document.createElement('input');
+    urlInput.type = 'text';
+    urlInput.placeholder = 'No image — paste a URL or upload a file';
+    urlInput.value = row.fields[slot.key] ?? '';
+    urlInput.dataset.key = slot.key;
+    urlInput.dataset.type = 'text';
+
+    const setPreview = url => {
+      if (url) {
+        const img = document.createElement('img');
+        img.src = display(url);
+        img.alt = slot.label;
+        preview.replaceChildren(img);
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'art-empty';
+        empty.textContent = 'No image';
+        preview.replaceChildren(empty);
+      }
+    };
+    setPreview(urlInput.value);
+    urlInput.addEventListener('change', () => setPreview(urlInput.value.trim()));
+
+    const actions = document.createElement('div');
+    actions.className = 'art-actions';
+
+    const file = document.createElement('input');
+    file.type = 'file';
+    file.accept = 'image/*';
+
+    const pick = document.createElement('button');
+    pick.type = 'button';
+    pick.className = 'btn';
+    pick.textContent = 'Upload…';
+    pick.addEventListener('click', () => file.click());
+
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'btn';
+    clear.textContent = 'Clear';
+    clear.addEventListener('click', () => { urlInput.value = ''; setPreview(''); });
+
+    const status = document.createElement('span');
+    status.style.cssText = 'font-size:0.72rem;color:var(--muted)';
+
+    file.addEventListener('change', async () => {
+      if (!file.files.length) return;
+      pick.disabled = true;
+      status.textContent = 'Uploading…';
+      try {
+        const url = await uploadArt(editing.tab, row.id, slot.slot, file.files[0]);
+        uploadStamps.set(url, Date.now());
+        urlInput.value = url;
+        setPreview(url);
+        status.textContent = 'Uploaded — saved to the row.';
+      } catch (e) {
+        status.textContent = e.message;
+      } finally {
+        pick.disabled = false;
+        file.value = '';
+      }
+    });
+
+    actions.append(pick, clear, status, file);
+
+    // The URL inputs live in the same map as the rest of the form, so Save posts them back
+    // with everything else and clearing a field is just clearing an input.
+    const error = document.createElement('div');
+    error.className = 'field-error';
+    editing.inputs.set(slot.key, { input: urlInput, wrap, error, spec: { key: slot.key, type: 'text' } });
+    editing.art.set(slot.key, setPreview);
+
+    wrap.append(head, preview, urlInput, error, actions);
+    return wrap;
+  }
+
+  // A blank row for the current tab. Numbers stay null rather than 0 — "the article does not
+  // say" is the honest default and the one most of the catalogue carries.
+  function emptyRow(tab) {
+    const fields = { name: '' };
+    for (const spec of TABS[tab].fields) {
+      fields[spec.key] = spec.type === 'bool' ? false : null;
+    }
+    if (tab !== 'games') {
+      fields.gameId = Number(state.gameId) || (games[0] && games[0].id) || 0;
+      fields.popularity = 0;
+      fields.imageUrl = null;
+      fields.generatedImageUrl = null;
+      fields.imageSourceUrl = null;
+    } else {
+      fields.releaseYear = new Date().getFullYear();
+      fields.platform = '';
+      // Games carry two pictures and no generated slot.
+      fields.imageUrl = null;
+      fields.thumbnailUrl = null;
+      fields.imageSourceUrl = null;
+    }
+    return { id: null, gameName: '', releaseYear: 0, fields };
+  }
+
+  // One editor for both jobs. A create differs only in having no id yet, which is exactly why
+  // the artwork panel is hidden until the first save: an upload is addressed by row id, so
+  // there is nowhere to put a file before the row exists.
+  function openEditor(row, mode = 'edit') {
+    const cfg = TABS[state.tab];
+    editing.tab = state.tab;
+    editing.row = row;
+    editing.mode = mode;
+    editing.inputs = new Map();
+    editing.art = new Map();
+
+    const creating = mode === 'create';
+    $('editor-title').textContent = creating ? `New ${cfg.singular}` : row.fields.name;
+    $('editor-sub').textContent = creating
+      ? 'Nothing is written until you save.'
+      : `${cfg.singular} #${row.id}` + (cfg.paged ? ` · ${row.gameName}` : '');
+    $('editor-error').style.display = 'none';
+    $('editor-save').textContent = creating ? `Create ${cfg.singular}` : 'Save changes';
+    $('editor-delete').hidden = creating;
+
+    $('editor-fields').replaceChildren(...cfg.fields.map(spec => buildField(spec, row.fields[spec.key])));
+
+    $('editor-art-wrap').hidden = !cfg.hasArt || creating;
+    if (cfg.hasArt && !creating) {
+      $('editor-art').replaceChildren(...artSlotsFor(cfg).map(slot => buildArtSlot(slot, row)));
+
+      // Provenance is not something to hand-type, but it decides whether the image tool will
+      // overwrite this row's art, so it is shown and editable rather than hidden.
+      $('editor-art-extra').replaceChildren(buildField(
+        f('imageSourceUrl', 'Image source URL', 'text', { wide: true }),
+        row.fields.imageSourceUrl));
+    } else if (cfg.hasArt && creating) {
+      // The draft may already carry a URL the import found; keep it rather than dropping it on
+      // the floor just because the upload panel is not shown yet.
+      // Only the keys this tab actually has — posting a generatedImageUrl back for a game
+      // would be a field its edit record does not carry.
+      for (const key of [...artSlotsFor(cfg).map(s => s.key), 'imageSourceUrl']) {
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.value = row.fields[key] ?? '';
+        editing.inputs.set(key, {
+          input: hidden, wrap: document.createElement('div'),
+          error: document.createElement('div'), spec: { key, type: 'text' },
+        });
+      }
+    }
+
+    $('editor').classList.add('open');
+    const first = $('editor-fields').querySelector('input, select, textarea');
+    if (first) first.focus();
+  }
+
+  function closeEditor() {
+    $('editor').classList.remove('open');
+    editing.tab = null;
+    editing.row = null;
+    editing.inputs = new Map();
+  }
+
+  function collectFields() {
+    const out = {};
+    for (const [key, { input, spec }] of editing.inputs) {
+      if (spec.type === 'bool') out[key] = input.checked;
+      else if (spec.type === 'game') out[key] = Number(input.value);
+      else if (spec.type === 'int') {
+        const raw = input.value.trim();
+        out[key] = raw === '' ? null : Number(raw);
+      } else {
+        const raw = input.value.trim();
+        out[key] = raw === '' ? null : raw;
+      }
+    }
+    return out;
+  }
+
+  function showFieldErrors(messages) {
+    for (const { wrap, error } of editing.inputs.values()) {
+      wrap.classList.remove('invalid');
+      error.textContent = '';
+    }
+
+    const unattached = [];
+    for (const { name, reason } of messages) {
+      // Server names are "Fields.Popularity"; the editor keys them by the last segment.
+      const key = String(name).split('.').pop();
+      const camel = key ? key[0].toLowerCase() + key.slice(1) : '';
+      const entry = editing.inputs.get(camel);
+      if (entry) {
+        entry.wrap.classList.add('invalid');
+        entry.error.textContent = reason;
+      } else {
+        unattached.push(reason);
+      }
+    }
+
+    const banner = $('editor-error');
+    if (unattached.length) {
+      banner.textContent = unattached.join(' ');
+      banner.style.display = 'block';
+    } else if (messages.length) {
+      banner.textContent = 'Some fields need fixing.';
+      banner.style.display = 'block';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  async function saveEditor() {
+    const cfg = TABS[editing.tab];
+    const id = editing.row.id;
+
+    // Caught here rather than at the server, because a blank number field posts null into a
+    // non-nullable column and the deserializer's complaint about that names a type, not a field.
+    const missing = [...editing.inputs]
+      .filter(([, { input, spec }]) => spec.required && spec.type !== 'bool' && input.value.trim() === '')
+      .map(([key]) => ({ name: key, reason: 'Required.' }));
+
+    if (missing.length) {
+      showFieldErrors(missing);
+      return;
+    }
+
+    const creating = editing.mode === 'create';
+    $('editor-save').disabled = true;
+
+    try {
+      const res = await fetch(creating ? cfg.endpoint : `${cfg.endpoint}/${id}`, {
+        method: creating ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(collectFields()),
+      });
+
+      if (!res.ok) {
+        const messages = await readProblem(res);
+        showFieldErrors(messages.length ? messages : [{ name: '', reason: `HTTP ${res.status}` }]);
+        return;
+      }
+
+      const saved = await res.json();
+      closeEditor();
+      toast(creating
+        ? `Created ${saved.row.fields.name}.${saved.warning ? ' ' + saved.warning : ''}`
+        : `Saved ${saved.row.fields.name}.`);
+      await load();
+
+      // Straight back into the row that was just created, so its artwork can be uploaded
+      // without hunting for it in the table.
+      if (creating && TABS[editing.tab || state.tab].hasArt) openEditor(saved.row, 'edit');
+    } catch (e) {
+      showFieldErrors([{ name: '', reason: e.message }]);
+    } finally {
+      $('editor-save').disabled = false;
+    }
+  }
+
+  async function uploadArt(tab, id, slot, file) {
+    const body = new FormData();
+    body.append('file', file);
+
+    const res = await fetch(`/api/dashboard/${tab}/${id}/image?slot=${slot}`, { method: 'POST', body });
+    if (!res.ok) {
+      const messages = await readProblem(res);
+      throw new Error(messages.map(m => m.reason).join(' ') || `Upload failed (HTTP ${res.status}).`);
+    }
+    return (await res.json()).url;
+  }
+
+  // ── Import from the wiki ────────────────────────────────────────────────────
+  // The import never writes. It returns a draft, the draft opens in the create editor, and the
+  // row exists only once you press the button that says it will create one — which is the whole
+  // difference between this and the scraper it replaced.
+  function openImport() {
+    const select = $('import-game');
+    select.replaceChildren(...games.map(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = `${g.fields.name} (${g.fields.releaseYear})`;
+      return opt;
+    }));
+    if (state.gameId) select.value = state.gameId;
+
+    $('import-resource').value = state.tab === 'monsters' ? 'monsters' : 'characters';
+    $('import-error').style.display = 'none';
+    $('import-page').value = '';
+    $('import').classList.add('open');
+    $('import-page').focus();
+  }
+
+  async function runImport() {
+    const page = $('import-page').value.trim();
+    const resource = $('import-resource').value;
+    const gameId = Number($('import-game').value);
+    const banner = $('import-error');
+
+    if (!page) {
+      banner.textContent = 'Paste a wiki URL or article title.';
+      banner.style.display = 'block';
+      return;
+    }
+
+    $('import-go').disabled = true;
+    $('import-go').textContent = 'Fetching…';
+
+    try {
+      const res = await fetch('/api/dashboard/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page, resource, gameId }),
+      });
+
+      if (!res.ok) {
+        const messages = await readProblem(res);
+        throw new Error(messages.map(m => m.reason).join(' ') || `HTTP ${res.status}`);
+      }
+
+      const draft = await res.json();
+      const fields = draft.character ?? draft.monster;
+      const game = games.find(g => g.id === gameId);
+
+      $('import').classList.remove('open');
+
+      // Switch to the tab the draft belongs to, so saving lands somewhere you can see it.
+      if (state.tab !== resource) selectTab(resource);
+
+      openEditor({
+        id: null,
+        gameName: game ? game.fields.name : '',
+        releaseYear: game ? game.fields.releaseYear : 0,
+        fields,
+      }, 'create');
+
+      $('editor-sub').textContent = `drafted from ${draft.title} — nothing is written until you save`;
+      if (draft.notes.length) {
+        $('editor-error').textContent = draft.notes.join(' ');
+        $('editor-error').style.display = 'block';
+      }
+    } catch (e) {
+      banner.textContent = `Import failed: ${e.message}`;
+      banner.style.display = 'block';
+    } finally {
+      $('import-go').disabled = false;
+      $('import-go').textContent = 'Fetch draft';
+    }
+  }
+
+  // ── Delete ──────────────────────────────────────────────────────────────────
+  let pendingDelete = null;
+
+  function confirmDelete(row) {
+    const cfg = TABS[state.tab];
+    pendingDelete = { tab: state.tab, row };
+
+    const body = $('confirm-body');
+    body.replaceChildren();
+    body.append(`Permanently delete the ${cfg.singular} `);
+    const name = document.createElement('span');
+    name.className = 'confirm-name';
+    name.textContent = row.fields.name;
+    body.append(name, ` (#${row.id})? This cannot be undone.`);
+
+    if (cfg.hasArt && artSlotsFor(cfg).some(s => row.fields[s.key])) {
+      body.append(document.createElement('br'));
+      const note = document.createElement('small');
+      note.style.color = 'var(--muted)';
+      note.textContent = 'Its artwork stays in the bucket.';
+      body.append(note);
+    }
+
+    $('confirm').classList.add('open');
+  }
+
+  async function runDelete() {
+    if (!pendingDelete) return;
+    const { tab, row } = pendingDelete;
+    $('confirm-yes').disabled = true;
+
+    try {
+      const res = await fetch(`${TABS[tab].endpoint}/${row.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const messages = await readProblem(res);
+        throw new Error(messages.map(m => m.reason).join(' ') || `HTTP ${res.status}`);
+      }
+      $('confirm').classList.remove('open');
+      if (editing.row && editing.row.id === row.id) closeEditor();
+      toast(`Deleted ${row.fields.name}.`);
+      await load();
+    } catch (e) {
+      showBanner(`Could not delete ${row.fields.name}: ${e.message}`);
+      $('confirm').classList.remove('open');
+    } finally {
+      $('confirm-yes').disabled = false;
+      pendingDelete = null;
+    }
+  }
+
+  // ── Loading ─────────────────────────────────────────────────────────────────
+  function showBanner(text, needsSignIn = false) {
+    const banner = $('error-banner');
+    banner.textContent = text + ' ';
+    if (needsSignIn) {
+      const link = document.createElement('a');
+      link.href = '/signin';
+      link.textContent = 'Sign in again';
+      banner.appendChild(link);
+    }
+    banner.style.display = 'block';
+  }
+
+  async function load() {
+    const cfg = TABS[state.tab];
+    const wrap = $('table-wrap');
+    const seq = ++requestSeq;
+
+    renderHead(visibleColumns(cfg));
+    wrap.classList.add('loading');
+
+    const params = new URLSearchParams({ page: state.page, pageSize: state.pageSize });
+    if (state.search) params.set('search', state.search);
+    if (cfg.paged && state.gameId) params.set('gameId', state.gameId);
+
+    try {
+      const res = await fetch(`${cfg.endpoint}?${params}`);
+      if (res.status === 401 || res.status === 403) {
+        const err = new Error('session expired');
+        err.needsSignIn = true;
+        throw err;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // A slow first page must not overwrite a faster later one
+      if (seq !== requestSeq) return;
+
+      state.total = data.totalCount;
+      lastRows = data.items;
+      $('error-banner').style.display = 'none';
+      renderBody(state.tab, data.items);
+      renderPager();
+      if (state.tab === 'games') games = data.items;
+    } catch (e) {
+      if (seq !== requestSeq) return;
+      lastRows = [];
+      showBanner(`Failed to load ${state.tab}: ${e.message}.`, e.needsSignIn);
+      $('tbody').replaceChildren(stateRow(visibleColumns(cfg).length, 'Nothing to show.'));
+    } finally {
+      if (seq === requestSeq) wrap.classList.remove('loading');
+    }
+  }
+
+  async function loadGames() {
+    try {
+      const res = await fetch('/api/dashboard/games');
+      if (!res.ok) return;
+      games = (await res.json()).items;
+
+      const select = $('game-filter');
+      select.replaceChildren(select.firstElementChild);
+      for (const g of games) {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = `${g.fields.name} (${g.fields.releaseYear})`;
+        select.appendChild(opt);
+      }
+    } catch {
+      // The filter is a convenience; the tables still work without it
+    }
+  }
+
+  // ── Controls ────────────────────────────────────────────────────────────────
+  function selectTab(name) {
+    if (state.tab === name) return;
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+    state.tab = name;
+    state.page = 1;
+    state.total = 0;
+    $('game-filter').style.display = TABS[state.tab].paged ? '' : 'none';
+    $('import-open').hidden = !TABS[state.tab].paged;
+    load();
+  }
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => selectTab(tab.dataset.tab));
+  });
+
+  let searchTimer;
+  $('search').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.search = e.target.value.trim();
+      state.page = 1;
+      load();
+    }, 250);
+  });
+
+  $('game-filter').addEventListener('change', e => { state.gameId = e.target.value; state.page = 1; load(); });
+  $('page-size').addEventListener('change', e => { state.pageSize = Number(e.target.value); state.page = 1; load(); });
+  // Turning the page from the bottom lands you at the bottom of the next one, looking at row 50
+  // of a page whose row 1 you have not seen. Only the bottom control scrolls, and only back to
+  // the head of the table — the toolbar copy is already up there.
+  function turn(delta, scroll) {
+    if (state.page + delta < 1) return;
+    state.page += delta;
+    load().finally(() => {
+      if (scroll) $('table-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  for (const el of $$('.pager-prev'))
+    el.addEventListener('click', () => turn(-1, el.closest('.pager-bottom') !== null));
+  for (const el of $$('.pager-next'))
+    el.addEventListener('click', () => turn(1, el.closest('.pager-bottom') !== null));
+
+  // Only redraw when the window crosses a breakpoint — the widths themselves are CSS calc()
+  // against the table, so ordinary resizing needs no help from JavaScript.
+  let lastFloor = priorityFloor();
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const floor = priorityFloor();
+      if (floor === lastFloor) return;
+      lastFloor = floor;
+      renderHead(visibleColumns(TABS[state.tab]));
+      if (lastRows.length) renderBody(state.tab, lastRows);
+    }, 150);
+  });
+
+  $('zoom').addEventListener('click', e => { if (e.target === $('zoom')) closeZoom(); });
+  $('zoom-close').addEventListener('click', closeZoom);
+  $('editor-close').addEventListener('click', closeEditor);
+  $('editor-cancel').addEventListener('click', closeEditor);
+  $('editor-save').addEventListener('click', saveEditor);
+  $('editor-delete').addEventListener('click', () => confirmDelete(editing.row));
+  $('editor-form').addEventListener('submit', e => { e.preventDefault(); saveEditor(); });
+  $('confirm-no').addEventListener('click', () => { $('confirm').classList.remove('open'); pendingDelete = null; });
+  $('confirm-yes').addEventListener('click', runDelete);
+
+  $('new-row').addEventListener('click', () => openEditor(emptyRow(state.tab), 'create'));
+  $('import-open').addEventListener('click', openImport);
+  $('import-close').addEventListener('click', () => $('import').classList.remove('open'));
+  $('import-cancel').addEventListener('click', () => $('import').classList.remove('open'));
+  $('import-go').addEventListener('click', runImport);
+  $('import').addEventListener('click', e => { if (e.target === $('import')) $('import').classList.remove('open'); });
+  $('import-page').addEventListener('keydown', e => { if (e.key === 'Enter') runImport(); });
+
+  // Escape closes the topmost overlay only, so dismissing a zoom does not also discard an edit.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if ($('confirm').classList.contains('open')) { $('confirm').classList.remove('open'); pendingDelete = null; }
+    else if ($('zoom').classList.contains('open')) closeZoom();
+    else if ($('import').classList.contains('open')) $('import').classList.remove('open');
+    else if ($('editor').classList.contains('open')) closeEditor();
+  });
+
+  loadGames();
+  load();
+})();

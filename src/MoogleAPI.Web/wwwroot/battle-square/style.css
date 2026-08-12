@@ -1,0 +1,291 @@
+/* ── Gold Saucer ──
+   The one page on the site that isn't the site's palette. The Battle Square sits inside a
+   neon amusement park, so the chrome goes purple and gold and the surfaces get a lift the
+   rest of the games don't have. Overriding the shared tokens rather than restyling each
+   component means every control inherited from games.css comes along. */
+body {
+  --bg:        #16101f;
+  --surface:   #241a33;
+  --surface-2: #1c1429;
+  --border:    #3d2d54;
+  --accent:    #b07cc6;
+  --accent-2:  #e3c2f0;
+  --gold:      #ffd76e;
+  --muted:     #9a86b0;
+  --nav-bg:    rgba(18, 12, 26, 0.92);
+
+  --player:    #7c5cd6;
+  --opponent:  #d1568a;
+
+  /* Layered back to front: an optional photograph, then the carnival light fan, then the
+     house glow, then the flat colour. The image is listed first so it sits on top of the
+     gradients — and because a missing file simply does not paint, the page degrades to
+     exactly what it looked like before one was supplied. Nothing to guard, no fallback to
+     write.
+
+     Drop the artwork at /assets/backgrounds/battle-square.webp — see the note there for the
+     size it wants. */
+  background-image:
+    url('/assets/backgrounds/battle-square.webp'),
+    repeating-conic-gradient(from 200deg at 50% -12%,
+      rgba(255,215,110,0.045) 0deg 3deg, transparent 3deg 11deg),
+    radial-gradient(ellipse 70% 45% at 50% -5%, rgba(176,124,198,0.20) 0%, transparent 70%);
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover, auto, auto;
+  background-attachment: fixed;
+  background-color: var(--bg);
+}
+
+/* Keeps the artwork from competing with the fight. Sits under everything, over the
+   background, and is the one knob to turn if a supplied image reads too strong. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(22,16,31,0.72) 0%, rgba(22,16,31,0.88) 60%, rgba(22,16,31,0.95) 100%);
+}
+
+.page-title {
+  color: var(--gold);
+  text-shadow: 0 0 26px rgba(255,215,110,0.28);
+}
+
+/* ── Setup: game + character + level ── */
+.setup-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1.25rem; }
+.field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 12rem; flex: 1; }
+.field-label {
+  font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+}
+
+.roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+.champ {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.55rem;
+  cursor: pointer;
+  text-align: center;
+  color: var(--text);
+  font-family: 'Raleway', sans-serif;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.champ:hover, .champ:focus-visible { border-color: var(--accent); transform: translateY(-2px); }
+.champ[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.champ img {
+  width: 100%; aspect-ratio: 3 / 4; height: auto; object-fit: contain;
+  border-radius: 6px; margin-bottom: 0.4rem;
+}
+.champ-name { font-weight: 600; font-size: 0.86rem; line-height: 1.25; }
+.champ-role {
+  font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+}
+
+/* ── Level dial ── */
+.level-box {
+  display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.8rem 1rem; margin-top: 1rem;
+}
+.level-value {
+  font-family: 'Josefin Sans', sans-serif; font-size: 2rem; font-weight: 700;
+  color: var(--gold); line-height: 1; min-width: 3.2rem; text-align: center;
+}
+.level-slider { flex: 1; min-width: 12rem; accent-color: var(--accent); }
+.level-hint { font-size: 0.72rem; color: var(--muted); }
+.level-hint b { color: var(--accent-2); }
+
+.preview-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 0.35rem;
+  margin-top: 0.8rem; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+}
+.preview-stat {
+  display: flex; justify-content: space-between; gap: 0.4rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  padding: 0.22rem 0.45rem;
+}
+.preview-stat span { color: var(--muted); }
+
+/* ── Wave header ── */
+.wave-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.9rem;
+}
+.wave-title { font-family: 'Josefin Sans', sans-serif; font-size: 1.2rem; color: var(--gold); }
+.wave-pips { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.pip {
+  width: 1.5rem; height: 1.5rem; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.72rem; font-weight: 700;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+}
+.pip.won  { background: #2e7d52; color: #d3f5e3; border-color: transparent; }
+.pip.lost { background: #6b2740; color: #f0c4d2; border-color: transparent; }
+.pip.now  { border-color: var(--gold); color: var(--gold); }
+
+/* ── Points ── */
+.points-bar {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.points-value { font-size: 1.3rem; color: var(--gold); font-weight: 700; }
+.points-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+
+/* ── The slot reel ──
+   The handicap is the whole identity of this game, so it gets an announcement of its own
+   rather than a line in the log. */
+.reel {
+  display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;
+  border: 1px solid var(--border); border-left: 3px solid var(--gold);
+  border-radius: var(--radius); background: var(--surface-2);
+  padding: 0.7rem 0.9rem; margin-bottom: 0.9rem;
+}
+.reel.clean { border-left-color: #2e7d52; }
+.reel-icon { font-size: 1.3rem; line-height: 1; }
+.reel-body { flex: 1; min-width: 12rem; }
+.reel-name { font-weight: 700; font-size: 0.92rem; color: var(--gold); }
+.reel.clean .reel-name { color: #a9dcc2; }
+.reel-desc { font-size: 0.75rem; color: var(--muted); }
+.reel-mult {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+  color: var(--accent-2); white-space: nowrap;
+}
+/* Spin only when a handicap actually lands, and never for players who asked for less
+   motion — games.css already flattens the duration for them. */
+@keyframes reel-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.reel.spun { animation: reel-in 0.4s ease-out; }
+
+/* ── Arena ── */
+/* ── The stage ──
+   A lit arena floor, drawn in gradients so it tracks the two portraits at any width: a pool
+   of light under the combatants and the dark of the stands beyond it. */
+.arena {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.75rem 0.5rem 0.25rem;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(ellipse 85% 45% at 50% 108%, rgba(255,215,110,0.13) 0%, rgba(176,124,198,0.07) 45%, transparent 74%),
+    linear-gradient(180deg, rgba(0,0,0,0.22) 0%, transparent 40%);
+}
+.versus { align-self: center; color: var(--gold); font-size: 0.8rem; letter-spacing: 0.1em; font-weight: 700; }
+
+/* Each fighter under its own spotlight — the player's gold, the opponent's cold. */
+.fighter.player img {
+  background: radial-gradient(ellipse 62% 11% at 50% 94%, rgba(255,215,110,0.34) 0%, rgba(255,215,110,0.10) 48%, transparent 74%);
+}
+.fighter.opponent img {
+  background: radial-gradient(ellipse 62% 11% at 50% 94%, rgba(209,86,138,0.34) 0%, rgba(209,86,138,0.10) 48%, transparent 74%);
+}
+
+.fighter {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.85rem;
+}
+.fighter.player   { border-top: 3px solid var(--player); }
+.fighter.opponent { border-top: 3px solid var(--opponent); }
+.fighter img { width: 100%; aspect-ratio: 3 / 4; height: auto; object-fit: contain; border-radius: 6px; }
+.fighter-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 0.5rem; margin-top: 0.5rem;
+}
+.fighter-name { font-weight: 600; font-size: 0.95rem; }
+.fighter-role { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+/* Carries its own text, so which side strikes first is never signalled by colour alone. */
+.first-badge {
+  flex: none; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.08em;
+  padding: 0.15rem 0.35rem; border-radius: 4px;
+  background: #8a6d1f; color: #ffecb3;
+}
+
+.hp-track {
+  height: 12px; border-radius: 6px; background: var(--surface-2);
+  border: 1px solid var(--border); overflow: hidden; margin-top: 0.5rem;
+}
+.hp-fill { height: 100%; background: #2e7d52; transition: width 0.35s ease; }
+.hp-fill.low { background: #b58b25; }
+.hp-fill.critical { background: var(--opponent); }
+.hp-text { font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--muted); margin-top: 0.25rem; }
+
+.stat-row {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; color: var(--muted);
+}
+/* A stat the reel has cut reads differently from one that was always this low. */
+.stat-row .cut { color: #f0a8bd; }
+
+.affinity { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
+.tag {
+  font-size: 0.64rem; padding: 0.15rem 0.4rem; border-radius: 4px;
+  border: 1px solid var(--border); color: var(--muted); background: var(--surface-2);
+}
+.tag.weak   { color: #f0c4d2; border-color: #7a4450; }
+.tag.absorb { color: #d3f5e3; border-color: #2e7d52; }
+
+/* Each status carries its own word and remaining turns — never colour alone. */
+.statuses { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; min-height: 1.35rem; }
+.status-chip {
+  font-size: 0.64rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--surface-2);
+}
+.status-chip.poison  { color: #d7b8f0; border-color: #6b4a86; }
+.status-chip.blind   { color: var(--muted); border-color: #5b6b73; }
+.status-chip.silence { color: #ffecb3; border-color: #8a6d1f; }
+.status-none { font-size: 0.64rem; color: var(--muted); font-style: italic; }
+
+.move-label {
+  margin-top: 0.7rem; font-size: 0.62rem; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--muted);
+}
+.moves { display: grid; gap: 0.4rem; margin-top: 0.35rem; }
+.move { text-align: left; padding: 0.5rem 0.6rem; line-height: 1.35; }
+.move-name { display: block; font-weight: 600; font-size: 0.84rem; }
+.move-meta { display: block; font-size: 0.66rem; color: var(--accent-2); font-family: 'JetBrains Mono', monospace; }
+.move-warn { display: block; font-size: 0.62rem; color: #ffd76e; }
+/* The enemy's moves are information, not buttons — flat, unclickable, and visibly so. */
+.foe-move {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+}
+.foe-move.locked { opacity: 0.5; }
+
+.log {
+  margin-top: 1rem; max-height: 190px; overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.7rem 0.85rem;
+}
+.log p { margin-bottom: 0.3rem; color: var(--muted); }
+.log p.hit  { color: #d3f5e3; }
+.log p.crit { color: var(--gold); }
+.log p.bad  { color: #f0c4d2; }
+
+.share {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+  white-space: pre-wrap; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.85rem; margin: 1rem 0;
+}
+.row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
+
+@media (max-width: 640px) {
+  /* Stacked, the two portraits push the moves off screen, so cap their height and let the
+     aspect ratio give way rather than the layout. */
+  .arena { grid-template-columns: 1fr; }
+  .versus { justify-self: center; }
+  .fighter img { aspect-ratio: auto; height: 150px; }
+  .level-value { font-size: 1.6rem; }
+  /* Stacked, the floor is behind one card at a time and stops reading as a stage. */
+  .arena { background: none; padding: 0; }
+}
