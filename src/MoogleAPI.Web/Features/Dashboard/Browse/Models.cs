@@ -88,6 +88,7 @@ public record GameEdit(
     string Name,
     int ReleaseYear,
     string Platform,
+    bool IsMainSeries,
     string? Description,
     string? ImageUrl,
     string? ThumbnailUrl,

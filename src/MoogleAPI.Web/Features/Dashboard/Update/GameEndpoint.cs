@@ -34,6 +34,7 @@ public class GameEndpoint(AppDbContext db, HybridCache cache)
         game.Name = f.Name.Trim();
         game.ReleaseYear = f.ReleaseYear;
         game.Platform = f.Platform.Trim();
+        game.IsMainSeries = f.IsMainSeries;
         game.Description = EditText.Clean(f.Description);
         game.ImageUrl = EditText.Clean(f.ImageUrl);
         game.ThumbnailUrl = EditText.Clean(f.ThumbnailUrl);
@@ -49,7 +50,7 @@ public class GameEndpoint(AppDbContext db, HybridCache cache)
 
         await Send.OkAsync(new UpdateResponse<GameRow>(
             new GameRow(game.Id, counts.Characters, counts.Monsters, counts.Cards,
-                new GameEdit(game.Name, game.ReleaseYear, game.Platform, game.Description,
+                new GameEdit(game.Name, game.ReleaseYear, game.Platform, game.IsMainSeries, game.Description,
                              game.ImageUrl, game.ThumbnailUrl, game.ImageSourceUrl))), ct);
     }
 }

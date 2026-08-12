@@ -24,7 +24,7 @@ public class Endpoint(AppDbContext db, HybridCache cache) : Endpoint<GetGameRequ
             async token => await db.Games
                 .Where(g => g.Id == req.Id)
                 .Select(g => new GetGameResponse(
-                    g.Id, g.Name, g.ReleaseYear, g.Platform, g.Description, g.ImageUrl, g.ThumbnailUrl,
+                    g.Id, g.Name, g.ReleaseYear, g.Platform, g.IsMainSeries, g.Description, g.ImageUrl, g.ThumbnailUrl,
                     g.Characters.Count, g.Monsters.Count))
                 .FirstOrDefaultAsync(token),
             tags: CatalogCache.Tags,
