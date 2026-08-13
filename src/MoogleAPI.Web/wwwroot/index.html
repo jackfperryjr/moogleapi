@@ -4,45 +4,64 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>moogleAPI</title>
+  <link rel="icon" href="/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Raleway:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <!-- Synchronous and before the stylesheets: it stamps .ff-mode on <html> so the first paint is
-       already the right theme. See assets/theme.js. -->
-  <script src="/assets/theme.js"></script>
+
+  <!-- Synchronous and before the stylesheets: it stamps data-theme AND .ff-mode on <html> so
+       the first paint is already the right theme on both axes. See assets/theme.js. -->
+  <script src="/assets/theme.js?v=20260812b"></script>
+
+  <!-- ff4.css FIRST, home.css second. The order is load-bearing: home.css's FFIV component
+       rules have to win, and its light tokens deliberately sit at a lower specificity than
+       ff4.css's palette so they lose. See the token block at the top of home.css. -->
   <link rel="stylesheet" href="/assets/ff4.css" />
-  <link rel="stylesheet" href="/assets/home.css?v=20260812" />
+  <link rel="stylesheet" href="/assets/home.css?v=20260812b" />
 </head>
 <body>
 
-<!-- Everything that can be thrown around during the break-in. The starfield, the notify window
-     and the transition overlay are deliberately outside it — see the #page note in the CSS. -->
+<!-- Everything that can be thrown around during the break-in. #ff-menu, the notify window and
+     the chocobo stage are deliberately outside it.
+
+     #page is structural, not a wrapper left over from something: FFIV mode turns it into the
+     menu screen's left panel — fixed to the viewport with its own scrollbar — so removing it
+     silently degrades FFIV into a recoloured web page rather than breaking visibly. -->
 <div id="page">
 
 <nav>
-  <a class="nav-brand" href="/"><img src="/assets/moogle.png" alt="" /> moogleAPI</a>
+  <a href="/" aria-label="moogleAPI home">
+    <span class="mark-wrap nav-mark"><span class="mark"></span></span>
+  </a>
   <div class="nav-links">
     <a href="/games">Games</a>
-    <a href="https://github.com/jackfperryjr/moogleapi" target="_blank">GitHub</a>
+    <a href="https://github.com/jackfperryjr/moogleapi" target="_blank" rel="noopener">GitHub</a>
+    <button type="button" class="ground-toggle" id="ground-toggle">
+      <span id="ground-icon">☾</span><span id="ground-label">Dark</span>
+    </button>
     <a href="/scalar/v1" class="btn-docs">Docs →</a>
   </div>
 </nav>
 
 <div class="hero">
-  <h1>m<img src="/assets/moogle.png" class="moogle-letter" id="moogle-egg" alt="o" title="✦ Kupo? ✦">ogleAPI</h1>
+  <!-- The mark replaces the runtime-assembled wordmark. The h1 stays for crawlers and screen
+       readers; the moogle at its head is the FFIV hotspot. -->
+  <h1 class="sr-only">moogleAPI</h1>
+  <span class="mark-wrap hero-mark">
+    <span class="mark"></span>
+    <button type="button" class="mark-hotspot" id="ff-hotspot" title="✦ Kupo? ✦"
+            aria-label="Toggle FFIV mode"></button>
+    <span class="mark-glow" aria-hidden="true"></span>
+  </span>
   <p>A free, open REST API for Final Fantasy data — characters, monsters, and games. Kupo!</p>
-  <div class="hero-actions">
-    <a href="#try-it" class="btn-primary">Try It Now</a>
-    <a href="/scalar/v1" class="btn-secondary">Docs</a>
-  </div>
+  <a href="#try-it" class="btn-primary">Try It Now</a>
 </div>
 
-<div class="data-summary" id="data-summary">&nbsp;</div>
-
-<div class="stats">
-  <div class="stat"><div class="stat-value">REST</div><div class="stat-label">Architecture</div></div>
-  <div class="stat"><div class="stat-value">Free</div><div class="stat-label">Always</div></div>
-  <div class="stat"><div class="stat-value">60/min</div><div class="stat-label">Rate Limit</div></div>
+<div class="counts">
+  <div class="count count-char"><b id="n-characters">—</b><span>characters</span></div>
+  <div class="count count-mon"><b id="n-monsters">—</b><span>monsters</span></div>
+  <div class="count count-game"><b id="n-games">—</b><span>games</span></div>
+  <div class="count"><b>5,567</b><span>pieces of art</span></div>
 </div>
 
 <main>
@@ -50,80 +69,121 @@
   <section id="endpoints">
     <h2>Endpoints</h2>
 
-    <div class="endpoint-group">
-      <div class="group-label">Characters</div>
-      <a class="endpoint" href="/api/characters" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/characters</div>
-          <div class="desc">List all characters · <span class="route-query">gameId, page, pageSize</span></div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
-      <a class="endpoint" href="/api/characters/1" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/characters/<span class="route-param">{id}</span></div>
-          <div class="desc">Get a character by ID</div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
-      <a class="endpoint" href="/api/characters/search?query=Cloud" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/characters/search</div>
-          <div class="desc">Search by name or description · <span class="route-query">query, gameId</span></div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
+    <div class="collection c-char">
+      <div class="collection-head">
+        <span class="collection-title">Characters</span>
+        <span class="collection-n"><span id="cn-characters">—</span> records · 18 games</span>
+      </div>
+      <div class="strip">
+        <span class="sprite s-char" style="--i:0"></span>
+        <span class="sprite s-char" style="--i:1"></span>
+        <span class="sprite s-char" style="--i:2"></span>
+        <span class="sprite s-char" style="--i:3"></span>
+        <span class="sprite s-char" style="--i:4"></span>
+        <span class="sprite s-char" style="--i:5"></span>
+      </div>
+      <div class="rows">
+        <a class="row" href="/api/characters" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/characters</span>
+            <span class="desc">List all characters · <span class="route-query">gameId, page, pageSize</span></span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+        <a class="row" href="/api/characters/1" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/characters/<span class="route-param">{id}</span></span>
+            <span class="desc">Get a character by ID</span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+        <a class="row" href="/api/characters/search?query=Cloud" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/characters/search</span>
+            <span class="desc">Search by name or description · <span class="route-query">query, gameId</span></span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+      </div>
     </div>
 
-    <div class="endpoint-group">
-      <div class="group-label">Monsters</div>
-      <a class="endpoint" href="/api/monsters" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/monsters</div>
-          <div class="desc">List all monsters · <span class="route-query">gameId, category, page, pageSize</span></div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
-      <a class="endpoint" href="/api/monsters/1" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/monsters/<span class="route-param">{id}</span></div>
-          <div class="desc">Get a monster by ID</div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
-      <a class="endpoint" href="/api/monsters/search?query=Goblin" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/monsters/search</div>
-          <div class="desc">Search by name or description · <span class="route-query">query, gameId, category</span></div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
+    <div class="collection c-mon">
+      <div class="collection-head">
+        <span class="collection-title">Monsters</span>
+        <span class="collection-n"><span id="cn-monsters">—</span> records · bosses &amp; enemies</span>
+      </div>
+      <div class="strip">
+        <span class="sprite s-mon" style="--i:0"></span>
+        <span class="sprite s-mon" style="--i:1"></span>
+        <span class="sprite s-mon" style="--i:2"></span>
+        <span class="sprite s-mon" style="--i:3"></span>
+        <span class="sprite s-mon" style="--i:4"></span>
+        <span class="sprite s-mon" style="--i:5"></span>
+      </div>
+      <div class="rows">
+        <a class="row" href="/api/monsters" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/monsters</span>
+            <span class="desc">List all monsters · <span class="route-query">gameId, category, page, pageSize</span></span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+        <a class="row" href="/api/monsters/1" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/monsters/<span class="route-param">{id}</span></span>
+            <span class="desc">Get a monster by ID</span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+        <a class="row" href="/api/monsters/search?query=Goblin" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/monsters/search</span>
+            <span class="desc">Search by name or description · <span class="route-query">query, gameId, category</span></span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+      </div>
     </div>
 
-    <div class="endpoint-group">
-      <div class="group-label">Games</div>
-      <a class="endpoint" href="/api/games" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/games</div>
-          <div class="desc">List all games · <span class="route-query">page, pageSize</span></div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
-      <a class="endpoint" href="/api/games/7" target="_blank">
-        <div class="method">GET</div>
-        <div class="endpoint-info">
-          <div class="route">/api/games/<span class="route-param">{id}</span></div>
-          <div class="desc">Get a game by ID — includes character and monster counts</div>
-        </div>
-        <div class="try-arrow">open ↗</div>
-      </a>
+    <!-- Games get circles where the entities get octagons. The shape is the distinction: an
+         octagon is a thing in a game, a circle is a game. -->
+    <div class="collection c-game">
+      <div class="collection-head">
+        <span class="collection-title">Games</span>
+        <span class="collection-n"><span id="cn-games">—</span> titles</span>
+      </div>
+      <div class="strip">
+        <span class="sprite s-game" style="--i:0"></span>
+        <span class="sprite s-game" style="--i:1"></span>
+        <span class="sprite s-game" style="--i:2"></span>
+        <span class="sprite s-game" style="--i:3"></span>
+        <span class="sprite s-game" style="--i:4"></span>
+        <span class="sprite s-game" style="--i:5"></span>
+      </div>
+      <div class="rows">
+        <a class="row" href="/api/games" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/games</span>
+            <span class="desc">List all games · <span class="route-query">page, pageSize</span></span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+        <a class="row" href="/api/games/7" target="_blank">
+          <span class="method">GET</span>
+          <span>
+            <span class="route">/api/games/<span class="route-param">{id}</span></span>
+            <span class="desc">Get a game by ID — includes character and monster counts</span>
+          </span>
+          <span class="go">open ↗</span>
+        </a>
+      </div>
     </div>
   </section>
 
@@ -132,15 +192,17 @@
     <p style="color:var(--muted);margin-bottom:1.25rem;">
       Four browser games built on this API — they use nothing you can't call yourself.
     </p>
-    <div class="endpoint-group">
-      <a class="endpoint" href="/games">
-        <div class="method method-play">PLAY</div>
-        <div class="endpoint-info">
-          <div class="route">/games</div>
-          <div class="desc">Kupodle · Triple Triad · Kupo Climb · Battle Square</div>
-        </div>
-        <div class="try-arrow">all four →</div>
-      </a>
+    <div class="collection c-game">
+      <div class="rows" style="border-top:0">
+        <a class="row" href="/games">
+          <span class="method method-play">PLAY</span>
+          <span>
+            <span class="route">/games</span>
+            <span class="desc">Kupodle · Triple Triad · Sphere Hunter · Battle Square</span>
+          </span>
+          <span class="go">all four →</span>
+        </a>
+      </div>
     </div>
   </section>
 
@@ -171,27 +233,26 @@
 
   <section id="rate-limiting">
     <h2>Rate Limiting</h2>
-    <div class="endpoint-static">
-      <div class="method">60/m</div>
-      <div class="endpoint-info">
-        <div class="route">Anonymous</div>
-        <div class="desc">60 requests per minute per IP — no key needed</div>
-      </div>
+    <div class="row-static">
+      <span class="method">60/m</span>
+      <span>
+        <span class="route">Anonymous</span>
+        <span class="desc">60 requests per minute per IP — no key needed</span>
+      </span>
     </div>
-    <div class="endpoint-static">
-      <div class="method method-premium">600/m</div>
-      <div class="endpoint-info">
-        <div class="route">Premium <span class="route-query">— pass <code>X-Api-Key: your-key</code></span></div>
-        <div class="desc">10× the limit for power users and project builders</div>
-      </div>
+    <div class="row-static">
+      <span class="method method-premium">600/m</span>
+      <span>
+        <span class="route">Premium <span class="route-query">— pass <code>X-Api-Key: your-key</code></span></span>
+        <span class="desc">10× the limit for power users and project builders</span>
+      </span>
     </div>
   </section>
-
 
 </main>
 
 <footer>
-  <img src="/assets/moogle.png" class="kupo-footer" alt="Moogle" style="width:40px;height:auto;opacity:0.7;" />
+  <span class="mark-wrap footer-mark"><span class="mark"></span></span>
   <p>Built with ♥ by <a href="https://github.com/jackfperryjr">jackfperryjr</a></p>
   <p style="margin-top:0.4rem;">Not affiliated with Square Enix · <a href="/scalar/v1">Docs</a></p>
   <p><a href="https://buy.stripe.com/aFafZj7YI6n06d3fxG0Fi00" target="_blank" rel="noopener">Buy me a coffee ☕</a></p>
@@ -199,15 +260,6 @@
 
 </div><!-- /#page -->
 
-<!-- The FFIV command menu. display:none until ff-mode, so the silver page never sees it — these
-     are the section anchors the navbar dropped, which is the right content for a command list
-     even though it was the wrong content for a navbar. -->
-<!-- The FFIV menu: command list, title window, status window — the three panels down the right of
-     the party screen. display:none until ff-mode, so the silver page never sees it.
-
-     The Restore command is load-bearing, not decoration. FFIV mode hides the nav and the hero, and
-     the hero is where the moogle that turns it on lives, so without a way out from in here the
-     only exit would be the Konami code. -->
 <aside id="ff-menu" aria-hidden="true">
   <div class="ff-window ff-commands">
     <ul>
@@ -231,18 +283,6 @@
 </aside>
 
 <div id="ff-notify"></div>
-
-<!-- The herd. Written out rather than built at runtime, so the markup is the thing you read and
-     tweak and there is no loop to run on every toggle.
-
-     The rules behind the numbers, if these are ever regenerated: lanes even from 2% to 90%; size
-     rising with the lane so the big birds run low and the small ones high, jittered so it is a
-     crowd and not a ramp; duration inverse to size, because a big chocobo covering the same
-     distance faster is what sells the depth; delays scattered under 0.6s so they stream past
-     instead of arriving as a wall. Nobody shares a size with the lane next to them.
-
-     If you add slower lanes, raise HERD in the script to match — the stage is torn down on that
-     timer and anything still running gets cut off mid-stride. -->
 
 <div id="choco-wipe">
   <div id="choco-curtain"></div>
@@ -282,7 +322,7 @@
   <div class="choco" style="--top:90.0%; --size:136px; --dur:0.96s; --delay:0.06s"><img src="/assets/chocobo.png?v=20260809" alt="" /></div>
 </div>
 
-<script src="/assets/home.js?v=20260812"></script>
+<script src="/assets/home.js?v=20260812b"></script>
 
 </body>
 </html>

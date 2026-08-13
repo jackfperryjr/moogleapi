@@ -1,67 +1,165 @@
-/* Silver, black and red.
+/* The landing page.
  *
- * Only the wordmark is red — --brand is spent on "moogleAPI" in the nav and the hero and
- * nowhere else, so it stays a mark rather than becoming the page's accent colour. Everything
- * that used to be gold is now --heading, which is black: section titles, stat values and the
- * numbers in the data summary were picked out in gold because the page was dark, and on
- * silver they only need weight.
+ * Silver, ink and red, plus FFIV. There are two independent theme axes and keeping them
+ * separate is the organising idea of this file:
  *
- * --accent is still the one interactive colour — buttons, focus rings, hover borders — and it
- * is the same red. That is deliberate: two accents on a near-white page fight, and the red
- * already has to be there for the wordmark.
+ *   data-theme="light|dark"   the ground. A pair — same layout, same components, one set of
+ *                             tokens swapped. Stamped on <html> by theme.js before first paint.
  *
- * Every value below is overridden wholesale by .ff-mode further down, which is why the
- * components underneath reference tokens rather than colours. */
+ *   .ff-mode                  the easter egg. NOT a third ground: a different layout. The page
+ *                             stops being a page and becomes the FFIV party screen. See the
+ *                             FFIV section at the bottom, which is the largest block here.
+ *
+ * Three things about the components, and everything else follows from them:
+ *
+ *   1. THE MARK IS A MASK, NOT A PICTURE. moogleapi-logo-black.png is a clean silhouette —
+ *      24.1% alpha coverage — so it masks a painted background rather than being drawn. That is
+ *      what lets "moogle" be red and "api" be ink out of one flat file, and it means the single
+ *      asset serves light, dark and FFIV. moogleapi-logo-white.png is redundant under this and
+ *      is left on disk unreferenced.
+ *
+ *   2. THE SPRITE SHEETS ARE THE COLLECTIONS' IDENTITY. Characters and monsters are octagons,
+ *      games are circles, and the shape carries the distinction — an octagon is a thing in a
+ *      game, a circle is a game. All three are one parametric rule, .sprite.
+ *
+ *   3. THE STRIP IS THE PAYLOAD, NOT A GARNISH. The six faces above each endpoint list are
+ *      rows that endpoint actually returns, so the card answers "what is in this collection"
+ *      before anyone clicks.
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Tokens
+   ═══════════════════════════════════════════════════════════════════════════════════════════
+   Light keeps the silver the site already had; there was nothing wrong with it and it is the
+   established ground. Dark is #0d1017 — a blue-biased near-black rather than a neutral grey,
+   and deliberately NOT the FFIV blue, which is its own world two axes over.
+
+   --char and --mon are sampled off the octagon strokes and --game off the circle strokes, so
+   the three collection accents are literally colours out of the art.
+
+   Light is the unconditional base at plain `:root`, specificity (0,1,0), which is DELIBERATELY
+   lower than ff4.css's `:root.ff-mode` at (0,2,0). That is what lets FFIV win every token it
+   defines without this file having to know which ones those are — it loads second and still
+   loses, because it asks for less.
+
+   Dark is the one that has to say :not(.ff-mode). `:root[data-theme="dark"]` is (0,2,0), the
+   same as ff4.css's block, and this file loads later, so an unqualified dark block would
+   silently repaint FFIV in ink the moment both were on. */
 :root {
   --bg:          #f4f6f8;
   --bg-2:        #edeff3;
-  /* Panels are DARKER than the page, not lighter. The usual light-theme move is a white card
-     floating over grey, but the page is silver and white cards on it read as holes rather
-     than as surfaces. Everything is a step down instead, and the border does the separating
-     that a shadow would on a white card. */
+  --raise:       #ffffff;
   --surface:     #e0e4ea;
   --border:      #c9cfd8;
+  --border-2:    #d8dee6;
+
   --brand:       #d0021b;
   --brand-2:     #94060f;
   --accent:      #d0021b;
-  /* The deep red does two jobs: hover states, and red *text*. The bright red is tuned to sit
-     under white as a button fill and to carry the wordmark on the page, and at 4.44:1 on a
-     --surface panel it misses AA as body-sized text. Anywhere red is a word rather than a
-     fill, it is this one. */
   --accent-2:    #a10214;
   --accent-soft: rgba(208, 2, 27, 0.07);
-  /* The wash under the nav. White, not a tint of the brand — a red one read as a glow
-     leaking out of the navbar rather than as light falling on the page. */
-  --hero-glow:   rgba(255, 255, 255, 0.95);
+
   --heading:     #14161a;
   --text:        #14161a;
   --muted:       #5b626d;
+
+  --char:        #335dd1;
+  --mon:         #9e38cb;
+  --game:        #257dd9;
+
   --green:       #1c6b40;
   --error:       #a4121e;
   --method-bg:   rgba(28, 107, 64, 0.09);
   --method-border: rgba(28, 107, 64, 0.28);
-  /* The premium rate-limit pill. Blue keeps it apart from the green tiers and the red
-     actions, which is the whole job — it is a label, not something you can click. */
   --premium:        #17458f;
   --premium-bg:     rgba(23, 69, 143, 0.09);
   --premium-border: rgba(23, 69, 143, 0.3);
-  /* The nav stays light. It sits over the top of the page gradient, which is nearly white
-     there anyway, and dropping it to panel silver put the wordmark at 4.44:1 — fine for
-     large text, thin for a brand mark. The white the eye reads as "unfinished" was the
-     cards and the stats band, and those are what moved. */
+
   --nav-bg:      rgba(250, 251, 252, 0.9);
+  --hero-glow:   rgba(255, 255, 255, 0.95);
   --shadow:      0 1px 1px rgba(20, 22, 26, 0.03), 0 4px 12px rgba(20, 22, 26, 0.04);
   --radius:      10px;
+
+  /* The two halves of the wordmark. */
+  --mark-red:    #d0021b;
+  --mark-ink:    #14161a;
+}
+
+:root[data-theme="dark"]:not(.ff-mode) {
+  --bg:          #0d1017;
+  --bg-2:        #0a0d13;
+  --raise:       #12161f;
+  --surface:     #161b24;
+  --border:      #262d39;
+  --border-2:    #1e242e;
+
+  /* The brand red has to lift off a near-black ground. #d0021b on #0d1017 is about 3.4:1 —
+     fine as a button fill, short of AA as a word — and #ff4a5e clears it while still reading
+     as the same red. */
+  --brand:       #ff4a5e;
+  --brand-2:     #d0021b;
+  --accent:      #ff4a5e;
+  --accent-2:    #ff7c8b;
+  --accent-soft: rgba(255, 74, 94, 0.10);
+
+  --heading:     #e9edf4;
+  --text:        #e9edf4;
+  --muted:       #8b95a6;
+
+  --char:        #6d90ff;
+  --mon:         #c274ee;
+  --game:        #5ba8f5;
+
+  --green:       #4fc98a;
+  --error:       #ff8f98;
+  --method-bg:   rgba(79, 201, 138, 0.12);
+  --method-border: rgba(79, 201, 138, 0.32);
+  --premium:        #7aa8ff;
+  --premium-bg:     rgba(122, 168, 255, 0.12);
+  --premium-border: rgba(122, 168, 255, 0.32);
+
+  --nav-bg:      rgba(13, 16, 23, 0.86);
+  --hero-glow:   rgba(45, 56, 80, 0.55);
+  --shadow:      0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.34);
+
+  --mark-red:    #ff4a5e;
+  --mark-ink:    #e9edf4;
+}
+
+/* FFIV: the colour half. The layout half is the big block at the bottom of this file.
+ *
+ * ff4.css is not extended and not overridden here — it stays exactly the palette it already
+ * is. The only tokens set below are ones it has never heard of, because they are new to this
+ * page: without them they would fall through to the light values above and put a silver panel
+ * and a red wordmark on the FFIV blue.
+ *
+ * Everything ff4.css DOES define — --bg, --surface, --border, --brand, --accent, --text,
+ * --muted, --heading, --nav-bg, --shadow, --radius and the rest — is left alone and flows
+ * into these components on its own, which is the whole point of writing them against tokens.
+ *
+ * The three collection accents collapse to one gold. FFIV's palette is blue, white and gold;
+ * keeping three separate hues would be inventing a fourth, fifth and sixth. */
+:root.ff-mode {
+  --raise:       #0e1f70;
+  --border-2:    rgba(223, 232, 255, 0.35);
+
+  --char:        #f8d030;
+  --mon:         #f8d030;
+  --game:        #f8d030;
+
+  --mark-red:    #f8d030;
+  --mark-ink:    #ffffff;
+
+  --premium:        #dfe8ff;
+  --premium-bg:     rgba(223, 232, 255, 0.14);
+  --premium-border: rgba(223, 232, 255, 0.45);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  /* A flat off-white over a whole page reads as unpainted rather than light. The two stops
-     are close enough to stay neutral under black text and far enough apart to give the page
-     a top-down light source — the silver the palette is named for. */
   background: var(--bg);
-  background-image: linear-gradient(180deg, #fcfcfd 0%, var(--bg) 38%, var(--bg-2) 100%);
+  background-image: linear-gradient(180deg, var(--raise) 0%, var(--bg) 38%, var(--bg-2) 100%);
   background-attachment: fixed;
   color: var(--text);
   font-family: 'Raleway', sans-serif;
@@ -69,12 +167,116 @@ body {
   min-height: 100vh;
 }
 
-/* ── Nav ── */
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   The mark
+   ═══════════════════════════════════════════════════════════════════════════════════════════
+   Measured off moogleapi-logo-black.png, 1878 × 326. The glyph runs are:
+
+     mascot   12 – 105      ┐
+     m o o g l e            ├─ red      (ends 1263)
+     142 – 1263             ┘
+     a p i    1284 – 1742   ┐
+     creature 1772 – 1864   ┴─ ink      (starts 1284)
+
+   The split is the midpoint of that gap, 1273.5 / 1878 = 67.81%, as a hard gradient stop. The
+   trailing creature stays ink so it reads with "api" — bookending it in red instead is a
+   one-number change if that turns out to be the better call. */
+.mark {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1878 / 326;
+  background: linear-gradient(90deg, var(--mark-red) 0 67.81%, var(--mark-ink) 67.81%);
+  -webkit-mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
+  mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
+  transition: background 0.35s ease;
+}
+
+.mark-wrap { position: relative; display: block; line-height: 0; }
+
+/* The FFIV hotspot: the moogle at the head of the wordmark, x 12–105 of 1878 = 0.64%–5.59%,
+   opened out a little so it is a comfortable target. This is the whole easter egg now that the
+   text h1 is gone — there is no other visible way in besides the Konami code.
+
+   The glow is drawn as a sibling layer rather than on the button, because a box-shadow on a
+   rectangle over a moogle-shaped hole looks like a lit rectangle. The layer is the same mask
+   as the mark, clipped to the moogle's slice, so what lights up is the moogle itself. */
+.mark-hotspot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6.2%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  z-index: 2;
+}
+.mark-glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: #f8d030;
+  -webkit-mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
+  mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
+  clip-path: inset(0 93.8% 0 0);
+  opacity: 0;
+  filter: drop-shadow(0 0 8px rgba(248, 208, 48, 0.95));
+  transition: opacity 0.25s ease;
+}
+.mark-hotspot:hover ~ .mark-glow,
+.mark-hotspot:focus-visible ~ .mark-glow { opacity: 1; }
+.mark-hotspot:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Sprite sheets
+   ═══════════════════════════════════════════════════════════════════════════════════════════
+   All three strips are clean sheets of evenly pitched square tiles, measured from the files:
+
+     character-octagons.webp   1696 × 256   tile 256   pitch 288   top  0
+     monster-octagons.webp     1696 × 285   tile 256   pitch 288   top 29
+     game-circles.webp         1080 × 160   tile 160   pitch 184   top  0
+
+   The monster sheet's extra 29px is headroom for the moogle's pom-pom on tile 1 — the only
+   tile that breaks its own box. It is clipped in a row, on purpose: one tile with a stalk
+   poking out of an even line breaks the rhythm. Anywhere a monster is shown alone and large,
+   set --top: 4 and grow the box to 281/256 and the pom-pom comes back.
+
+   One rule, parametric in those numbers, so a new strip is six declarations and no new CSS. */
+.sprite {
+  --tile: 256;
+  --pitch: 288;
+  --sheet: 1696;
+  --top: 0;
+  --size: 3.5rem;
+  --i: 0;
+
+  width: var(--size);
+  height: var(--size);
+  flex: 0 0 auto;
+  background-repeat: no-repeat;
+  background-size: calc(var(--sheet) / var(--tile) * var(--size)) auto;
+  background-position:
+    calc(-1 * var(--i) * var(--pitch) / var(--tile) * var(--size))
+    calc(-1 * var(--top) / var(--tile) * var(--size));
+}
+.s-char { background-image: url('/assets/character-octagons.webp'); }
+.s-mon  { background-image: url('/assets/monster-octagons.webp'); --top: 29; }
+.s-game {
+  background-image: url('/assets/game-circles.webp');
+  --tile: 160; --pitch: 184; --sheet: 1080;
+}
+
+/* ── Nav ────────────────────────────────────────────────────────────────────────────────── */
 nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 2rem;
+  gap: 1rem;
+  padding: 1rem 2rem;
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(8px);
   position: sticky;
@@ -82,26 +284,11 @@ nav {
   z-index: 10;
   background: var(--nav-bg);
 }
-.nav-brand {
-  font-family: 'Josefin Sans', sans-serif;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--brand);
-  letter-spacing: 0.1em;
-  text-decoration: none;
-}
-/* Was an inline style, which meant ff-mode could not reach it — and it is sized in em off
-   a .nav-brand that the pixel font drops to 0.65rem, so the mascot came out smaller than the
-   letters next to it. Same trap as .moogle-letter in the hero. */
-.nav-brand img {
-  height: 1.4em;
-  width: auto;
-  vertical-align: middle;
-  margin-right: 0.4rem;
-  transform: rotate(-8deg);
-  display: inline-block;
-}
-.nav-links { display: flex; gap: 1.5rem; align-items: center; }
+/* At this height the moogle inside the mark is about 7px across — texture rather than a
+   figure, which is what a wordmark does at nav size. The mascot stays legible in the hero,
+   which is where the hotspot lives. */
+.nav-mark { width: 9.5rem; }
+.nav-links { display: flex; gap: 1.25rem; align-items: center; }
 .nav-links a {
   color: var(--muted);
   text-decoration: none;
@@ -110,6 +297,11 @@ nav {
   transition: color 0.2s;
 }
 .nav-links a:hover { color: var(--brand); }
+
+/* The one Docs link on the page. It used to be here AND under the hero; the nav is the one
+   that survives, because it is sticky and follows you down to the bottom of the endpoint list
+   where you are most likely to want it. The hero keeps a single action instead of two
+   competing ones. */
 .btn-docs {
   background: var(--accent);
   color: #fff !important;
@@ -120,12 +312,33 @@ nav {
 }
 .btn-docs:hover { opacity: 0.85; }
 
-/* ── Hero ── */
+.ground-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  color: var(--muted);
+  font-family: 'Raleway', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.ground-toggle:hover { color: var(--text); border-color: var(--accent); }
+.ground-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Hero ───────────────────────────────────────────────────────────────────────────────── */
 .hero {
   text-align: center;
-  padding: 6rem 2rem 2rem;
+  padding: 5rem 2rem 3rem;
   position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
 }
 .hero::before {
   content: '';
@@ -134,131 +347,64 @@ nav {
   background: radial-gradient(ellipse 80% 50% at 50% 0%, var(--hero-glow) 0%, transparent 70%);
   pointer-events: none;
 }
-.hero h1 {
-  font-family: 'Josefin Sans', sans-serif;
-  font-size: clamp(2.5rem, 6vw, 4rem);
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  /* Kept as a clipped gradient rather than a flat colour so ff-mode can put a two-tone
-     wordmark back without restructuring the rule. In silver mode the two stops are the same
-     red a shade apart, which reads as solid at a glance and gives the letters some depth. */
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 60%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-}
-.moogle-letter {
-  height: 0.8em;
-  width: auto;
-  vertical-align: middle;
-  display: inline-block;
-  /* Asymmetric on purpose. h1 has letter-spacing: 0.15em, which is trailing space added after
-     every character — so the "m" pushes 0.15em of it against the moogle's left side while the
-     "o" on the right gets none, and an even margin lands the mascot hard up against the "o".
-     The two values differ by that 0.15em and average out to the old -0.04em, so the wordmark
-     is the same width as before; only the moogle moved. */
-  margin: 0 0.035em 0 -0.115em;
-  -webkit-text-fill-color: initial;
-  transform: rotate(-8deg) translateY(-0.05em);
-  transform-origin: 50% 65%;
-  filter: drop-shadow(0 2px 6px rgba(20, 22, 26, 0.18));
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.35s ease;
-}
-/* Hover is the only hint that the mascot does anything — it is the FFIV-mode toggle, and a
-   still image in the middle of a wordmark does not read as a button. The gold is the FFIV
-   accent rather than anything from the silver palette, which makes the hover a small preview
-   of what clicking does.
-
-   The wobble ends on exactly the transform the hover rule holds, so when the animation drops
-   off nothing jumps, and the transition takes the lift back down on the way out. Nothing else
-   may set transform on this element: an !important rule elsewhere outranks the keyframes and
-   silently flattens the whole thing back to a pop. */
-.moogle-letter:hover,
-.moogle-letter:focus-visible {
-  transform: rotate(-8deg) translateY(-0.12em) scale(1.12);
-  filter: drop-shadow(0 0 10px rgba(248, 208, 48, 0.9));
-  animation: moogle-wobble 0.65s ease-in-out;
-}
-@keyframes moogle-wobble {
-  0%   { transform: rotate(-8deg)  translateY(-0.05em) scale(1); }
-  25%  { transform: rotate(6deg)   translateY(-0.16em) scale(1.16); }
-  50%  { transform: rotate(-16deg) translateY(-0.1em)  scale(1.12); }
-  75%  { transform: rotate(-2deg)  translateY(-0.14em) scale(1.14); }
-  100% { transform: rotate(-8deg)  translateY(-0.12em) scale(1.12); }
-}
+.hero > * { position: relative; }
+.hero-mark { width: min(100%, 30rem); }
 .hero p {
   color: var(--muted);
   font-size: 1.125rem;
-  max-width: 520px;
-  margin: 0 auto 2.5rem;
+  max-width: 34rem;
 }
-.hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+/* The h1 stays in the document for crawlers and screen readers; the mark is what renders. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .btn-primary {
   background: var(--accent);
   color: #fff;
   padding: 0.75rem 2rem;
   border-radius: var(--radius);
-  font-family: 'Raleway', sans-serif;
   font-weight: 600;
   font-size: 0.95rem;
   text-decoration: none;
+  display: inline-block;
   transition: opacity 0.2s, transform 0.15s;
 }
 .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
-.btn-secondary {
-  background: transparent;
-  color: var(--text);
-  padding: 0.75rem 2rem;
-  border-radius: var(--radius);
-  font-family: 'Raleway', sans-serif;
-  font-weight: 500;
-  font-size: 0.95rem;
-  text-decoration: none;
-  border: 1px solid var(--border);
-  transition: border-color 0.2s, background 0.2s;
-}
-.btn-secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
 
-/* ── Data summary ── */
-.data-summary {
-  text-align: center;
-  padding: 2rem 0;
-  font-size: 0.95rem;
-  color: var(--muted);
-  letter-spacing: 0.02em;
-}
-.data-summary strong { color: var(--heading); font-family: 'Josefin Sans', sans-serif; font-weight: 700; }
-
-/* ── Stats bar ── */
-.stats {
+/* ── Counts ─────────────────────────────────────────────────────────────────────────────── */
+.counts {
   display: flex;
   justify-content: center;
-  gap: 3rem;
-  padding: 2rem;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  gap: clamp(1.5rem, 6vw, 4rem);
   flex-wrap: wrap;
+  padding: 2rem;
+  border-bottom: 1px solid var(--border);
 }
-.stat { text-align: center; }
-.stat-value {
+.count { text-align: center; }
+.count b {
+  display: block;
   font-family: 'Josefin Sans', sans-serif;
   font-size: 1.75rem;
-  color: var(--heading);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: var(--heading);
 }
-.stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+.count span { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
+.count-char b { color: var(--char); }
+.count-mon  b { color: var(--mon); }
+.count-game b { color: var(--game); }
 
-/* ── Main content ── */
-main { max-width: 1000px; margin: 0 auto; padding: 4rem 2rem; }
-
-section { margin-bottom: 4rem; }
+/* ── Main ───────────────────────────────────────────────────────────────────────────────── */
+main { max-width: 1000px; margin: 0 auto; padding: 3.5rem 2rem; }
+section { margin-bottom: 3.5rem; }
 h2 {
   font-family: 'Josefin Sans', sans-serif;
   font-size: 1.4rem;
@@ -270,46 +416,74 @@ h2 {
   letter-spacing: 0.1em;
 }
 
-/* ── Endpoint cards ── */
-.endpoint-group { margin-bottom: 2rem; }
-.group-label {
-  font-family: 'Josefin Sans', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.75rem;
+/* ── Collection cards ───────────────────────────────────────────────────────────────────── */
+/* The strip across the top is the payload, not a garnish: those are rows the endpoints below
+   actually return. It answers "what is in this collection" before anyone clicks. */
+.collection {
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--key);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--raise);
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
 }
-a.endpoint {
+.c-char { --key: var(--char); }
+.c-mon  { --key: var(--mon); }
+.c-game { --key: var(--game); }
+
+.collection-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  /* Bottom padding is short by the 0.4rem the strip below borrows for its hover headroom, so
+     the gap between the title and the faces is unchanged. */
+  padding: 0.85rem 1.15rem 0.45rem;
+}
+.collection-title {
+  font-family: 'Josefin Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--key);
+}
+.collection-n {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* overflow-x: auto makes this a scroll container, and a scroll container clips on BOTH axes —
+   overflow-y computes to auto whatever you write. So the hover lift has to happen inside the
+   padding box or it gets its top shaved off. The 0.4rem of top padding is the headroom: it is
+   part of the scrollable area, so a sprite translated up into it is still inside the clip
+   edge. Anything that raises the lift past 6.4px has to raise this to match. */
+.strip {
+  display: flex;
+  gap: 0.55rem;
+  padding: 0.4rem 1.15rem 1rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.strip .sprite { transition: transform 0.2s ease; }
+.strip .sprite:hover { transform: translateY(-4px); }
+
+.rows { border-top: 1px solid var(--border-2); }
+a.row {
   display: grid;
   grid-template-columns: 5rem 1fr auto;
   align-items: center;
   gap: 1rem;
-  padding: 0.9rem 1.2rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 0.5rem;
-  box-shadow: var(--shadow);
-  transition: border-color 0.2s, background 0.2s;
+  padding: 0.85rem 1.15rem;
   text-decoration: none;
   color: inherit;
-  cursor: pointer;
+  transition: background 0.2s;
 }
-a.endpoint:hover { border-color: var(--accent); background: var(--accent-soft); }
-.endpoint-static {
-  display: grid;
-  grid-template-columns: 5rem 1fr;
-  align-items: start;
-  gap: 1rem;
-  padding: 0.9rem 1.2rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 0.5rem;
-  box-shadow: var(--shadow);
-}
+a.row + a.row, .row + .row { border-top: 1px solid var(--border-2); }
+a.row:hover { background: var(--accent-soft); }
 .method {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.7rem;
@@ -324,7 +498,7 @@ a.endpoint:hover { border-color: var(--accent); background: var(--accent-soft); 
 .method-play {
   background: var(--accent-soft);
   color: var(--accent-2);
-  border-color: rgba(208, 2, 27, 0.3);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .method-premium {
   background: var(--premium-bg);
@@ -335,31 +509,33 @@ a.endpoint:hover { border-color: var(--accent); background: var(--accent-soft); 
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.875rem;
   color: var(--text);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
   overflow-wrap: break-word;
-  word-break: break-all;
 }
-.route-param { color: var(--accent-2); }
+.route-param { color: var(--key, var(--accent-2)); }
 .route-query { color: var(--muted); }
 .desc { font-size: 0.8rem; color: var(--muted); }
-.try-arrow {
-  font-size: 0.75rem;
-  color: var(--muted);
-  transition: color 0.2s, transform 0.2s;
-  white-space: nowrap;
-}
-a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px); }
+.go { font-size: 0.75rem; color: var(--muted); white-space: nowrap; transition: color 0.2s, transform 0.2s; }
+a.row:hover .go { color: var(--accent-2); transform: translateX(2px); }
 
-/* ── Try it ── */
-.try-bar {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
+.row-static {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  align-items: start;
+  gap: 1rem;
+  padding: 0.85rem 1.15rem;
+  background: var(--raise);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+  box-shadow: var(--shadow);
 }
+
+/* ── Try it ─────────────────────────────────────────────────────────────────────────────── */
+.try-bar { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .try-bar select,
 .try-bar input {
-  background: var(--surface);
+  background: var(--raise);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
@@ -369,8 +545,7 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   outline: none;
   transition: border-color 0.2s;
 }
-.try-bar select:focus,
-.try-bar input:focus { border-color: var(--accent); }
+.try-bar select:focus, .try-bar input:focus { border-color: var(--accent); }
 .try-bar select { cursor: pointer; }
 .try-bar input { flex: 1; min-width: 180px; }
 .try-bar input::placeholder { color: var(--muted); }
@@ -397,9 +572,8 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   word-break: break-all;
 }
 .try-url-display span { color: var(--accent-2); }
-.try-url-display .try-hint { color: var(--muted); font-style: italic; }
 .try-result {
-  background: var(--surface);
+  background: var(--raise);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem 1.5rem;
@@ -416,208 +590,73 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
 .try-result.loaded { color: var(--text); }
 .try-result.error { color: var(--error); }
 
-/* ── Mobile ── */
+/* ── Footer ─────────────────────────────────────────────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding: 3rem 2rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+footer a { color: var(--accent-2); }
+.footer-mark { width: 8rem; margin: 0 auto 1rem; opacity: 0.55; }
+
+/* ── Mobile ─────────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  /* The nav carries three links now — Games, GitHub, Docs — and all three are worth a
-     phone tap, so nothing is hidden here any more. The section anchors it used to drop are
-     gone from the markup entirely: the page is meant to be scrolled. */
-  nav { padding: 0.9rem 1.25rem; }
-  .nav-links { gap: 1rem; }
+  nav { padding: 0.8rem 1rem; gap: 0.6rem; flex-wrap: wrap; }
+  .nav-mark { width: 7.5rem; }
+  .nav-links { gap: 0.85rem; }
+  .ground-toggle { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
 
-  /* Hero */
-  .hero { padding: 3rem 1.25rem 1.5rem; }
-  .hero p { font-size: 1rem; margin-bottom: 1.75rem; }
-  .btn-primary, .btn-secondary { padding: 0.65rem 1.4rem; font-size: 0.9rem; }
+  .hero { padding: 2.5rem 1.25rem 2rem; gap: 1.25rem; }
+  .hero p { font-size: 1rem; }
 
-  /* Data summary */
-  .data-summary { padding: 1.25rem 1rem; font-size: 0.875rem; }
+  .counts { gap: 1.25rem; padding: 1.25rem 1rem; }
+  .count b { font-size: 1.4rem; }
 
-  /* Stats */
-  .stats { gap: 1.5rem; padding: 1.25rem 1rem; }
-  .stat-value { font-size: 1.4rem; }
-
-  /* Main */
   main { padding: 2rem 1rem; }
   section { margin-bottom: 2.5rem; }
 
-  /* Endpoint cards */
-  a.endpoint, .endpoint-static {
-    grid-template-columns: 3.5rem 1fr auto;
-    gap: 0.6rem;
-    padding: 0.75rem 0.875rem;
-  }
-  .endpoint-static { grid-template-columns: 3.5rem 1fr; }
-  .route { font-size: 0.78rem; overflow-wrap: break-word; word-break: break-all; }
+  a.row, .row-static { grid-template-columns: 3.5rem 1fr; gap: 0.6rem; padding: 0.7rem 0.85rem; }
+  .go { display: none; }
+  .route { font-size: 0.78rem; word-break: break-all; }
   .desc { font-size: 0.72rem; }
-  .try-arrow { font-size: 0.68rem; }
   .method { font-size: 0.65rem; padding: 0.2rem 0.35rem; }
+  .strip { padding: 0 0.85rem 0.85rem; }
+  .collection-head { padding: 0.75rem 0.85rem; }
 
-  /* Try It: stack vertically */
   .try-bar { flex-direction: column; }
-  .try-bar select,
-  .try-bar input,
-  .try-run { width: 100%; box-sizing: border-box; }
+  .try-bar select, .try-bar input, .try-run { width: 100%; }
   .try-bar input { min-width: unset; }
   .try-result { font-size: 0.75rem; padding: 0.875rem 1rem; }
-
-  /* Footer */
-  footer { padding: 2rem 1rem; }
 }
 
-/* ── Final Fantasy Easter Egg (FFIV, SNES) ── */
-/*
- * The look is the FFIV menu screen: blue windows that go lighter towards the top, a pale
- * two-pixel edge with a darker line just inside it, white text carrying a hard one-pixel
- * shadow, and a gold cursor on whatever is selected. That combination is what makes it read
- * as FFIV rather than as "retro" in general, so the window treatment is one shared rule
- * applied to every panel instead of per-component colours.
- *
- * The page is also re-laid-out, not just recoloured. FFIV's menu is a command list down one
- * side with the content beside it and a status window at the bottom, so ff-mode reveals a
- * command column (#ff-menu, display:none otherwise) and indents the content to sit next to
- * it. Nothing in the markup moves; the silver theme simply never shows that element.
- *
- * The palette, the window rule and the shared chrome live in assets/ff4.css, which the games
- * hub and the API reference load too — this block is only what is specific to this page. The
- * silver theme owns :root and ff4.css overrides the same tokens on :root.ff-mode, so
- * components never need to know which mode they are in.
- */
-/* The hover state itself is up with .moogle-letter, not here — an #id !important rule beat the
-   wobble keyframes to the transform, and since a running animation suppresses the transition
-   on the same property, the result was an instant pop to scale with no animation at all. One
-   owner for that transform now. The gold glow survived the move; only the fight did not. */
-#moogle-egg { cursor: pointer; }
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   FFIV
+   ═══════════════════════════════════════════════════════════════════════════════════════════
+   FFIV mode is not a recolour — it re-lays the page out
+   as the FFIV party screen: one tall panel on the left holding the list you scroll, and a
+   column of three windows down the right. Everything below is that block with this page's
+   class names substituted for the old ones:
 
-#ff-notify {
-  position: fixed;
-  top: 5rem;
-  left: 50%;
-  transform: translateX(-50%) translateY(-20px);
-  background: linear-gradient(180deg, #3358d8 0%, #17309c 55%, #0e1f70 100%);
-  border: 2px solid #dfe8ff;
-  border-radius: 6px;
-  padding: 1.1rem 2rem;
-  font-family: 'Press Start 2P', monospace;
-  color: #ffffff;
-  font-size: 0.55rem;
-  letter-spacing: 0.08em;
-  line-height: 2;
-  text-align: center;
-  text-shadow: 1px 1px 0 #0a1450;
-  z-index: 200;
-  opacity: 0;
-  transition: opacity 0.4s, transform 0.4s;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 2px #0c1a60, 0 4px 0 rgba(4, 6, 31, 0.55);
-  white-space: nowrap;
-}
-#ff-notify.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+     .stats           → .counts   (hidden here; see below)
+     .group-label     → .collection-title
+     a.endpoint       → a.row
+     .endpoint-static → .row-static
 
-/* ── The chocobo run ───────────────────────────────────────────────────────
- * A herd crosses the screen left to right and the theme has changed by the time they are
- * gone. The cover is a curtain that travels with them rather than a fade: it slides in from
- * the left, sits over the viewport for the few frames the swap needs, and carries on out to
- * the right. A fade would show the old theme dissolving into the new one, which is a
- * transition; a curtain that something runs behind is a scene change.
- *
- * The art is a painted 512px illustration in the catalogue's house style, so it is scaled
- * smoothly. It used to be a 96px sprite drawn with image-rendering: pixelated, which is the
- * opposite instruction and would now stair-step a smooth edge.
- */
-#choco-wipe {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  overflow: hidden;
-  visibility: hidden;
-}
-#choco-wipe.run { visibility: visible; }
+   ff4.css owns the palette and the chrome every page shares (nav, .btn-docs, footer,
+   .ff-window). What lives here is only what is specific to this page — the collection cards
+   and the menu screen — because those class names exist nowhere else.
 
-/* Frosted rather than solid: the page stays faintly visible through it, blurred out of
-   legibility. That changes what the swap looks like — at full opacity the theme changed
-   behind a wall and you saw only the result, and now the palette turns over behind the glass
-   while the herd is still crossing. It reads as the world changing rather than as a cut.
-   0.82 is the balance point: enough to stop the old layout being readable, little enough
-   that it is obviously something you are looking through.
-
-   -webkit- prefix is still required for Safari, including current versions. */
-#choco-curtain {
-  position: absolute;
-  inset: 0;
-  transform: translateX(-101%);
-  background: linear-gradient(100deg,
-    rgba(11, 18, 64, 0.82) 0%, rgba(22, 38, 110, 0.82) 45%, rgba(11, 18, 64, 0.82) 100%);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-  backdrop-filter: blur(16px) saturate(1.15);
-}
-#choco-wipe.run #choco-curtain { animation: choco-curtain 1500ms cubic-bezier(0.55, 0, 0.45, 1) both; }
-@keyframes choco-curtain {
-  0%        { transform: translateX(-101%); }
-  42%, 58%  { transform: translateX(0); }
-  100%      { transform: translateX(101%); }
-}
-
-/* Dust kicked up along the ground line, so the herd looks like it is running on something. */
-#choco-curtain::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 38%;
-  background: linear-gradient(0deg, rgba(210, 190, 130, 0.22) 0%, transparent 100%);
-}
-
-.choco {
-  position: absolute;
-  left: 0;
-  top: var(--top);
-  width: var(--size);
-  transform: translateX(-30vw);
-}
-#choco-wipe.run .choco {
-  animation: choco-run var(--dur) linear var(--delay) both;
-}
-.choco img {
-  display: block;
-  width: 100%;
-  height: auto;
-  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.35));
-}
-#choco-wipe.run .choco img {
-  animation: choco-hop calc(var(--dur) / 9) steps(2, end) var(--delay) infinite;
-}
-@keyframes choco-run {
-  from { transform: translateX(-30vw); }
-  to   { transform: translateX(130vw); }
-}
-/* Two frames, not a sine wave. A smooth bob reads as floating; a sprite that snaps between
-   two heights reads as running, which is how the games did it. */
-@keyframes choco-hop {
-  0%   { transform: translateY(0) rotate(-2deg); }
-  100% { transform: translateY(-14%) rotate(2deg); }
-}
-
-/* The herd still crosses and the theme still changes — it just stops bouncing. The moogle
-   keeps its hover state too, so the mascot still answers the pointer; it just arrives there
-   instead of wobbling into it. */
-@media (prefers-reduced-motion: reduce) {
-  #choco-wipe.run .choco img { animation: none; }
-  #choco-wipe.run #choco-curtain,
-  #choco-wipe.run .choco { animation-timing-function: ease; }
-  .moogle-letter { transition-duration: 0.01ms; }
-  .moogle-letter:hover,
-  .moogle-letter:focus-visible { animation: none; }
-}
+   THE RULE THAT MATTERS MOST is near the bottom: rows are separated by a line, not boxed.
+   Nesting a window inside a window is, per the original's own comment, the single thing that
+   stopped this reading as a menu — so .collection loses its panel entirely in this mode. */
 
 .ff-mode h2,
-.ff-mode .stat-value,
-.ff-mode .group-label,
+.ff-mode .collection-title,
 .ff-mode .method,
 .ff-mode .try-run,
 .ff-mode .btn-primary,
-.ff-mode .btn-secondary,
 .ff-mode #ff-menu {
   font-family: 'Press Start 2P', monospace;
 }
@@ -627,21 +666,16 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   text-shadow: 1px 1px 0 #0a1450;
   border-bottom: 2px solid #dfe8ff;
 }
-.ff-mode .stat-value { font-size: 0.9rem; text-shadow: 1px 1px 0 #0a1450; }
-.ff-mode .group-label { font-size: 0.5rem; color: var(--accent); }
+.ff-mode .collection-title { font-size: 0.5rem; color: var(--accent); letter-spacing: 0.05em; }
 .ff-mode .method { font-size: 0.45rem; padding: 0.3rem 0.4rem; }
-.ff-mode .btn-primary,
-.ff-mode .btn-secondary { font-size: 0.55rem; letter-spacing: 0.05em; }
+.ff-mode .btn-primary { font-size: 0.55rem; letter-spacing: 0.05em; }
 .ff-mode .try-run { font-size: 0.55rem; }
 .ff-mode .route,
 .ff-mode .desc,
-.ff-mode .stat-label,
+.ff-mode .collection-n,
 .ff-mode footer { text-shadow: 1px 1px 0 rgba(10, 20, 80, 0.9); }
 
 /* The window. One rule, because the panel treatment is the whole look. */
-.ff-mode .stats,
-.ff-mode a.endpoint,
-.ff-mode .endpoint-static,
 .ff-mode .try-result,
 .ff-mode .try-bar select,
 .ff-mode .try-bar input,
@@ -650,13 +684,6 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   border: 2px solid #dfe8ff;
   box-shadow: inset 0 0 0 2px #0c1a60, 0 3px 0 rgba(4, 6, 31, 0.55);
   color: var(--text);
-}
-.ff-mode .stats { border-left: none; border-right: none; border-radius: 0; }
-
-.ff-mode a.endpoint:hover {
-  border-color: var(--accent);
-  background: linear-gradient(180deg, #4468e8 0%, #2340b4 55%, #14288a 100%);
-  box-shadow: inset 0 0 0 2px #0c1a60, 0 0 14px rgba(248, 208, 48, 0.35), 0 3px 0 rgba(4, 6, 31, 0.55);
 }
 .ff-mode .btn-primary,
 .ff-mode .try-run {
@@ -671,40 +698,23 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   background: linear-gradient(180deg, #4468e8 0%, #2340b4 100%);
   opacity: 1;
 }
-.ff-mode .btn-secondary {
-  border: 2px solid #dfe8ff;
-  box-shadow: inset 0 0 0 2px #0c1a60;
-  color: var(--text);
-}
-.ff-mode .btn-secondary:hover { background: rgba(248, 208, 48, 0.16); border-color: var(--accent); }
 .ff-mode .try-bar select:focus,
 .ff-mode .try-bar input:focus { border-color: var(--accent); }
 .ff-mode .method-play { background: rgba(248, 208, 48, 0.18); color: var(--accent); border-color: rgba(248, 208, 48, 0.5); }
-/* On a blue window a blue pill would vanish into it, so premium goes pale rather than deep —
-   the same inversion the greens and reds make in this mode. */
+/* On a blue window a blue pill would vanish into it, so premium goes pale rather than deep. */
 .ff-mode .method-premium { background: rgba(138, 180, 248, 0.16); color: #8ab4f8; border-color: rgba(138, 180, 248, 0.5); }
 .ff-mode .route-param { color: var(--accent); }
 .ff-mode .route-query { color: var(--muted); }
 
-/* ── The menu screen ───────────────────────────────────────────────────────
- * Modelled on FFIV's party screen (sample-theme.png in the repo root): one tall panel on the
- * left holding the list you scroll, and a column of three windows down the right — commands
- * at the top, the location plate under it, gil and time at the bottom.
- *
- * So in this mode the page stops being a page. #page becomes the left panel: fixed to the
- * viewport, inset by a margin, with its own scrollbar. The document itself does not scroll —
- * a menu screen that scrolls as a whole is a web page wearing a costume, and the thing that
- * makes the original read as a menu is that the frame stays put while the list moves inside
- * it. Below 1000px there is no room for two columns and it reverts to ordinary flow.
- *
- * The nav and the hero are hidden outright. A game menu has no masthead, and the hero's job —
- * name the site, offer the two buttons — is done here by the title window and the command
- * list. See the markup for why Restore has to exist once the nav is gone.
- */
+/* ── The menu screen ──────────────────────────────────────────────────────────────────────
+ * #page becomes the left panel: fixed to the viewport, inset by a margin, with its own
+ * scrollbar. The document itself does not scroll — a menu screen that scrolls as a whole is a
+ * web page wearing a costume, and what makes the original read as a menu is that the frame
+ * stays put while the list moves inside it. Below 1000px there is no room for two columns and
+ * it reverts to ordinary flow. */
 #ff-menu { display: none; }
 
 @media (min-width: 1000px) {
-  /* The document is the frame now; the list scrolls inside #page. */
   .ff-mode body { overflow: hidden; height: 100vh; }
 
   .ff-mode #page {
@@ -725,8 +735,8 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
     bottom: 1.1rem;
     width: 15.6rem;
   }
-  /* The command window takes the slack, exactly as it does in the original — the status
-     plate is pinned to the bottom and the list grows to meet it. */
+  /* The command window takes the slack, exactly as in the original — the status plate is
+     pinned to the bottom and the list grows to meet it. */
   .ff-mode .ff-commands { flex: 1; }
 
   .ff-mode main { padding: 1.5rem 1.75rem 2.5rem; max-width: none; }
@@ -742,11 +752,13 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   .ff-mode #page { scrollbar-color: #dfe8ff rgba(4, 6, 31, 0.4); scrollbar-width: thin; }
 }
 
-/* No masthead, no hero. The data summary goes too — its three numbers are the status window
-   now, and printing them twice on one screen is how you notice they came from one fetch. */
+/* No masthead, no hero. The counts go too — those three numbers ARE the status window now, and
+   printing them twice on one screen is how you notice they came from one fetch.
+   This is also why the moogle hotspot cannot be the way out of FFIV: it lives in the hero, and
+   the hero is gone. #ff-restore is the exit. */
 .ff-mode nav,
 .ff-mode .hero,
-.ff-mode .data-summary { display: none; }
+.ff-mode .counts { display: none; }
 
 .ff-mode #ff-menu {
   display: flex;
@@ -794,8 +806,9 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
 .ff-mode .ff-commands button:hover::before,
 .ff-mode .ff-commands button:focus-visible::before { opacity: 1; }
 
-/* The location plate. It names where you are, which on the original is a dungeon and here is
-   the site — the one place the wordmark still appears once the nav and hero are gone. */
+/* The location plate. It names where you are — the one place the wordmark still appears once
+   the nav and hero are gone. Still moogle.png and still text, exactly as it was: the masked
+   mark deliberately does not reach in here. */
 .ff-mode .ff-title {
   display: flex;
   align-items: center;
@@ -812,13 +825,22 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
 .ff-mode .ff-status span { color: var(--muted); text-shadow: 1px 1px 0 #0a1450; }
 .ff-mode .ff-status b { color: var(--accent); font-weight: 400; text-shadow: 1px 1px 0 #0a1450; }
 
-/* Rows in the list are separated by a rule, not boxed. The original's party entries sit
-   inside the one panel divided by thin lines, and nesting a window inside a window — which is
-   what the shared panel treatment would do here — is the single thing that stopped this
-   reading as a menu. */
-.ff-mode a.endpoint,
-.ff-mode .endpoint-static,
-.ff-mode .stats {
+/* Rows are separated by a rule, not boxed — and the collection card stops being a card. The
+   original's party entries sit inside one panel divided by thin lines, and nesting a window
+   inside a window is what stopped this reading as a menu. The sprite strip stays: a row of
+   portraits down the top of a list is what a party screen is. */
+.ff-mode .collection {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin-bottom: 1.5rem;
+}
+.ff-mode .rows,
+.ff-mode a.row + a.row,
+.ff-mode .row + .row { border-top: none; }
+.ff-mode a.row,
+.ff-mode .row-static {
   background: none;
   border: none;
   border-bottom: 1px solid rgba(223, 232, 255, 0.35);
@@ -826,12 +848,13 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   box-shadow: none;
   margin-bottom: 0;
 }
-.ff-mode a.endpoint:hover {
+.ff-mode a.row:hover {
   background: rgba(248, 208, 48, 0.12);
   border-color: rgba(223, 232, 255, 0.35);
   box-shadow: none;
 }
-.ff-mode .stats { padding: 1.25rem 0; }
+.ff-mode .collection-head { border-bottom: 1px solid rgba(223, 232, 255, 0.35); }
+.ff-mode .strip { background: none; }
 
 /* Below two columns' worth of room the menu drops into ordinary flow above the content —
    still three windows, just stacked, and the document scrolls again. */
@@ -839,14 +862,101 @@ a.endpoint:hover .try-arrow { color: var(--accent-2); transform: translateX(2px)
   .ff-mode #ff-menu { margin: 1rem 1rem 2rem; }
 }
 
-/* ── Footer ── */
-footer {
-  text-align: center;
-  padding: 2.5rem 2rem;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 0.82rem;
+/* ── The chocobo run ──────────────────────────────────────────────────────────────────────
+ * The theme change happens behind a curtain that a herd runs across. The timings here and in
+ * home.js have to agree — RUN is 1500ms and the curtain holds over the viewport from 42% to
+ * 58%, which is the only window where neither palette is visible. Change one, change both. */
+#choco-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+  visibility: hidden;
 }
-footer a { color: var(--accent-2); text-decoration: none; transition: color 0.2s; }
-footer a:hover { color: var(--accent); text-decoration: underline; }
-.kupo-footer { font-size: 1.2rem; margin-bottom: 0.5rem; }
+#choco-wipe.run { visibility: visible; }
+
+#choco-curtain {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-101%);
+  background: linear-gradient(100deg,
+    rgba(11, 18, 64, 0.82) 0%, rgba(22, 38, 110, 0.82) 45%, rgba(11, 18, 64, 0.82) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  backdrop-filter: blur(16px) saturate(1.15);
+}
+#choco-wipe.run #choco-curtain { animation: choco-curtain 1500ms cubic-bezier(0.55, 0, 0.45, 1) both; }
+@keyframes choco-curtain {
+  0%        { transform: translateX(-101%); }
+  42%, 58%  { transform: translateX(0); }
+  100%      { transform: translateX(101%); }
+}
+/* Dust kicked up along the ground line, so the herd looks like it is running on something. */
+#choco-curtain::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+  background: linear-gradient(0deg, rgba(210, 190, 130, 0.22) 0%, transparent 100%);
+}
+
+.choco {
+  position: absolute;
+  left: 0;
+  top: var(--top);
+  width: var(--size);
+  transform: translateX(-30vw);
+}
+#choco-wipe.run .choco { animation: choco-run var(--dur) linear var(--delay) both; }
+.choco img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.35));
+}
+#choco-wipe.run .choco img {
+  animation: choco-hop calc(var(--dur) / 9) steps(2, end) var(--delay) infinite;
+}
+@keyframes choco-run {
+  from { transform: translateX(-30vw); }
+  to   { transform: translateX(130vw); }
+}
+/* Two frames, not a sine wave. A smooth bob reads as floating; a sprite that snaps between two
+   heights reads as running, which is how the games did it. */
+@keyframes choco-hop {
+  0%   { transform: translateY(0) rotate(-2deg); }
+  100% { transform: translateY(-14%) rotate(2deg); }
+}
+
+#ff-notify {
+  position: fixed;
+  top: 5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: linear-gradient(180deg, #3358d8 0%, #17309c 55%, #0e1f70 100%);
+  border: 2px solid #dfe8ff;
+  border-radius: 6px;
+  padding: 1.1rem 2rem;
+  font-family: 'Press Start 2P', monospace;
+  color: #ffffff;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  line-height: 2;
+  text-align: center;
+  text-shadow: 1px 1px 0 #0a1450;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.4s, transform 0.4s;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px #0c1a60, 0 4px 0 rgba(4, 6, 31, 0.55);
+  white-space: nowrap;
+}
+#ff-notify.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  #choco-wipe.run .choco img { animation: none; }
+  #choco-wipe.run #choco-curtain,
+  #choco-wipe.run .choco { animation-timing-function: ease; }
+}

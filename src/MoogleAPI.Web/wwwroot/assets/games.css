@@ -22,7 +22,7 @@
    `body`, rather than restyling the components: everything below — nav, buttons, inputs,
    panels, focus rings — is written against the tokens, so a game gets its own identity from
    a handful of colours and still inherits every accessibility fix made here. Kupodle shifts
-   the accent green, Triple Triad blue, Kupo Climb bronze; Battle Square replaces the whole
+   the accent green, Triple Triad blue, Sphere Hunter teal; Battle Square replaces the whole
    palette with the Gold Saucer's purple and gold, which is as far as this is meant to go. */
 
 :root {

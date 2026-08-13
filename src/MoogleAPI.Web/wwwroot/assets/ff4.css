@@ -2,7 +2,7 @@
  *
  * It began as an easter egg on the landing page and is now a real theme that follows you across
  * the marketing pages and the API reference. What it is not is a theme for the four games: those
- * have their own palettes (Kupodle green, Triple Triad blue, Kupo Climb bronze, Battle Square's
+ * have their own palettes (Kupodle green, Triple Triad blue, Sphere Hunter teal, Battle Square's
  * Gold Saucer purple), and overriding them would erase the thing that makes each cabinet its own.
  * Nothing under /kupodle, /triple-triad, /sphere-hunter or /battle-square loads this file.
  *
