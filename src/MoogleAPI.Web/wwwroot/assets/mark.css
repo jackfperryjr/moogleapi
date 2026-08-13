@@ -1,0 +1,55 @@
+/* The wordmark, shared by every page that shows it.
+ *
+ * It is a MASK, not a picture. moogleapi-logo-black.png is a clean silhouette — 24.1% alpha
+ * coverage — so it masks a painted background instead of being drawn, and the colour is the
+ * page's to choose. That is what lets "moogle" and "api" be two different colours out of one
+ * flat file, and it means the single asset serves every theme on the site.
+ * moogleapi-logo-white.png is redundant under this approach and is left on disk unreferenced.
+ *
+ * ── Colour ───────────────────────────────────────────────────────────────────────────────
+ * Two tokens, and each page sets them:
+ *
+ *   --mark-red   the moogle and the letters "moogle"     (x 12–1263 of 1878)
+ *   --mark-ink   the letters "api" and the trailing bird (x 1284–1864)
+ *
+ * The split is the midpoint of the gap between them, 1273.5 / 1878 = 67.81%, as a hard
+ * gradient stop. Measured off the file, not eyeballed. The trailing bird is ink so it reads
+ * with "api"; bookending it in red instead is one number.
+ *
+ * Defaults below are the landing page's red on ink. Pages that want otherwise override the
+ * two tokens and nothing else — the four game cabinets take their own accent so each keeps its
+ * identity, and /stats and /dashboard take the red because they are site chrome, not a game.
+ *
+ * ── Load order ───────────────────────────────────────────────────────────────────────────
+ * After ff4.css and BEFORE the page's own stylesheet, so a page can override the tokens. The
+ * :root.ff-mode block here is (0,2,0) and deliberately outranks a page's plain :root, which
+ * is how FFIV takes the mark gold everywhere without each page opting in.
+ */
+:root {
+  --mark-red: #d0021b;
+  --mark-ink: #14161a;
+}
+
+/* FFIV's own two colours. Owned here rather than in each page's stylesheet so the mark turns
+   gold on any page that loads ff4.css, without that page knowing the mark exists. */
+:root.ff-mode {
+  --mark-red: #f8d030;
+  --mark-ink: #ffffff;
+}
+
+/* Sized by its container: give .mark-wrap a width and the aspect-ratio does the rest. */
+.mark-wrap {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+
+.mark {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1878 / 326;
+  background: linear-gradient(90deg, var(--mark-red) 0 67.81%, var(--mark-ink) 67.81%);
+  -webkit-mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
+  mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
+  transition: background 0.35s ease;
+}

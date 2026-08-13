@@ -76,16 +76,16 @@
   border-bottom: 2px solid #dfe8ff;
   box-shadow: 0 2px 0 #0c1a60;
 }
+/* The mark, in FFIV's two colours. This has to beat games.css's `.nav-brand { --mark-red:
+   var(--gold) }` — it does, on specificity — because ff4.css sets --gold to plain white, which
+   would otherwise leave the wordmark white on white with no gold "moogle" at all.
+
+   The text and image rules that used to be here went with the lockup they styled: .nav-brand
+   is a masked wordmark now, not a mascot beside a word. */
 .ff-mode .nav-brand {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.65rem;
-  letter-spacing: 0.05em;
-  color: #ffffff;
-  text-shadow: 1px 1px 0 #0a1450;
+  --mark-red: #f8d030;
+  --mark-ink: #ffffff;
 }
-/* In rem, not em. The pixel font drops .nav-brand to 0.65rem and the mascot is sized off it, so
-   an em value shrinks the moogle to smaller than the letters beside it. */
-.ff-mode .nav-brand img { height: 2rem; margin-right: 0.55rem; }
 
 .ff-mode .nav-links a { color: var(--muted); }
 .ff-mode .nav-links a:hover,

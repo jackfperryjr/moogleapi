@@ -9,19 +9,23 @@
 (() => {
   'use strict';
 
-  // Chart.js global defaults for dark theme
-  Chart.defaults.color         = '#90a4ae';
-  Chart.defaults.borderColor   = '#455a64';
+  // Chart.js global defaults, tracking the tokens in app.css. These have to be set in JS
+  // because Chart.js paints to a canvas and never sees the stylesheet, so a ground change here
+  // is two edits, not one — --muted and --border in app.css, and these two.
+  Chart.defaults.color         = '#8b95a6';   // --muted
+  Chart.defaults.borderColor   = '#262d39';   // --border
   Chart.defaults.font.family   = "'Raleway', sans-serif";
   Chart.defaults.font.size     = 11;
 
-  const BLUE   = 'rgba(66,133,244,0.85)';
-  const BLUE_B = '#4285f4';
-  const GOLD   = 'rgba(255,236,179,0.85)';
-  const RED    = 'rgba(239,154,154,0.85)';
-  const GREEN  = 'rgba(200,230,201,0.85)';
-  const YELLOW = 'rgba(255,245,157,0.85)';
-  const MUTED  = 'rgba(144,164,174,0.5)';
+  // Series colours. Deliberately NOT the brand red: these encode state and quantity, and a
+  // chart drawn in the accent would say "attention" about every series equally.
+  const BLUE   = 'rgba(122,168,255,0.85)';
+  const BLUE_B = '#7aa8ff';
+  const GOLD   = 'rgba(255,212,121,0.85)';
+  const RED    = 'rgba(255,143,152,0.85)';
+  const GREEN  = 'rgba(79,201,138,0.85)';
+  const YELLOW = 'rgba(255,212,121,0.85)';
+  const MUTED  = 'rgba(139,149,166,0.5)';
 
   const STATUS_COLORS = {
     200: GREEN, 201: GREEN, 204: GREEN,
@@ -81,7 +85,7 @@
           label: 'Requests',
           data: data.requestsOverTime.map(b => b.count),
           borderColor: BLUE_B,
-          backgroundColor: 'rgba(66,133,244,0.12)',
+          backgroundColor: 'rgba(122,168,255,0.14)',
           tension: 0.35,
           fill: true,
           pointRadius: 3,
@@ -92,8 +96,8 @@
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { color: 'rgba(69,90,100,0.5)' } },
-          y: { grid: { color: 'rgba(69,90,100,0.5)' }, beginAtZero: true, ticks: { precision: 0 } },
+          x: { grid: { color: 'rgba(38,45,57,0.9)' } },
+          y: { grid: { color: 'rgba(38,45,57,0.9)' }, beginAtZero: true, ticks: { precision: 0 } },
         },
       },
     });
@@ -106,7 +110,7 @@
         datasets: [{
           data: data.statusCodes.map(s => s.count),
           backgroundColor: data.statusCodes.map(s => statusColor(s.statusCode)),
-          borderColor: '#37474f',
+          borderColor: '#161b24',
           borderWidth: 2,
         }],
       },
@@ -137,7 +141,7 @@
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { color: 'rgba(69,90,100,0.5)' }, beginAtZero: true, ticks: { precision: 0 } },
+          x: { grid: { color: 'rgba(38,45,57,0.9)' }, beginAtZero: true, ticks: { precision: 0 } },
           y: { grid: { display: false }, ticks: { font: { family: "'JetBrains Mono', monospace", size: 10 } } },
         },
       },
@@ -169,7 +173,7 @@
           },
         },
         scales: {
-          x: { grid: { color: 'rgba(69,90,100,0.5)' }, beginAtZero: true, ticks: { precision: 0 } },
+          x: { grid: { color: 'rgba(38,45,57,0.9)' }, beginAtZero: true, ticks: { precision: 0 } },
           y: { grid: { display: false } },
         },
       },
@@ -183,7 +187,7 @@
         datasets: [{
           data: [data.traffic.premiumRequests, data.traffic.anonymousRequests],
           backgroundColor: [GOLD, BLUE],
-          borderColor: '#37474f',
+          borderColor: '#161b24',
           borderWidth: 2,
         }],
       },

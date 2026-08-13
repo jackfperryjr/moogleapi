@@ -1,15 +1,29 @@
+/* The site's dark ground, shared with the landing page's dark mode — same #0d1017 family, a
+   blue-biased near-black rather than a neutral grey.
+ *
+ * DARK ONLY, on purpose. These are private pages for one signed-in person, so there is no
+ * ground toggle and no data-theme here: the tokens are set flat. If a light mode is ever wanted
+ * they become the :root[data-theme="dark"] half of a pair, which is why they are named to match
+ * home.css rather than to match what they replaced.
+ *
+ * Chrome moved; DATA DID NOT. --green, --red and --yellow encode state and --accent2 carries
+ * figures, so those stay cool and semantic instead of turning into the brand red — a column of
+ * red numbers reads as a column of problems. --accent is the interactive colour only: focus
+ * rings, active tabs, primary buttons. */
 :root {
-  --bg:      #25282c;
-  --surface: #37474f;
-  --border:  #455a64;
-  --accent:  #4285f4;
-  --accent2: #bbdefb;
-  --gold:    #ffecb3;
-  --text:    #ffffff;
-  --muted:   #90a4ae;
-  --green:   #c8e6c9;
-  --red:     #ef9a9a;
-  --yellow:  #fff59d;
+  --bg:      #0d1017;
+  --surface: #161b24;
+  --border:  #262d39;
+  --accent:  #ff4a5e;
+  --accent2: #7aa8ff;
+  /* Was gold. The heading colour now, doing its work with weight rather than hue, the same way
+     the landing page dropped gold for headings when it moved off a dark ground. */
+  --gold:    #e9edf4;
+  --text:    #e9edf4;
+  --muted:   #8b95a6;
+  --green:   #4fc98a;
+  --red:     #ff8f98;
+  --yellow:  #ffd479;
   --radius:  10px;
 }
 
@@ -30,19 +44,23 @@ header {
   justify-content: space-between;
   padding: 1.25rem 2rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(37,40,44,0.96);
+  background: rgba(13, 16, 23, 0.92);
   position: sticky;
   top: 0;
   z-index: 30;
   backdrop-filter: blur(8px);
 }
 .header-left { display: flex; align-items: center; gap: 1rem; }
+/* The wordmark, in the site's red — these are chrome, not a game, so they do not take an
+   identity of their own the way the four cabinets do. .mark comes from assets/mark.css.
+   At this height the moogle inside the mark is a few pixels across and reads as texture
+   rather than as a figure, which is what a wordmark does at nav size. */
 .header-brand {
-  font-family: 'Josefin Sans', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 0.1em;
+  display: block;
+  width: 8.5rem;
+  flex: 0 0 auto;
+  --mark-red: #ff4a5e;
+  --mark-ink: #e9edf4;
   text-decoration: none;
 }
 .header-title {
