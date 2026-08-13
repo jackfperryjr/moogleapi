@@ -1,10 +1,38 @@
-/* The games hub: the fallback for a game tile whose logo has not been drawn yet.
+/* The games hub: the ground toggle, and the fallback for a game tile whose logo has not been
+ * drawn yet.
  *
  * LOAD THIS AT THE END OF <body>. It walks the tiles once on execution rather than waiting for
  * an event, so the markup has to be there already.
  */
 (() => {
   'use strict';
+
+  /* ── Ground: light / dark ──────────────────────────────────────────────────────────────
+   * theme.js owns the storage, the resolution and the OS listener, and it has already stamped
+   * data-theme before first paint. All that is here is the button, so the choice made on the
+   * landing page and the choice made here are the same stored preference.
+   *
+   * The four game pages deliberately do NOT get this: each cabinet's palette is its identity,
+   * and a ground toggle there would be offering to erase it. */
+  const icon  = document.getElementById('ground-icon');
+  const label = document.getElementById('ground-label');
+
+  if (icon && label && window.moogleTheme) {
+    /* The label says what the button will DO, not what is on: "☾ Dark" while the page is light. */
+    const paint = () => {
+      const dark = window.moogleTheme.ground() === 'dark';
+      icon.textContent  = dark ? '☀' : '☾';
+      label.textContent = dark ? 'Light' : 'Dark';
+    };
+
+    document.getElementById('ground-toggle').addEventListener('click', () => {
+      window.moogleTheme.toggleGround();
+      paint();
+    });
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => paint());
+    paint();
+  }
 
   // Logos are dropped in per game and may not exist yet. What replaces a missing one depends
   // on whether the tile has artwork behind it:

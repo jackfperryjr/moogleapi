@@ -23,12 +23,62 @@
   --nav-bg:    rgba(250, 251, 252, 0.9);
 }
 
+/* The hub's dark ground, following the same data-theme the landing page does — theme.js stamps
+   it on <html> before first paint, so the toggle on "/" carries over to here.
+ *
+ * SCOPED BY LIVING IN THIS FILE. games.css is shared with the four cabinets, so a dark block
+ * there would reach them; this stylesheet is the hub's alone, which is the same reason the
+ * silver block above can sit at :root without repainting the games.
+ *
+ * :not(.ff-mode) is load-bearing, exactly as it is in home.css: this selector is (0,2,0), the
+ * same as ff4.css's :root.ff-mode, and this file loads after it — so without the exclusion,
+ * dark mode would silently repaint FFIV in ink. */
+:root[data-theme="dark"]:not(.ff-mode) {
+  --bg:        #0d1017;
+  --surface:   #161b24;
+  --surface-2: #12161f;
+  --border:    #262d39;
+  --accent:    #ff4a5e;
+  --accent-2:  #ff7c8b;
+  --gold:      #ff4a5e;
+  --text:      #e9edf4;
+  --muted:     #8b95a6;
+  --nav-bg:    rgba(13, 16, 23, 0.86);
+}
+
 body {
   background-image: linear-gradient(180deg, #fcfcfd 0%, var(--bg) 38%, #edeff3 100%);
   background-attachment: fixed;
 }
+/* The gradient is three literal stops rather than tokens, so it needs saying twice. */
+:root[data-theme="dark"]:not(.ff-mode) body {
+  background-image: linear-gradient(180deg, #12161f 0%, var(--bg) 38%, #0a0d13 100%);
+}
 
 .nav-links a:hover, .nav-links a[aria-current="page"] { color: var(--accent); }
+
+/* The ground toggle. Hub-only markup, so it lives in the hub's stylesheet rather than in
+   games.css, where it would be four pages' worth of dead rules. */
+.ground-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  color: var(--muted);
+  font-family: 'Raleway', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.ground-toggle:hover { color: var(--text); border-color: var(--accent); }
+.ground-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* FFIV hides nothing here, but the toggle has no meaning in a mode that owns the palette
+   outright — and offering it would imply the ground still applies. */
+.ff-mode .ground-toggle { display: none; }
 
 .hub-intro { max-width: 46rem; }
 

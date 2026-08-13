@@ -138,7 +138,10 @@
  * into these components on its own, which is the whole point of writing them against tokens.
  *
  * The three collection accents collapse to one gold. FFIV's palette is blue, white and gold;
- * keeping three separate hues would be inventing a fourth, fifth and sixth. */
+ * keeping three separate hues would be inventing a fourth, fifth and sixth.
+ *
+ * --mark-red and --mark-ink are NOT here: mark.css owns FFIV's pair, so the wordmark turns
+ * gold on every page that loads ff4.css rather than only on this one. */
 :root.ff-mode {
   --raise:       #0e1f70;
   --border-2:    rgba(223, 232, 255, 0.35);
@@ -146,9 +149,6 @@
   --char:        #f8d030;
   --mon:         #f8d030;
   --game:        #f8d030;
-
-  --mark-red:    #f8d030;
-  --mark-ink:    #ffffff;
 
   --premium:        #dfe8ff;
   --premium-bg:     rgba(223, 232, 255, 0.14);
@@ -170,28 +170,9 @@ body {
 /* ═══════════════════════════════════════════════════════════════════════════════════════════
    The mark
    ═══════════════════════════════════════════════════════════════════════════════════════════
-   Measured off moogleapi-logo-black.png, 1878 × 326. The glyph runs are:
-
-     mascot   12 – 105      ┐
-     m o o g l e            ├─ red      (ends 1263)
-     142 – 1263             ┘
-     a p i    1284 – 1742   ┐
-     creature 1772 – 1864   ┴─ ink      (starts 1284)
-
-   The split is the midpoint of that gap, 1273.5 / 1878 = 67.81%, as a hard gradient stop. The
-   trailing creature stays ink so it reads with "api" — bookending it in red instead is a
-   one-number change if that turns out to be the better call. */
-.mark {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1878 / 326;
-  background: linear-gradient(90deg, var(--mark-red) 0 67.81%, var(--mark-ink) 67.81%);
-  -webkit-mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
-  mask: url('/assets/moogleapi-logo-black.png') no-repeat center / 100% 100%;
-  transition: background 0.35s ease;
-}
-
-.mark-wrap { position: relative; display: block; line-height: 0; }
+   .mark and .mark-wrap live in assets/mark.css now, shared with the games pages, /stats and
+   /dashboard. This page sets --mark-red and --mark-ink with its ground tokens up top, and owns
+   the two things below that only exist here: the FFIV hotspot and its glow. */
 
 /* The FFIV hotspot: the moogle at the head of the wordmark, x 12–105 of 1878 = 0.64%–5.59%,
    opened out a little so it is a comfortable target. This is the whole easter egg now that the

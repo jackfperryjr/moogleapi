@@ -96,22 +96,18 @@ nav {
   top: 0;
   z-index: 20;
 }
+/* The wordmark. .mark itself comes from assets/mark.css; this only sizes it and picks the two
+   colours, and it picks them from the page's OWN tokens rather than hard-coding red.
+   That is what keeps each cabinet looking like itself: every game overrides --gold on body, so
+   Kupodle's mark comes out its green, Battle Square's its purple, and the hub — which sets
+   --gold to the brand red in games/style.css — comes out red like the landing page. */
 .nav-brand {
-  font-family: 'Josefin Sans', sans-serif;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 0.1em;
+  display: block;
+  width: 9.5rem;
+  flex: 0 0 auto;
+  --mark-red: var(--gold);
+  --mark-ink: var(--text);
   text-decoration: none;
-  white-space: nowrap;
-}
-.nav-brand img {
-  height: 1.4em;
-  width: auto;
-  vertical-align: middle;
-  margin-right: 0.4rem;
-  display: inline-block;
-  transform: rotate(-8deg);
 }
 .nav-links { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; }
 .nav-links a {
