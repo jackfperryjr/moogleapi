@@ -65,7 +65,7 @@ there.
 ## Current files
 
 - `battle-square.webp` — Cloud mid-swing in the arena. 2399 × 1350.
-- `kupo-climb.webp` — the roster lined up on the plain. 2738 × 1536.
+- `sphere-hunter.webp` — the roster lined up on the plain. 2738 × 1536.
 - `kupodle.webp` — a wall of framed portraits, all silhouetted but Lightning. 1376 × 768.
 - `triple-triad.webp` — a felt table mid-game under a lamp. 1376 × 768. **The cards on it are
   the catalogue's own `cards/{id}.webp` art**, composited onto a generated bare table rather than
@@ -77,4 +77,4 @@ The last two are **below the 2400-wide spec** and deliberately not upscaled — 
 were generated at, and inventing pixels would cost weight for nothing under a veil this dark. They
 are also **not yet wired to their game pages**; only the hub crops are in use. Kupodle and Triple
 Triad each paint their own gradients and would need a `background-image` line adding to pick these
-up, the way `battle-square/index.html` and `kupo-climb/index.html` already do.
+up, the way `battle-square/` and `sphere-hunter/` already do.

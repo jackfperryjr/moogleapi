@@ -38,7 +38,7 @@ body {
 
 /* Keeps the wall from competing with the board. Sits under everything and over the
    background, and is the one knob to turn if the artwork reads too strong — the same veil
-   Battle Square and Kupo Climb use, at the same strength.
+   Battle Square and Sphere Hunter use, at the same strength.
 
    It matters more here than on those pages: the one lit frame in that picture is the
    brightest thing on the screen otherwise, and the puzzle's own tiles have to win. */
